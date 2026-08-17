@@ -80,8 +80,13 @@ fi
 
 sed -i '' "s|^status: ready|status: in-flight|" "$CARD"
 sed -i '' "s|^branch: \"\"|branch: \"$BRANCH\"|" "$CARD"
-git -C "$REPO" add "$CARD"
-git -C "$REPO" commit -q -m "tower: dispatch $TASK_ID"
+if [ -d "$REPO/.tower/.git" ]; then
+  git -C "$REPO/.tower" add "tasks/$(basename "$CARD")"
+  git -C "$REPO/.tower" commit -q -m "tower: dispatch $TASK_ID"
+else
+  git -C "$REPO" add "$CARD"
+  git -C "$REPO" commit -q -m "tower: dispatch $TASK_ID"
+fi
 
 if [ "$MODE" = "headless" ]; then
   eval "$LAUNCH"

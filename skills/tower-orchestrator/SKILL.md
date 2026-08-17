@@ -21,6 +21,9 @@ file format below is unclear.
    `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
    the newest three)
 
+If `.tower/.git` exists the project runs in sidecar mode: all `tower:` commits and the git
+commands above run inside `.tower/`, never in the parent repo.
+
 Do not answer questions or take actions before completing the ritual.
 
 ## Duties

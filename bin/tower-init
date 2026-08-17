@@ -2,7 +2,16 @@
 set -euo pipefail
 
 TOWER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="${1:-$PWD}"
+
+SIDECAR=0 TARGET=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --sidecar) SIDECAR=1; shift ;;
+    -*) echo "usage: tower-init [--sidecar] [target-repo-path]" >&2; exit 1 ;;
+    *) TARGET="$1"; shift ;;
+  esac
+done
+TARGET="${TARGET:-$PWD}"
 
 if ! git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1; then
   echo "tower-init: $TARGET is not a git repository" >&2
@@ -22,6 +31,17 @@ cp "$TOWER_ROOT/templates/task-card.md" "$TARGET/.tower/templates/task-card.md"
 cp "$TOWER_ROOT/templates/handoff.md" "$TARGET/.tower/templates/handoff.md"
 touch "$TARGET/.tower/tasks/.gitkeep" "$TARGET/.tower/handoffs/.gitkeep" "$TARGET/.tower/prompts/.gitkeep"
 
-git -C "$TARGET" add .tower
-git -C "$TARGET" commit -q -m "tower: init state dir"
-echo "tower-init: initialized $TARGET/.tower"
+if [ "$SIDECAR" = 1 ]; then
+  EXCLUDE="$(git -C "$TARGET" rev-parse --git-path info/exclude)"
+  case "$EXCLUDE" in /*) ;; *) EXCLUDE="$TARGET/$EXCLUDE" ;; esac
+  mkdir -p "$(dirname "$EXCLUDE")"
+  grep -qx '\.tower/' "$EXCLUDE" 2>/dev/null || echo ".tower/" >> "$EXCLUDE"
+  git init -q "$TARGET/.tower"
+  git -C "$TARGET/.tower" add -A
+  git -C "$TARGET/.tower" commit -q -m "tower: init state dir"
+  echo "tower-init: initialized $TARGET/.tower as a sidecar repo (excluded from the parent via .git/info/exclude)"
+else
+  git -C "$TARGET" add .tower
+  git -C "$TARGET" commit -q -m "tower: init state dir"
+  echo "tower-init: initialized $TARGET/.tower"
+fi
