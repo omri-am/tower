@@ -18,10 +18,15 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$TASK_ID" ] || usage
 
-REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
-[ -d "$REPO/.tower" ] || { echo "tower-dispatch: no .tower/ in $REPO (run tower-init first)" >&2; exit 1; }
+git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
 
-CARD="$(find "$REPO/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
+PROJECT_DIR="$PWD"
+while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+done
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-dispatch: no .tower/ in $PWD or any ancestor (run tower-init from the project dir first)" >&2; exit 1; }
+
+CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
 [ -n "$CARD" ] || { echo "tower-dispatch: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
 
 frontmatter_field() {
@@ -36,7 +41,7 @@ fi
 
 DEPS="$(frontmatter_field "$CARD" depends_on | tr -d '[]' | tr ',' ' ')"
 for DEP in $DEPS; do
-  DEP_CARD="$(find "$REPO/.tower/tasks" -name "$DEP-*.md" -o -name "$DEP.md" | head -1)"
+  DEP_CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$DEP-*.md" -o -name "$DEP.md" | head -1)"
   [ -n "$DEP_CARD" ] || { echo "tower-dispatch: dependency $DEP has no card" >&2; exit 1; }
   DEP_STATUS="$(frontmatter_field "$DEP_CARD" status)"
   if [ "$DEP_STATUS" != "merged" ]; then
@@ -45,7 +50,7 @@ for DEP in $DEPS; do
   fi
 done
 
-PROMPT_FILE="$REPO/.tower/prompts/$TASK_ID-prompt.md"
+PROMPT_FILE="$PROJECT_DIR/.tower/prompts/$TASK_ID-prompt.md"
 [ -s "$PROMPT_FILE" ] || { echo "tower-dispatch: missing prompt file $PROMPT_FILE (orchestrator finalizes prompts at dispatch)" >&2; exit 1; }
 
 VENDOR="${VENDOR_FLAG:-$(frontmatter_field "$CARD" vendor)}"
@@ -54,21 +59,21 @@ if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
 fi
 case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1 ;; esac
 
-BRANCH="tower/$(basename "$CARD" .md)"
+BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
 
 case "$VENDOR" in
   claude)
     if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$REPO' && TOWER_TASK=$TASK_ID claude -p \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID claude -p \"\$(cat '$PROMPT_FILE')\""
     else
-      LAUNCH="cd '$REPO' && TOWER_TASK=$TASK_ID claude \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID claude \"\$(cat '$PROMPT_FILE')\""
     fi
     ;;
   codex)
     if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$REPO' && TOWER_TASK=$TASK_ID codex exec \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID codex exec \"\$(cat '$PROMPT_FILE')\""
     else
-      LAUNCH="cd '$REPO' && TOWER_TASK=$TASK_ID codex \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID codex \"\$(cat '$PROMPT_FILE')\""
     fi
     ;;
 esac
@@ -80,12 +85,12 @@ fi
 
 sed -i '' "s|^status: ready|status: in-flight|" "$CARD"
 sed -i '' "s|^branch: \"\"|branch: \"$BRANCH\"|" "$CARD"
-if [ -d "$REPO/.tower/.git" ]; then
-  git -C "$REPO/.tower" add "tasks/$(basename "$CARD")"
-  git -C "$REPO/.tower" commit -q -m "tower: dispatch $TASK_ID"
+if [ -d "$PROJECT_DIR/.tower/.git" ]; then
+  git -C "$PROJECT_DIR/.tower" add "tasks/$(basename "$CARD")"
+  git -C "$PROJECT_DIR/.tower" commit -q -m "tower: dispatch $TASK_ID"
 else
-  git -C "$REPO" add "$CARD"
-  git -C "$REPO" commit -q -m "tower: dispatch $TASK_ID"
+  git -C "$PROJECT_DIR" add "$CARD"
+  git -C "$PROJECT_DIR" commit -q -m "tower: dispatch $TASK_ID"
 fi
 
 if [ "$MODE" = "headless" ]; then

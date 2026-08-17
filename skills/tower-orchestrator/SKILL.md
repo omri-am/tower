@@ -6,7 +6,9 @@ description: Assume the tower orchestrator role for a project using the .tower/ 
 # tower orchestrator
 
 You are assuming a role, not starting a project. Everything you need to know lives in
-`.tower/` at the repo root; everything you decide must end up back there. Your session is
+`.tower/` at the project root — the nearest ancestor of your working directory containing
+`.tower/`, which in a monorepo is the project's subdirectory, not the repo root. Everything
+you decide must end up back there. Your session is
 disposable — if a fact exists only in this conversation, you have failed to record it.
 
 Read `PROTOCOL.md` in the tower repo (or the copy referenced by the project README) if any
