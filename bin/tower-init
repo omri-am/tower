@@ -7,17 +7,17 @@ SIDECAR=0 TARGET=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --sidecar) SIDECAR=1; shift ;;
-    -*) echo "usage: tower-init [--sidecar] [target-repo-path]" >&2; exit 1 ;;
+    -*) echo "usage: tower-init [--sidecar] [project-dir]" >&2; exit 1 ;;
     *) TARGET="$1"; shift ;;
   esac
 done
 TARGET="${TARGET:-$PWD}"
+TARGET="$(cd "$TARGET" && pwd)"
 
 if ! git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1; then
-  echo "tower-init: $TARGET is not a git repository" >&2
+  echo "tower-init: $TARGET is not inside a git repository" >&2
   exit 1
 fi
-TARGET="$(git -C "$TARGET" rev-parse --show-toplevel)"
 
 if [ -e "$TARGET/.tower" ]; then
   echo "tower-init: $TARGET/.tower already exists" >&2
@@ -32,8 +32,7 @@ cp "$TOWER_ROOT/templates/handoff.md" "$TARGET/.tower/templates/handoff.md"
 touch "$TARGET/.tower/tasks/.gitkeep" "$TARGET/.tower/handoffs/.gitkeep" "$TARGET/.tower/prompts/.gitkeep"
 
 if [ "$SIDECAR" = 1 ]; then
-  EXCLUDE="$(git -C "$TARGET" rev-parse --git-path info/exclude)"
-  case "$EXCLUDE" in /*) ;; *) EXCLUDE="$TARGET/$EXCLUDE" ;; esac
+  EXCLUDE="$(git -C "$TARGET" rev-parse --path-format=absolute --git-path info/exclude)"
   mkdir -p "$(dirname "$EXCLUDE")"
   grep -qx '\.tower/' "$EXCLUDE" 2>/dev/null || echo ".tower/" >> "$EXCLUDE"
   git init -q "$TARGET/.tower"
@@ -41,7 +40,7 @@ if [ "$SIDECAR" = 1 ]; then
   git -C "$TARGET/.tower" commit -q -m "tower: init state dir"
   echo "tower-init: initialized $TARGET/.tower as a sidecar repo (excluded from the parent via .git/info/exclude)"
 else
-  git -C "$TARGET" add .tower
+  git -C "$TARGET" add "$TARGET/.tower"
   git -C "$TARGET" commit -q -m "tower: init state dir"
   echo "tower-init: initialized $TARGET/.tower"
 fi

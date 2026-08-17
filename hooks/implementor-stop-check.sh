@@ -9,8 +9,12 @@ esac
 
 [ -n "${TOWER_TASK:-}" ] || exit 0
 
-REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-HANDOFF="$REPO/.tower/handoffs/$TOWER_TASK-handoff.md"
+PROJECT_DIR="$PWD"
+while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+done
+[ -d "$PROJECT_DIR/.tower" ] || exit 0
+HANDOFF="$PROJECT_DIR/.tower/handoffs/$TOWER_TASK-handoff.md"
 
 if [ -s "$HANDOFF" ]; then
   exit 0

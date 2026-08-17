@@ -1,8 +1,15 @@
 # tower protocol
 
 The contract between the orchestrator role, implementor sessions, and the human owner.
-Everything durable lives in files under `.tower/` in the target project repo, committed to
+Everything durable lives in files under `.tower/` at the **project root**, committed to
 main. Sessions are disposable; any session assuming a role rehydrates from these files.
+
+The project root is where `tower-init` was run: the repo root for a single-project repo, or
+a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
+tower tool and role discovers its project by walking up from the current directory to the
+nearest ancestor containing `.tower/`, so a monorepo can hold many independent tower
+projects side by side. Branches are namespaced per project (`tower/<project-dir>/T###-slug`)
+because the branch namespace is repo-wide.
 
 ## State directory
 
