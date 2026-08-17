@@ -42,6 +42,10 @@ cd ~/code/my-project
 tower-init                        # scaffolds .tower/ and commits it
 ```
 
+For a repo that must stay clean of tower files (company projects), use
+`tower-init --sidecar`: `.tower/` becomes its own nested git repo, hidden from the parent
+via the local-only `.git/info/exclude`. Same protocol, second repo — see PROTOCOL.md.
+
 1. Open an orchestrator session in the project, invoke `tower-orchestrator`, design
    together, let it write draft cards into `.tower/tasks/`.
 2. Approve drafts (edit `status: draft` -> `ready`, or tell the orchestrator to).

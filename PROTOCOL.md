@@ -20,6 +20,13 @@ The orchestrator commits state changes directly on main with the prefix `tower:`
 `git log --oneline -- .tower/` is the audit trail; `git diff` on `.tower/design.md` is how
 the owner reviews design changes.
 
+**Sidecar mode** (`tower-init --sidecar`): for projects whose repo must stay clean of tower
+files (e.g. company repos), `.tower/` is its own nested git repo, hidden from the parent via
+`.git/info/exclude` — local-only, so not even the exclusion is committed. The protocol is
+unchanged; every git command above just runs inside `.tower/` instead of the parent. Sidecar
+detection is `.tower/.git` existing. Think before adding a remote to a sidecar: its content
+describes the parent codebase, so it usually belongs local-only or on the same-tier host.
+
 ## Task cards — `tasks/T###-slug.md`
 
 ```yaml
