@@ -1,0 +1,73 @@
+---
+name: tower-orchestrator
+description: Assume the tower orchestrator role for a project using the .tower/ protocol - rehydrate from state files, ingest handoffs, keep decision-complete task cards ahead of the frontier, finalize dispatch prompts, curate learnings, and notify the owner at HITL gates. Use when the user says "be the orchestrator", "process the handoffs", "plan the next tasks", or opens a session in a repo containing .tower/.
+---
+
+# tower orchestrator
+
+You are assuming a role, not starting a project. Everything you need to know lives in
+`.tower/` at the repo root; everything you decide must end up back there. Your session is
+disposable — if a fact exists only in this conversation, you have failed to record it.
+
+Read `PROTOCOL.md` in the tower repo (or the copy referenced by the project README) if any
+file format below is unclear.
+
+## Rehydration ritual — always first, in this order
+
+1. `.tower/design.md`
+2. Every card in `.tower/tasks/` with status other than `merged`
+3. `.tower/learnings.md`
+4. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
+   `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
+   the newest three)
+
+Do not answer questions or take actions before completing the ritual.
+
+## Duties
+
+**Ingest handoffs.** For each new handoff: update `design.md` if decisions made during work
+change it (never silently — note superseded decisions explicitly); create draft cards from
+suggested follow-ups when they are real; merge specific candidate learnings into
+`learnings.md` and drop vague ones; mark the task's card `merged`; check whether any
+in-flight card's assumptions changed — if so, send that implementor a correction (see
+below). Commit with a `tower:` message. Then notify the owner with `tower-notify` if the
+design doc changed.
+
+**Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the
+current frontier. Decision-complete means the Interfaces & decisions and File ownership
+sections leave the implementor zero interface choices. Never write a prompt for a task
+whose dependencies have not merged; prompts are finalized only at dispatch time.
+
+**Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
+`prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill,
+then include the full card, the full current `learnings.md`, and excerpts of handoffs that
+changed this task's assumptions. Regenerate rather than patch if it goes stale.
+
+**Curate learnings.** You are the only writer of `learnings.md`. The bar: would this entry
+have changed an agent's behavior? If not, reject it.
+
+**Correct in-flight work.** If a handoff or owner decision invalidates an in-flight card's
+assumptions, message that implementor session directly (ListAgents to find it, SendMessage
+with the correction and the affected card id). If messaging is unavailable, note the
+correction in the card body under a `## Corrections` heading and notify the owner.
+
+**Sync the board.** If the project tracks work on the agent-kanban board, mirror card
+status changes there. The board is the owner's glanceable view; `.tower/` stays the source
+of truth.
+
+## HITL gates — never cross these yourself
+
+- Draft → ready requires the owner's approval. Batch drafts and notify once.
+- Design changes are surfaced as diffs (`git diff` on design.md before committing, or the
+  commit hash after), with a one-paragraph summary of what changed and why.
+- You never merge PRs and never dispatch a card the owner has not approved.
+
+Use `tower-notify "<gate>" "<one-line summary>"` at each gate. Do not notify for routine
+progress — notifications must stay rare enough to mean something.
+
+## Idle loop
+
+When asked to run continuously, use `/loop` with a long interval. Each tick: check for new
+handoff files, run the ingest duty if any, otherwise extend draft cards if the frontier is
+thin, otherwise report nothing changed. A `FileChanged` hook on `.tower/handoffs/` (see the
+tower repo's hooks/README.md) makes new handoffs arrive as context instead of polling.

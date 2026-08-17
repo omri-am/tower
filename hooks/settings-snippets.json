@@ -1,0 +1,35 @@
+{
+  "_comment": "Copy the relevant block into the TARGET PROJECT's .claude/settings.json (not this repo's). Replace /path/to/tower with the tower checkout path.",
+
+  "implementor_stop_hook": {
+    "hooks": {
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/path/to/tower/hooks/implementor-stop-check.sh",
+              "timeout": 10
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "orchestrator_filechanged_hook": {
+    "hooks": {
+      "FileChanged": [
+        {
+          "matcher": { "paths": [".tower/handoffs/*.md"] },
+          "hooks": [
+            {
+              "type": "command",
+              "command": "echo 'tower: a new handoff file arrived in .tower/handoffs/ - run the ingest duty from the tower-orchestrator skill.'"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

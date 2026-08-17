@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+  echo "usage: tower-notify <title> <message>" >&2
+  exit 1
+fi
+
+TITLE="tower: $1"
+MESSAGE="$2"
+osascript -e "display notification \"${MESSAGE//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"Glass\""
