@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TOWER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET="${1:-$PWD}"
+
+if ! git -C "$TARGET" rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "tower-init: $TARGET is not a git repository" >&2
+  exit 1
+fi
+TARGET="$(git -C "$TARGET" rev-parse --show-toplevel)"
+
+if [ -e "$TARGET/.tower" ]; then
+  echo "tower-init: $TARGET/.tower already exists" >&2
+  exit 1
+fi
+
+mkdir -p "$TARGET/.tower/tasks" "$TARGET/.tower/handoffs" "$TARGET/.tower/prompts" "$TARGET/.tower/templates"
+cp "$TOWER_ROOT/templates/design.md" "$TARGET/.tower/design.md"
+cp "$TOWER_ROOT/templates/learnings.md" "$TARGET/.tower/learnings.md"
+cp "$TOWER_ROOT/templates/task-card.md" "$TARGET/.tower/templates/task-card.md"
+cp "$TOWER_ROOT/templates/handoff.md" "$TARGET/.tower/templates/handoff.md"
+touch "$TARGET/.tower/tasks/.gitkeep" "$TARGET/.tower/handoffs/.gitkeep" "$TARGET/.tower/prompts/.gitkeep"
+
+git -C "$TARGET" add .tower
+git -C "$TARGET" commit -q -m "tower: init state dir"
+echo "tower-init: initialized $TARGET/.tower"
