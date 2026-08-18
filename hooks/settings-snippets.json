@@ -17,6 +17,23 @@
     }
   },
 
+  "implementor_sendmessage_guard": {
+    "hooks": {
+      "PreToolUse": [
+        {
+          "matcher": "SendMessage",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/path/to/tower/hooks/implementor-sendmessage-guard.sh",
+              "timeout": 10
+            }
+          ]
+        }
+      ]
+    }
+  },
+
   "orchestrator_filechanged_hook": {
     "hooks": {
       "FileChanged": [

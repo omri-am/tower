@@ -17,6 +17,16 @@ through untouched, so the hook is safe to keep in a project's settings permanent
 Limitation: Claude Code only. A codex implementor gets the handoff requirement from its
 prompt and the tower-implementor contract, with no hook enforcement.
 
+## implementor-sendmessage-guard.sh (PreToolUse hook, SendMessage)
+
+Hard-enforces the escalation-routing rule: a tower implementor session (identified by
+`TOWER_TASK` or the `.tower-task` marker) may SendMessage only to the session named in
+`.tower/orchestrator`; every other target is denied with a reason pointing back to the
+file channel (blocked card + handoff + tower-notify). Sessions outside a tower implementor
+context pass through untouched, so the hook is safe to install globally. This exists
+because skill text alone is advice — an agent that learned a session address
+conversationally will happily message it.
+
 ## FileChanged watcher (orchestrator session)
 
 Watches `.tower/handoffs/*.md` and injects a note when a new handoff lands, so an idle

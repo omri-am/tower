@@ -86,8 +86,13 @@ if it goes stale before launch, the orchestrator regenerates it (cheap by design
 
 ## Handoffs — `handoffs/T###-handoff.md`
 
-Written by the implementor when its work ends — right after opening the PR, or when
-stopping early or blocked — always before the session ends. Sections: What was done, Decisions made during work, Discoveries,
+Written in two phases. A draft goes in when the PR opens — the Stop hook refuses to let an
+implementor session end without one, so early stops and blocks always leave a record. The
+real handoff is finalized after the PR merges: review-driven changes are part of what was
+done, so the implementor updates the file when the owner merges while its session is still
+alive; if the session is already gone, the draft plus the PR's final diff are what remains.
+The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
+escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
 Suggested follow-up tasks, Candidate learnings. The Stop hook blocks an implementor session
 from finishing while its handoff is missing.
 
