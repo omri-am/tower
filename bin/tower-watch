@@ -50,6 +50,12 @@ while true; do
         if [ "$STATE" = "MERGED" ]; then
           SEEN_MERGED="$SEEN_MERGED $ID"
           echo "tower-watch: $ID (PR $PR) merged"
+          sed -i '' "s|^status: in-review|status: merged|" "$CARD"
+          if [ -d "$PROJECT_DIR/.tower/.git" ]; then
+            git -C "$PROJECT_DIR/.tower" add "tasks/$(basename "$CARD")" && git -C "$PROJECT_DIR/.tower" commit -q -m "tower: $ID merged (tower-watch)" || true
+          else
+            git -C "$PROJECT_DIR" add "$CARD" && git -C "$PROJECT_DIR" commit -q -m "tower: $ID merged (tower-watch)" || true
+          fi
           "$NOTIFY" "PR merged" "$ID (PR $PR) merged - orchestrator should ingest the handoff" || true
           if [ -n "$ON_MERGE" ]; then
             TOWER_TASK="$ID" TOWER_PR="$PR" bash -c "$ON_MERGE" || true
