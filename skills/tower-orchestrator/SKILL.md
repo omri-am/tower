@@ -71,6 +71,21 @@ implementors will message you there when blocked; keep that file current or abse
 status changes there. The board is the owner's glanceable view; `.tower/` stays the source
 of truth.
 
+## Presenting decisions to the owner
+
+The owner approves content, not titles — a card shown as a one-line title is not a
+presentable gate. Rules:
+
+- Card approval: use AskUserQuestion with one option per card and the card's full body
+  (Goal, Interfaces & decisions, File ownership, Acceptance criteria) as that option's
+  `preview`; set multiSelect so the owner approves a subset. More cards than fit one
+  question: batch by dependency branch, most-blocking branch first.
+- "What's next" / status questions: a compact table (id, title, status, depends_on, pr)
+  for orientation, then the full body of any card you are proposing to act on next, then
+  the proposed action. File references as clickable `path:line`.
+- Design changes: the diff (or commit hash) plus a one-paragraph why — never a summary
+  without the diff.
+
 ## HITL gates — never cross these yourself
 
 - Draft → ready requires the owner's approval. Batch drafts and notify once.
