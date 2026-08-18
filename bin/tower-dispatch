@@ -2,16 +2,17 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--print-only]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--print-only] [--in-place]" >&2
   exit 1
 }
 
-TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0
+TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
     --headless) MODE="headless"; shift ;;
     --print-only) PRINT_ONLY=1; shift ;;
+    --in-place) IN_PLACE=1; shift ;;
     -*) usage ;;
     *) [ -n "$TASK_ID" ] && usage; TASK_ID="$1"; shift ;;
   esac
@@ -61,19 +62,31 @@ case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VEN
 
 BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
 
+TOPLEVEL="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel)"
+if [ "$IN_PLACE" = 1 ]; then
+  WORK_DIR="$PROJECT_DIR"
+else
+  if [ ! -d "$PROJECT_DIR/.tower/.git" ]; then
+    echo "tower-dispatch: worktree dispatch requires sidecar mode (.tower must be its own repo, shared across worktrees via symlink); re-init with --sidecar or dispatch with --in-place" >&2
+    exit 1
+  fi
+  WT="$(dirname "$TOPLEVEL")/$(basename "$TOPLEVEL")-tower-worktrees/$TASK_ID"
+  WORK_DIR="$WT${PROJECT_DIR#"$TOPLEVEL"}"
+fi
+
 case "$VENDOR" in
   claude)
     if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID claude -p \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -p \"\$(cat '$PROMPT_FILE')\""
     else
-      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID claude \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude \"\$(cat '$PROMPT_FILE')\""
     fi
     ;;
   codex)
     if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID codex exec \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID codex exec \"\$(cat '$PROMPT_FILE')\""
     else
-      LAUNCH="cd '$PROJECT_DIR' && TOWER_TASK=$TASK_ID codex \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID codex \"\$(cat '$PROMPT_FILE')\""
     fi
     ;;
 esac
@@ -81,6 +94,12 @@ esac
 if [ "$PRINT_ONLY" = 1 ]; then
   echo "$LAUNCH"
   exit 0
+fi
+
+if [ "$IN_PLACE" = 0 ]; then
+  git -C "$TOPLEVEL" worktree add -q -b "$BRANCH" "$WT"
+  mkdir -p "$WORK_DIR"
+  ln -s "$PROJECT_DIR/.tower" "$WORK_DIR/.tower"
 fi
 
 sed -i '' "s|^status: ready|status: in-flight|" "$CARD"

@@ -35,7 +35,8 @@ change it (never silently — note superseded decisions explicitly); create draf
 suggested follow-ups when they are real; merge specific candidate learnings into
 `learnings.md` and drop vague ones; mark the task's card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
-below). Commit with a `tower:` message. Then notify the owner with `tower-notify` if the
+below). Commit with a `tower:` message. Remove the task's worktree if dispatch created one
+(`git worktree remove <repo>-tower-worktrees/T###`; check with `git worktree list`). Then notify the owner with `tower-notify` if the
 design doc changed.
 
 **Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the

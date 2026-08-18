@@ -34,6 +34,15 @@ unchanged; every git command above just runs inside `.tower/` instead of the par
 detection is `.tower/.git` existing. Think before adding a remote to a sidecar: its content
 describes the parent codebase, so it usually belongs local-only or on the same-tier host.
 
+**Worktrees**: implementors work in per-task git worktrees, which `tower-dispatch` creates
+(at `<repo>-tower-worktrees/T###`, on the card's branch) — `--in-place` opts out. `.tower/`
+stays canonical in the main checkout; dispatch symlinks it into the worktree's project dir,
+so every session — orchestrator in the main checkout, implementors in worktrees — reads and
+writes the same state, and a handoff written from a worktree is immediately visible to the
+orchestrator. This requires sidecar mode (a committed `.tower/` would materialize as a
+stale per-branch copy in each worktree); dispatch enforces that. After ingesting a task's
+handoff, the orchestrator removes its worktree (`git worktree remove`).
+
 ## Task cards — `tasks/T###-slug.md`
 
 ```yaml
