@@ -72,9 +72,11 @@ platforms that start the agent themselves; then tell the agent to read its promp
 dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
 branch and symlinks the shared `.tower/` into it (sidecar mode required for this). Running
 dispatch from inside a worktree that has no `.tower` adopts that worktree automatically:
-discovery maps back to the main checkout's `.tower`, symlinks it in, and records the
-worktree's existing branch on the card — so `cd <your-worktree>/<project> &&
-tower-dispatch T### --here` is the whole flow when your own tooling creates the worktrees.
+discovery first maps the current path back to the main checkout, then falls back to
+searching the main checkout for the project whose `tasks/` contains the requested card
+(refusing if the id is ambiguous across projects) — so `tower-dispatch T### --prep` works
+from anywhere inside the repo or any worktree of it when your own tooling creates the
+worktrees; the worktree's existing branch is recorded on the card.
 
 `tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
 PRs via gh and notifies when one merges or a card turns blocked; `--on-merge` runs a

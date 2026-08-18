@@ -30,18 +30,34 @@ while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
 done
 
 ADOPT_WT=""
+CUR_TOP="$(git rev-parse --show-toplevel)"
+MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+if [ ! -d "$PROJECT_DIR/.tower" ] && [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+  PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
+  while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+    PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+  done
+  [ -d "$PROJECT_DIR/.tower" ] && ADOPT_WT="$CUR_TOP"
+fi
 if [ ! -d "$PROJECT_DIR/.tower" ]; then
-  CUR_TOP="$(git rev-parse --show-toplevel)"
-  MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
-  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
-    PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
-    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
-      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
-    done
-    [ -d "$PROJECT_DIR/.tower" ] && ADOPT_WT="$CUR_TOP"
+  MATCH="" COUNT=0
+  while IFS= read -r T; do
+    [ -n "$T" ] || continue
+    HIT="$(find "$T/tasks" -maxdepth 1 \( -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" \) 2>/dev/null | head -1)"
+    if [ -n "$HIT" ]; then MATCH="$T"; COUNT=$((COUNT + 1)); fi
+  done <<EOF
+$(find "$MAIN_TOP" -maxdepth 3 -type d -name .tower 2>/dev/null)
+EOF
+  if [ "$COUNT" -gt 1 ]; then
+    echo "tower-dispatch: $TASK_ID exists in more than one .tower project under $MAIN_TOP - cd into the right project dir" >&2
+    exit 1
+  fi
+  if [ "$COUNT" = 1 ]; then
+    PROJECT_DIR="$(dirname "$MATCH")"
+    [ "$MAIN_TOP" != "$CUR_TOP" ] && ADOPT_WT="$CUR_TOP"
   fi
 fi
-[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-dispatch: no .tower/ in $PWD, any ancestor, or the main checkout (run tower-init from the project dir first)" >&2; exit 1; }
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-dispatch: no .tower/ found for $TASK_ID - not in $PWD, its ancestors, or any project under $MAIN_TOP (run tower-init from the project dir first)" >&2; exit 1; }
 
 CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
 [ -n "$CARD" ] || { echo "tower-dispatch: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
