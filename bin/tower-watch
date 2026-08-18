@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-watch [--interval seconds] [--on-merge '<command>']" >&2
+  exit 1
+}
+
+INTERVAL=120 ON_MERGE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --interval) [ $# -ge 2 ] || usage; INTERVAL="$2"; shift 2 ;;
+    --on-merge) [ $# -ge 2 ] || usage; ON_MERGE="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+
+PROJECT_DIR="$PWD"
+while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+done
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-watch: no .tower/ in $PWD or any ancestor" >&2; exit 1; }
+
+NOTIFY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-notify"
+
+frontmatter_field() {
+  sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
+}
+
+SEEN_MERGED="" SEEN_BLOCKED=""
+echo "tower-watch: watching $PROJECT_DIR/.tower every ${INTERVAL}s (ctrl-c to stop)"
+
+while true; do
+  for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
+    [ -e "$CARD" ] || continue
+    ID="$(frontmatter_field "$CARD" id)"
+    STATUS="$(frontmatter_field "$CARD" status)"
+    case "$STATUS" in
+      blocked)
+        case " $SEEN_BLOCKED " in *" $ID "*) ;; *)
+          SEEN_BLOCKED="$SEEN_BLOCKED $ID"
+          echo "tower-watch: $ID is blocked"
+          "$NOTIFY" "task blocked" "$ID is blocked - check its handoff for the escalation" || true
+        ;; esac ;;
+      in-review)
+        PR="$(frontmatter_field "$CARD" pr | tr -d '"#')"
+        [ -n "$PR" ] || continue
+        case " $SEEN_MERGED " in *" $ID "*) continue ;; esac
+        STATE="$(cd "$PROJECT_DIR" && gh pr view "$PR" --json state -q .state 2>/dev/null || echo "")"
+        if [ "$STATE" = "MERGED" ]; then
+          SEEN_MERGED="$SEEN_MERGED $ID"
+          echo "tower-watch: $ID (PR $PR) merged"
+          "$NOTIFY" "PR merged" "$ID (PR $PR) merged - orchestrator should ingest the handoff" || true
+          if [ -n "$ON_MERGE" ]; then
+            TOWER_TASK="$ID" TOWER_PR="$PR" bash -c "$ON_MERGE" || true
+          fi
+        fi ;;
+    esac
+  done
+  sleep "$INTERVAL"
+done

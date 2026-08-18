@@ -67,6 +67,11 @@ launch command without changing anything, `--in-place` skips worktree creation. 
 dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
 branch and symlinks the shared `.tower/` into it (sidecar mode required for this).
 
+`tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
+PRs via gh and notifies when one merges or a card turns blocked; `--on-merge` runs a
+command with `TOWER_TASK` and `TOWER_PR` set (e.g. to prompt a non-Claude orchestrator via
+`codex exec resume`). A Claude orchestrator on `/loop` does not need it.
+
 ## What it deliberately does not do
 
 No automatic merges, no auto-approval, no daemon, no cross-machine anything. Reviewer
