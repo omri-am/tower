@@ -16,6 +16,11 @@ file format below is unclear.
 
 ## Rehydration ritual — always first, in this order
 
+0. Register as the reachable orchestrator: if `$CLAUDE_CODE_MESSAGING_SOCKET` is set, run
+   `echo "uds:$CLAUDE_CODE_MESSAGING_SOCKET" > .tower/orchestrator` (overwrite — a previous
+   session's address is stale by definition). Implementor escalations are messaged to this
+   address; if it ever goes stale, their sends fail and they fall back to files, so this is
+   safe. Non-Claude orchestrators skip this and leave the file absent.
 1. `.tower/design.md`
 2. Every card in `.tower/tasks/` with status other than `merged`
 3. `.tower/learnings.md`
@@ -76,9 +81,14 @@ of truth.
 Use `tower-notify "<gate>" "<one-line summary>"` at each gate. Do not notify for routine
 progress — notifications must stay rare enough to mean something.
 
-## Idle loop
+## Standing loop — start it yourself
 
-When asked to run continuously, use `/loop` with a long interval. Each tick: check for new
-handoff files, run the ingest duty if any, otherwise extend draft cards if the frontier is
-thin, otherwise report nothing changed. A `FileChanged` hook on `.tower/handoffs/` (see the
-tower repo's hooks/README.md) makes new handoffs arrive as context instead of polling.
+Assuming the role means running continuously: after the rehydration ritual, invoke the
+`loop` skill (self-paced) unless the owner said this is a one-shot consultation. Each tick:
+check cards for newly `merged` or `blocked` status (tower-watch flips merged cards; if it
+is not running, poll the in-review cards' PRs with `gh pr view --json state`); run the
+ingest duty for merged cards; read blocked cards' handoffs immediately; extend the draft
+frontier if it is thinner than 2-3 decision-complete cards per branch; finalize prompts
+for owner-approved ready cards; notify only at HITL gates; otherwise report nothing
+changed. A `FileChanged` hook on `.tower/handoffs/` (see the tower repo's hooks/README.md)
+makes new handoffs arrive as context between ticks.

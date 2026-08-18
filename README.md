@@ -50,8 +50,13 @@ via the local-only `.git/info/exclude`. Same protocol, second repo — see PROTO
 run it from the project's subdirectory. All tools find their project by walking up to the
 nearest `.tower/`, so one repo can hold several independent tower projects.
 
-1. Open an orchestrator session in the project, invoke `tower-orchestrator`, design
-   together, let it write draft cards into `.tower/tasks/`.
+1. Start the orchestrator: `tower-orchestrate` (from anywhere in the project) opens a
+   Claude session that assumes the role, registers its address in `.tower/orchestrator`
+   for implementor escalations, and starts its standing loop — or do the same manually by
+   invoking `tower-orchestrator` in a session. Design together; it writes draft cards into
+   `.tower/tasks/`. To retire an orchestrator (or any tower session), invoke `tower-flush`
+   in it first — it writes everything it knows into `.tower/` so the next session loses
+   nothing.
 2. Approve drafts (edit `status: draft` -> `ready`, or tell the orchestrator to).
 3. The orchestrator finalizes `prompts/T###-prompt.md`, then: `tower-dispatch T001`.
    A new terminal opens with the implementor session, `TOWER_TASK` set, card `in-flight`.

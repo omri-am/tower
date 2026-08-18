@@ -7,9 +7,10 @@ SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 mkdir -p "$SKILLS_DIR"
 ln -sfn "$TOWER_ROOT/skills/tower-orchestrator" "$SKILLS_DIR/tower-orchestrator"
 ln -sfn "$TOWER_ROOT/skills/tower-implementor" "$SKILLS_DIR/tower-implementor"
-echo "install: linked tower-orchestrator and tower-implementor into $SKILLS_DIR"
+ln -sfn "$TOWER_ROOT/skills/tower-flush" "$SKILLS_DIR/tower-flush"
+echo "install: linked tower-orchestrator, tower-implementor, and tower-flush into $SKILLS_DIR"
 
-chmod +x "$TOWER_ROOT/bin/tower-init" "$TOWER_ROOT/bin/tower-dispatch" "$TOWER_ROOT/bin/tower-notify" "$TOWER_ROOT/hooks/implementor-stop-check.sh"
+chmod +x "$TOWER_ROOT"/bin/* "$TOWER_ROOT"/hooks/*.sh
 
 case ":$PATH:" in
   *":$TOWER_ROOT/bin:"*) echo "install: $TOWER_ROOT/bin already on PATH" ;;
