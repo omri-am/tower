@@ -25,6 +25,7 @@ if [ -e "$TARGET/.tower" ]; then
 fi
 
 mkdir -p "$TARGET/.tower/tasks" "$TARGET/.tower/handoffs" "$TARGET/.tower/prompts" "$TARGET/.tower/templates"
+cp "$TOWER_ROOT/PROTOCOL.md" "$TARGET/.tower/PROTOCOL.md"
 cp "$TOWER_ROOT/templates/design.md" "$TARGET/.tower/design.md"
 cp "$TOWER_ROOT/templates/learnings.md" "$TARGET/.tower/learnings.md"
 cp "$TOWER_ROOT/templates/task-card.md" "$TARGET/.tower/templates/task-card.md"

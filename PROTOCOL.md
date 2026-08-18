@@ -126,6 +126,18 @@ behavior is noise and does not belong here.
 
 The orchestrator calls `tower-notify` at each gate and otherwise does not interrupt.
 
+## Orchestrators without Claude Code plumbing
+
+Any CLI agent (Codex, others) can hold the orchestrator role — the role is these files, not
+a vendor feature. Three substitutions apply: instead of SendMessage, mid-flight corrections
+are written into the in-flight card under a `## Corrections` heading (implementors re-read
+it) and the owner is notified via `tower-notify`; instead of a background loop or file
+watcher, the orchestrator processes handoffs when the owner says a PR merged, and always
+runs the rehydration ritual at session start; escalations from implementors arrive as
+`blocked` cards and handoff files rather than live messages, so check for `status: blocked`
+during every ingest pass. `tower-init` copies this file into `.tower/PROTOCOL.md` so the
+project is self-contained.
+
 ## Roles are disposable
 
 Orchestrator rehydration ritual, in order: `design.md`, all cards with status other than
