@@ -62,10 +62,16 @@ nearest `.tower/`, so one repo can hold several independent tower projects.
    three HITL gates — draft approval, design change, PR ready.
 
 `tower-dispatch` flags: `--vendor claude|codex` overrides the card, `--headless` runs
-`claude -p` / `codex exec` instead of opening a Terminal window, `--print-only` prints the
-launch command without changing anything, `--in-place` skips worktree creation. By default
+`claude -p` / `codex exec` instead of opening a Terminal window, `--here` launches the
+implementor interactively in the current terminal (for tmux/Superset panes), `--print-only`
+prints the launch command without changing anything, `--in-place` skips worktree creation,
+`--worktree <path>` adopts an existing worktree instead of creating one. By default
 dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
-branch and symlinks the shared `.tower/` into it (sidecar mode required for this).
+branch and symlinks the shared `.tower/` into it (sidecar mode required for this). Running
+dispatch from inside a worktree that has no `.tower` adopts that worktree automatically:
+discovery maps back to the main checkout's `.tower`, symlinks it in, and records the
+worktree's existing branch on the card — so `cd <your-worktree>/<project> &&
+tower-dispatch T### --here` is the whole flow when your own tooling creates the worktrees.
 
 `tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
 PRs via gh and notifies when one merges or a card turns blocked; `--on-merge` runs a

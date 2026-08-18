@@ -2,17 +2,19 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--print-only] [--in-place]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--print-only] [--in-place] [--worktree <path>]" >&2
   exit 1
 }
 
-TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0
+TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
     --headless) MODE="headless"; shift ;;
+    --here) MODE="here"; shift ;;
     --print-only) PRINT_ONLY=1; shift ;;
     --in-place) IN_PLACE=1; shift ;;
+    --worktree) [ $# -ge 2 ] || usage; WT_FLAG="$2"; shift 2 ;;
     -*) usage ;;
     *) [ -n "$TASK_ID" ] && usage; TASK_ID="$1"; shift ;;
   esac
@@ -25,7 +27,20 @@ PROJECT_DIR="$PWD"
 while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
   PROJECT_DIR="$(dirname "$PROJECT_DIR")"
 done
-[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-dispatch: no .tower/ in $PWD or any ancestor (run tower-init from the project dir first)" >&2; exit 1; }
+
+ADOPT_WT=""
+if [ ! -d "$PROJECT_DIR/.tower" ]; then
+  CUR_TOP="$(git rev-parse --show-toplevel)"
+  MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+    PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
+    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+    done
+    [ -d "$PROJECT_DIR/.tower" ] && ADOPT_WT="$CUR_TOP"
+  fi
+fi
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-dispatch: no .tower/ in $PWD, any ancestor, or the main checkout (run tower-init from the project dir first)" >&2; exit 1; }
 
 CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
 [ -n "$CARD" ] || { echo "tower-dispatch: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
@@ -60,18 +75,30 @@ if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
 fi
 case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1 ;; esac
 
-BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
-
 TOPLEVEL="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel)"
+CREATE_WT=0
 if [ "$IN_PLACE" = 1 ]; then
   WORK_DIR="$PROJECT_DIR"
+  BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
 else
   if [ ! -d "$PROJECT_DIR/.tower/.git" ]; then
     echo "tower-dispatch: worktree dispatch requires sidecar mode (.tower must be its own repo, shared across worktrees via symlink); re-init with --sidecar or dispatch with --in-place" >&2
     exit 1
   fi
-  WT="$(dirname "$TOPLEVEL")/$(basename "$TOPLEVEL")-tower-worktrees/$TASK_ID"
+  if [ -n "$WT_FLAG" ]; then
+    WT="$(cd "$WT_FLAG" && git rev-parse --show-toplevel)"
+  elif [ -n "$ADOPT_WT" ]; then
+    WT="$ADOPT_WT"
+  else
+    WT="$(dirname "$TOPLEVEL")/$(basename "$TOPLEVEL")-tower-worktrees/$TASK_ID"
+    CREATE_WT=1
+  fi
   WORK_DIR="$WT${PROJECT_DIR#"$TOPLEVEL"}"
+  if [ "$CREATE_WT" = 1 ]; then
+    BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
+  else
+    BRANCH="$(git -C "$WT" rev-parse --abbrev-ref HEAD)"
+  fi
 fi
 
 case "$VENDOR" in
@@ -97,9 +124,11 @@ if [ "$PRINT_ONLY" = 1 ]; then
 fi
 
 if [ "$IN_PLACE" = 0 ]; then
-  git -C "$TOPLEVEL" worktree add -q -b "$BRANCH" "$WT"
+  if [ "$CREATE_WT" = 1 ]; then
+    git -C "$TOPLEVEL" worktree add -q -b "$BRANCH" "$WT"
+  fi
   mkdir -p "$WORK_DIR"
-  ln -s "$PROJECT_DIR/.tower" "$WORK_DIR/.tower"
+  [ -e "$WORK_DIR/.tower" ] || ln -s "$PROJECT_DIR/.tower" "$WORK_DIR/.tower"
 fi
 
 sed -i '' "s|^status: ready|status: in-flight|" "$CARD"
@@ -112,7 +141,7 @@ else
   git -C "$PROJECT_DIR" commit -q -m "tower: dispatch $TASK_ID"
 fi
 
-if [ "$MODE" = "headless" ]; then
+if [ "$MODE" = "headless" ] || [ "$MODE" = "here" ]; then
   eval "$LAUNCH"
 else
   ESCAPED="${LAUNCH//\\/\\\\}"
