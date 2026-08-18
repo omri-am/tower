@@ -79,9 +79,10 @@ from anywhere inside the repo or any worktree of it when your own tooling create
 worktrees; the worktree's existing branch is recorded on the card.
 
 `tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
-PRs via gh and notifies when one merges or a card turns blocked; `--on-merge` runs a
-command with `TOWER_TASK` and `TOWER_PR` set (e.g. to prompt a non-Claude orchestrator via
-`codex exec resume`). A Claude orchestrator on `/loop` does not need it.
+PRs via gh; when one merges it flips the card to `merged` (committed), notifies, and runs
+the optional `--on-merge` command with `TOWER_TASK` and `TOWER_PR` set (e.g. to prompt a
+non-Claude orchestrator via `codex exec resume`). It also notifies when a card turns
+blocked. A Claude orchestrator on `/loop` does not need it.
 
 ## What it deliberately does not do
 
