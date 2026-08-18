@@ -36,6 +36,7 @@ if [ "$SIDECAR" = 1 ]; then
   EXCLUDE="$(git -C "$TARGET" rev-parse --path-format=absolute --git-path info/exclude)"
   mkdir -p "$(dirname "$EXCLUDE")"
   grep -qx '\.tower/' "$EXCLUDE" 2>/dev/null || echo ".tower/" >> "$EXCLUDE"
+  grep -qx '\.tower-task' "$EXCLUDE" 2>/dev/null || echo ".tower-task" >> "$EXCLUDE"
   git init -q "$TARGET/.tower"
   git -C "$TARGET/.tower" add -A
   git -C "$TARGET/.tower" commit -q -m "tower: init state dir"

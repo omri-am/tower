@@ -65,7 +65,10 @@ nearest `.tower/`, so one repo can hold several independent tower projects.
 `claude -p` / `codex exec` instead of opening a Terminal window, `--here` launches the
 implementor interactively in the current terminal (for tmux/Superset panes), `--print-only`
 prints the launch command without changing anything, `--in-place` skips worktree creation,
-`--worktree <path>` adopts an existing worktree instead of creating one. By default
+`--worktree <path>` adopts an existing worktree instead of creating one, `--prep` does all
+the bookkeeping (validate, adopt + symlink, mark in-flight, write a `.tower-task` marker
+that arms the Stop hook without env vars) but launches nothing — for worktree-management
+platforms that start the agent themselves; then tell the agent to read its prompt file. By default
 dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
 branch and symlinks the shared `.tower/` into it (sidecar mode required for this). Running
 dispatch from inside a worktree that has no `.tower` adopts that worktree automatically:
