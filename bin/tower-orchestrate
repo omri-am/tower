@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET="${1:-$PWD}"
+PROJECT_DIR="$(cd "$TARGET" && pwd)"
+while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+done
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-orchestrate: no .tower/ in $TARGET or any ancestor (run tower-init first)" >&2; exit 1; }
+
+PROMPT="Invoke the tower-orchestrator skill and assume the orchestrator role for this project. Follow the skill fully: run the rehydration ritual including registering your address in .tower/orchestrator, then start the standing loop."
+
+cd "$PROJECT_DIR"
+exec claude "$PROMPT"
