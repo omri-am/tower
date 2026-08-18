@@ -132,8 +132,9 @@ Any CLI agent (Codex, others) can hold the orchestrator role — the role is the
 a vendor feature. Three substitutions apply: instead of SendMessage, mid-flight corrections
 are written into the in-flight card under a `## Corrections` heading (implementors re-read
 it) and the owner is notified via `tower-notify`; instead of a background loop or file
-watcher, the orchestrator processes handoffs when the owner says a PR merged, and always
-runs the rehydration ritual at session start; escalations from implementors arrive as
+watcher, the orchestrator processes handoffs when the owner says a PR merged (or the owner
+runs `tower-watch`, which polls the in-review cards' PRs and notifies on merge and on
+blocked cards), and always runs the rehydration ritual at session start; escalations from implementors arrive as
 `blocked` cards and handoff files rather than live messages, so check for `status: blocked`
 during every ingest pass. `tower-init` copies this file into `.tower/PROTOCOL.md` so the
 project is self-contained.
