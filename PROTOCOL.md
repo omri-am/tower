@@ -129,6 +129,14 @@ behavior is noise and does not belong here.
 
 The orchestrator calls `tower-notify` at each gate and otherwise does not interrupt.
 
+## Escalation routing
+
+Escalation is file-based by default: `blocked` card + handoff + `tower-notify`. Direct
+session-to-session messages are opt-in only — the owner may write a reachable orchestrator
+session name into `.tower/orchestrator`, and only a session named there gets messaged.
+Agents must never guess a role-holder from the machine's session list; unrelated sessions
+share the machine.
+
 ## Orchestrators without Claude Code plumbing
 
 Any CLI agent (Codex, others) can hold the orchestrator role — the role is these files, not

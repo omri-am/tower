@@ -53,9 +53,11 @@ changed this task's assumptions. Regenerate rather than patch if it goes stale.
 have changed an agent's behavior? If not, reject it.
 
 **Correct in-flight work.** If a handoff or owner decision invalidates an in-flight card's
-assumptions, message that implementor session directly (ListAgents to find it, SendMessage
-with the correction and the affected card id). If messaging is unavailable, note the
-correction in the card body under a `## Corrections` heading and notify the owner.
+assumptions, write the correction into the card body under a `## Corrections` heading
+(implementors re-read it), and additionally message the implementor session directly when
+you can identify it with certainty — its dispatch worktree path, never a guess from the
+session list. If the owner recorded your session name in `.tower/orchestrator`,
+implementors will message you there when blocked; keep that file current or absent.
 
 **Sync the board.** If the project tracks work on the agent-kanban board, mirror card
 status changes there. The board is the owner's glanceable view; `.tower/` stays the source

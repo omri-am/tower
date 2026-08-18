@@ -28,10 +28,12 @@ hook will not let you finish without it.
 ## Hard rules
 
 - **A missing decision is an escalation, not a choice.** If implementing requires an
-  interface, naming, or boundary decision the card did not make, stop and escalate: message
-  the orchestrator session if one is running (ListAgents / SendMessage), otherwise write
-  the question into the handoff's Decisions section, set the card `blocked`, and say so in
-  your final message. Cognition's rule applies: actions carry implicit decisions, and two
+  interface, naming, or boundary decision the card did not make, stop and escalate: set the
+  card `blocked`, write the question into the handoff's Decisions section, run
+  `tower-notify "task blocked" "<id>: <one-line question>"`, and say so in your final
+  message. Message a session directly only if `.tower/orchestrator` exists and names one —
+  never guess the orchestrator from the session list; sessions unrelated to the project
+  share the machine. Cognition's rule applies: actions carry implicit decisions, and two
   agents deciding independently diverge.
 - **File ownership is a fence.** Needing a file outside your list means the card was cut
   wrong — escalate, do not touch it.
