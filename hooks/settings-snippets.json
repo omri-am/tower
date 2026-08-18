@@ -21,7 +21,7 @@
     "hooks": {
       "FileChanged": [
         {
-          "matcher": { "paths": [".tower/handoffs/*.md"] },
+          "matcher": ".*\\.tower/handoffs/.*\\.md$",
           "hooks": [
             {
               "type": "command",
