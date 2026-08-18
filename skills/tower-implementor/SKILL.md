@@ -23,7 +23,10 @@ hook will not let you finish without it.
 4. Run every command under `## Verification`; check acceptance criteria boxes in the card
    as they become true.
 5. Open the PR (fill the card's `pr:` field), set card status `in-review`.
-6. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md`.
+6. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
+   a draft at this point. When the owner merges the PR while your session is still alive,
+   update the handoff with everything review changed before you finish; the merged state,
+   not the opened PR, is what the orchestrator ingests.
 
 ## Hard rules
 

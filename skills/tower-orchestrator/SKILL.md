@@ -30,7 +30,10 @@ Do not answer questions or take actions before completing the ritual.
 
 ## Duties
 
-**Ingest handoffs.** For each new handoff: update `design.md` if decisions made during work
+**Ingest handoffs.** Ingest a task's handoff only after its PR is merged — a handoff
+written at PR-open is a draft the implementor finalizes at merge. The exception is a
+`blocked` card's handoff: read that immediately, it is an escalation. For each ingested
+handoff: update `design.md` if decisions made during work
 change it (never silently — note superseded decisions explicitly); create draft cards from
 suggested follow-ups when they are real; merge specific candidate learnings into
 `learnings.md` and drop vague ones; mark the task's card `merged`; check whether any
