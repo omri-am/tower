@@ -62,8 +62,10 @@ nearest `.tower/`, so one repo can hold several independent tower projects.
    three HITL gates — draft approval, design change, PR ready.
 
 `tower-dispatch` flags: `--vendor claude|codex` overrides the card, `--headless` runs
-`claude -p` / `codex exec` in place, `--print-only` prints the launch command without
-changing anything.
+`claude -p` / `codex exec` instead of opening a Terminal window, `--print-only` prints the
+launch command without changing anything, `--in-place` skips worktree creation. By default
+dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
+branch and symlinks the shared `.tower/` into it (sidecar mode required for this).
 
 ## What it deliberately does not do
 
