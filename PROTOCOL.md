@@ -39,7 +39,10 @@ describes the parent codebase, so it usually belongs local-only or on the same-t
 stays canonical in the main checkout; dispatch symlinks it into the worktree's project dir,
 so every session — orchestrator in the main checkout, implementors in worktrees — reads and
 writes the same state, and a handoff written from a worktree is immediately visible to the
-orchestrator. This requires sidecar mode (a committed `.tower/` would materialize as a
+orchestrator. Dispatch also writes the task id to a `.tower-task` marker beside the
+symlink; the Stop hook reads it when `TOWER_TASK` is not in the environment, so agents
+started by external worktree platforms (after `tower-dispatch --prep`) are equally bound
+to the handoff requirement. This requires sidecar mode (a committed `.tower/` would materialize as a
 stale per-branch copy in each worktree); dispatch enforces that. After ingesting a task's
 handoff, the orchestrator removes its worktree (`git worktree remove`).
 

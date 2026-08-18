@@ -13,7 +13,8 @@ hook will not let you finish without it.
 
 1. Read `.tower/learnings.md` — before the card, before any code. It exists because
    previous agents paid for these lessons.
-2. Read your card in `.tower/tasks/` (your task id is in the prompt and in `$TOWER_TASK`).
+2. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
+   in the `.tower-task` file at the project root).
    Re-read `## Corrections` if present — corrections supersede the original card body.
 3. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a

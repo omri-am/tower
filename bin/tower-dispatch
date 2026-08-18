@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--print-only] [--in-place] [--worktree <path>]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>]" >&2
   exit 1
 }
 
@@ -12,6 +12,7 @@ while [ $# -gt 0 ]; do
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
     --headless) MODE="headless"; shift ;;
     --here) MODE="here"; shift ;;
+    --prep) MODE="prep"; shift ;;
     --print-only) PRINT_ONLY=1; shift ;;
     --in-place) IN_PLACE=1; shift ;;
     --worktree) [ $# -ge 2 ] || usage; WT_FLAG="$2"; shift 2 ;;
@@ -129,6 +130,7 @@ if [ "$IN_PLACE" = 0 ]; then
   fi
   mkdir -p "$WORK_DIR"
   [ -e "$WORK_DIR/.tower" ] || ln -s "$PROJECT_DIR/.tower" "$WORK_DIR/.tower"
+  echo "$TASK_ID" > "$WORK_DIR/.tower-task"
 fi
 
 sed -i '' "s|^status: ready|status: in-flight|" "$CARD"
@@ -141,7 +143,10 @@ else
   git -C "$PROJECT_DIR" commit -q -m "tower: dispatch $TASK_ID"
 fi
 
-if [ "$MODE" = "headless" ] || [ "$MODE" = "here" ]; then
+if [ "$MODE" = "prep" ]; then
+  echo "tower-dispatch: prepared $TASK_ID in $WORK_DIR (branch $BRANCH, card in-flight)"
+  echo "start your agent there and tell it: read .tower/prompts/$TASK_ID-prompt.md and execute it as your task"
+elif [ "$MODE" = "headless" ] || [ "$MODE" = "here" ]; then
   eval "$LAUNCH"
 else
   ESCAPED="${LAUNCH//\\/\\\\}"
