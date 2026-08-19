@@ -9,6 +9,11 @@ You are being retired. After this session closes, the only you that exists is wh
 written in `.tower/` — the test of a complete flush is that a fresh session reading only
 those files loses nothing by replacing you.
 
+If `.tower/` is not in your working directory or its ancestors, you are in a worktree and
+the state lives in the main checkout: run `tower-root` (or
+`find "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" -maxdepth 3 -type d -name .tower`)
+and flush there. Never scaffold a second `.tower/`.
+
 Go through these, writing only what is NOT already in the files:
 
 1. **Design knowledge.** Decisions made or discussed this session, with rationale, into

@@ -47,8 +47,12 @@ For a repo that must stay clean of tower files (company projects), use
 via the local-only `.git/info/exclude`. Same protocol, second repo — see PROTOCOL.md.
 
 `tower-init` anchors the project where you run it, not at the repo root — in a monorepo,
-run it from the project's subdirectory. All tools find their project by walking up to the
-nearest `.tower/`, so one repo can hold several independent tower projects.
+run it from the project's subdirectory, so one repo can hold several independent tower
+projects. `tower-root` is the shared discovery step every other tool calls: it walks up to
+the nearest `.tower/`, then maps the path into the main checkout when run from a worktree,
+then scans the main checkout three levels deep, printing the project root or listing the
+candidates when a repo holds more than one. Run it yourself when a session cannot find the
+project.
 
 1. Start the orchestrator: `tower-orchestrate` (from anywhere in the project) opens a
    Claude session that assumes the role, registers its address in `.tower/orchestrator`
