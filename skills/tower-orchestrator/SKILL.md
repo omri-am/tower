@@ -6,10 +6,30 @@ description: Assume the tower orchestrator role for a project using the .tower/ 
 # tower orchestrator
 
 You are assuming a role, not starting a project. Everything you need to know lives in
-`.tower/` at the project root — the nearest ancestor of your working directory containing
-`.tower/`, which in a monorepo is the project's subdirectory, not the repo root. Everything
-you decide must end up back there. Your session is
+`.tower/` at the project root. Everything you decide must end up back there. Your session is
 disposable — if a fact exists only in this conversation, you have failed to record it.
+
+## Find the project root before anything else
+
+In sidecar mode `.tower/` is its own repo, excluded from the parent one, so it exists
+**only in the main checkout** — a git worktree has it only where dispatch symlinked it in.
+Do not conclude the project is missing because `.tower/` is absent from your working
+directory. Resolve the root, then `cd` there and work from there for the rest of the
+session; the orchestrator role belongs in the main checkout:
+
+```bash
+tower-root                    # if the tower repo's bin/ is on PATH - prints the project root
+# otherwise, resolve it yourself:
+find "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  -maxdepth 3 -type d -name .tower
+```
+
+The first command walks up from `$PWD`, then maps your path into the main checkout, then
+scans it. The fallback covers all of those cases at once: the main checkout is the parent of
+the shared git dir, and the project root is the parent of the `.tower/` it finds — which in
+a monorepo is a subdirectory (`repo/connectors/`), not the repo root. More than one hit
+means several tower projects share the repo: pick by matching your own subpath, and if that
+is still ambiguous, ask the owner which project rather than guessing.
 
 Read `PROTOCOL.md` in the tower repo (or the copy referenced by the project README) if any
 file format below is unclear.

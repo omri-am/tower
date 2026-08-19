@@ -19,7 +19,8 @@ hook will not let you finish without it.
 3. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a
    symlink to the shared state, so whatever you write in it is immediately visible to the
-   orchestrator and other sessions.
+   orchestrator and other sessions. If the symlink is missing, resolve the real state with
+   `tower-root` and write there — never scaffold a second `.tower/`.
 4. Run every command under `## Verification`; check acceptance criteria boxes in the card
    as they become true.
 5. Open the PR (fill the card's `pr:` field), set card status `in-review`.

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ALL=0 START="$PWD"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --all) ALL=1; shift ;;
+    -*) echo "usage: tower-root [--all] [dir]" >&2; exit 1 ;;
+    *) START="$1"; shift ;;
+  esac
+done
+START="$(cd "$START" && pwd)"
+
+UP="$START"
+while [ "$UP" != "/" ] && [ ! -d "$UP/.tower" ]; do
+  UP="$(dirname "$UP")"
+done
+if [ "$ALL" = 0 ] && [ -d "$UP/.tower" ]; then echo "$UP"; exit 0; fi
+
+CUR_TOP="" MAIN_TOP=""
+if git -C "$START" rev-parse --show-toplevel >/dev/null 2>&1; then
+  CUR_TOP="$(git -C "$START" rev-parse --show-toplevel)"
+  MAIN_TOP="$(dirname "$(git -C "$START" rev-parse --path-format=absolute --git-common-dir)")"
+fi
+
+if [ "$ALL" = 0 ] && [ -n "$MAIN_TOP" ] && [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+  MAPPED="$MAIN_TOP${START#"$CUR_TOP"}"
+  while [ "$MAPPED" != "$MAIN_TOP" ] && [ ! -d "$MAPPED/.tower" ]; do
+    MAPPED="$(dirname "$MAPPED")"
+  done
+  if [ -d "$MAPPED/.tower" ]; then echo "$MAPPED"; exit 0; fi
+fi
+
+SCAN_ROOT="${MAIN_TOP:-$CUR_TOP}"
+[ -n "$SCAN_ROOT" ] || { echo "tower-root: no .tower/ in $START or any ancestor, and not inside a git repository" >&2; exit 1; }
+
+FOUND="$(find "$SCAN_ROOT" -maxdepth 3 -type d -name .tower 2>/dev/null | sed 's|/\.tower$||' | sort)"
+COUNT="$(printf '%s' "$FOUND" | grep -c . || true)"
+
+if [ "$ALL" = 1 ]; then
+  [ "$COUNT" -gt 0 ] || { echo "tower-root: no .tower/ project under $SCAN_ROOT" >&2; exit 1; }
+  printf '%s\n' "$FOUND"
+  exit 0
+fi
+if [ "$COUNT" = 1 ]; then printf '%s\n' "$FOUND"; exit 0; fi
+if [ "$COUNT" -gt 1 ]; then
+  echo "tower-root: more than one .tower project under $SCAN_ROOT - pass the project dir explicitly:" >&2
+  printf '%s\n' "$FOUND" >&2
+  exit 1
+fi
+echo "tower-root: no .tower/ in $START, any ancestor, or under $SCAN_ROOT (run tower-init first)" >&2
+exit 1

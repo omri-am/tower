@@ -5,11 +5,21 @@ Everything durable lives in files under `.tower/` at the **project root**, commi
 main. Sessions are disposable; any session assuming a role rehydrates from these files.
 
 The project root is where `tower-init` was run: the repo root for a single-project repo, or
-a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
-tower tool and role discovers its project by walking up from the current directory to the
-nearest ancestor containing `.tower/`, so a monorepo can hold many independent tower
-projects side by side. Branches are namespaced per project (`tower/<project-dir>/T###-slug`)
-because the branch namespace is repo-wide.
+a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects, so a
+monorepo can hold many independent tower projects side by side. Branches are namespaced per
+project (`tower/<project-dir>/T###-slug`) because the branch namespace is repo-wide.
+
+Every tower tool and role discovers its project the same way, and `bin/tower-root` is the
+one implementation of it — scripts call it, roles follow the same three steps by hand:
+
+1. Walk up from the current directory to the nearest ancestor containing `.tower/`.
+2. If that fails and the current directory is a git worktree, map the path into the main
+   checkout (the parent of `git rev-parse --git-common-dir`) and walk up again. In sidecar
+   mode `.tower/` lives only in the main checkout, so a worktree finds it no other way
+   than the symlink dispatch plants.
+3. If that fails too, scan the main checkout for `.tower/` up to three levels deep — this
+   is what finds `repo/connectors/` when the session started at the worktree root. One hit
+   wins; several mean the caller must name the project.
 
 ## State directory
 
