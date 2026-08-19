@@ -19,7 +19,17 @@ PROJECT_DIR="$PWD"
 while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
   PROJECT_DIR="$(dirname "$PROJECT_DIR")"
 done
-[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-watch: no .tower/ in $PWD or any ancestor" >&2; exit 1; }
+if [ ! -d "$PROJECT_DIR/.tower" ] && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  CUR_TOP="$(git rev-parse --show-toplevel)"
+  MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+    PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
+    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+    done
+  fi
+fi
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-watch: no .tower/ in $PWD, any ancestor, or the main checkout" >&2; exit 1; }
 
 NOTIFY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-notify"
 
