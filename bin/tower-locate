@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-locate [--from <dir>] [--task <id>] [--quiet]" >&2
+  exit 1
+}
+
+FROM="$PWD" TASK="" QUIET=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --from) [ $# -ge 2 ] || usage; FROM="$2"; shift 2 ;;
+    --task) [ $# -ge 2 ] || usage; TASK="$2"; shift 2 ;;
+    --quiet) QUIET=1; shift ;;
+    *) usage ;;
+  esac
+done
+
+note() { [ "$QUIET" = 1 ] || echo "tower-locate: $*" >&2; }
+resolve() { echo "$1"; echo "$2"; exit 0; }
+
+walk_up() {
+  local dir="$1" stop="${2:-/}"
+  while [ "$dir" != "$stop" ] && [ "$dir" != "/" ] && [ ! -d "$dir/.tower" ]; do
+    dir="$(dirname "$dir")"
+  done
+  [ -d "$dir/.tower" ] || return 1
+  echo "$dir"
+}
+
+if [ -n "${TOWER_PROJECT_DIR:-}" ]; then
+  if [ -d "$TOWER_PROJECT_DIR/.tower" ]; then
+    resolve "$(cd "$TOWER_PROJECT_DIR" && pwd)" env
+  fi
+  note "TOWER_PROJECT_DIR=$TOWER_PROJECT_DIR has no .tower/"
+  exit 3
+fi
+
+[ -d "$FROM" ] || { note "no such directory: $FROM"; exit 3; }
+START="$(cd "$FROM" && pwd)"
+
+CUR_TOP="" MAIN_TOP="" WT_LIST="" MAIN_BARE=0
+if git -C "$START" rev-parse --show-toplevel >/dev/null 2>&1; then
+  CUR_TOP="$(git -C "$START" rev-parse --show-toplevel)"
+  WT_LIST="$(git -C "$START" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' || true)"
+  MAIN_TOP="$(printf '%s\n' "$WT_LIST" | head -1)"
+  if [ -n "$MAIN_TOP" ] && [ "$(git -C "$MAIN_TOP" rev-parse --is-bare-repository 2>/dev/null || echo false)" = true ]; then
+    MAIN_BARE=1
+  fi
+fi
+
+is_per_branch_copy() {
+  local dir="$1"
+  [ -d "$dir/.tower/.git" ] && return 1
+  [ -L "$dir/.tower" ] && return 1
+  [ -n "$CUR_TOP" ] || return 1
+  [ -n "$MAIN_TOP" ] || return 1
+  [ "$MAIN_BARE" = 1 ] && return 1
+  [ "$CUR_TOP" != "$MAIN_TOP" ] || return 1
+  return 0
+}
+
+COPY=""
+if HIT="$(walk_up "$START")"; then
+  if is_per_branch_copy "$HIT"; then
+    COPY="$HIT"
+    note "$HIT/.tower is a per-branch copy in a linked worktree (non-sidecar mode) - preferring the main checkout"
+  else
+    resolve "$HIT" ancestor
+  fi
+fi
+
+if [ -n "$CUR_TOP" ] && [ -n "$MAIN_TOP" ] && [ "$MAIN_BARE" = 0 ] && [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+  MAPPED="$MAIN_TOP${START#"$CUR_TOP"}"
+  while [ "$MAPPED" != "$MAIN_TOP" ] && [ ! -d "$MAPPED" ]; do
+    MAPPED="$(dirname "$MAPPED")"
+  done
+  if HIT="$(walk_up "$MAPPED" "$MAIN_TOP")"; then
+    resolve "$HIT" worktree
+  fi
+fi
+
+SEARCH_ROOTS=""
+if [ "$MAIN_BARE" = 1 ]; then
+  SEARCH_ROOTS="$(printf '%s\n' "$WT_LIST" | tail -n +2)"
+elif [ -n "$MAIN_TOP" ]; then
+  SEARCH_ROOTS="$MAIN_TOP"
+fi
+
+CANDIDATES=""
+while IFS= read -r ROOT; do
+  [ -n "$ROOT" ] || continue
+  while IFS= read -r STATE; do
+    [ -n "$STATE" ] || continue
+    if [ -n "$TASK" ]; then
+      CARD="$(find "$STATE/tasks" -maxdepth 1 \( -name "$TASK-*.md" -o -name "$TASK.md" \) 2>/dev/null | head -1)"
+      [ -n "$CARD" ] || continue
+    fi
+    CANDIDATES="$CANDIDATES$(dirname "$STATE")
+"
+  done <<INNER
+$(find "$ROOT" -maxdepth 3 -type d -name .tower 2>/dev/null)
+INNER
+done <<OUTER
+$SEARCH_ROOTS
+OUTER
+
+CANDIDATES="$(printf '%s' "$CANDIDATES" | sed '/^$/d' | sort -u)"
+COUNT="$(printf '%s\n' "$CANDIDATES" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+if [ "$COUNT" = 1 ]; then
+  resolve "$CANDIDATES" search
+fi
+if [ "$COUNT" -gt 1 ]; then
+  note "more than one .tower project matches${TASK:+ for $TASK}:"
+  [ "$QUIET" = 1 ] || printf '%s\n' "$CANDIDATES" | sed 's/^/  /' >&2
+  note "cd into the right project dir, or pass --from <dir>"
+  exit 4
+fi
+
+if [ -n "$COPY" ]; then
+  note "no canonical .tower/ found - using $COPY/.tower, a per-branch copy the orchestrator may never read"
+  resolve "$COPY" ancestor
+fi
+
+note "no .tower/ found in $START, its ancestors, or the main checkout"
+exit 3

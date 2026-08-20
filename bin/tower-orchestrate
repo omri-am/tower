@@ -2,23 +2,17 @@
 set -euo pipefail
 
 TARGET="${1:-$PWD}"
-START="$(cd "$TARGET" && pwd)"
-PROJECT_DIR="$START"
-while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
-  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
-done
-if [ ! -d "$PROJECT_DIR/.tower" ] && git -C "$START" rev-parse --show-toplevel >/dev/null 2>&1; then
-  CUR_TOP="$(git -C "$START" rev-parse --show-toplevel)"
-  MAIN_TOP="$(dirname "$(git -C "$START" rev-parse --path-format=absolute --git-common-dir)")"
-  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
-    PROJECT_DIR="$MAIN_TOP${START#"$CUR_TOP"}"
-    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
-      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
-    done
-    [ -d "$PROJECT_DIR/.tower" ] && echo "tower-orchestrate: launching in the main checkout ($PROJECT_DIR) - the orchestrator role belongs there, not in a worktree"
-  fi
+LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+
+if ! LOCATED="$("$LOCATE" --from "$TARGET")"; then
+  echo "tower-orchestrate: no single .tower/ project for $TARGET - run tower-init in the project dir, or pass the project dir as an argument" >&2
+  exit 1
 fi
-[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-orchestrate: no .tower/ in $TARGET, any ancestor, or the main checkout (run tower-init first)" >&2; exit 1; }
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+case "$(printf '%s\n' "$LOCATED" | sed -n 2p)" in
+  worktree|search)
+    echo "tower-orchestrate: launching in the main checkout ($PROJECT_DIR) - the orchestrator role belongs there, not in a worktree" ;;
+esac
 
 PROMPT="Invoke the tower-orchestrator skill and assume the orchestrator role for this project. Follow the skill fully: run the rehydration ritual including registering your address in .tower/orchestrator, then start the standing loop."
 

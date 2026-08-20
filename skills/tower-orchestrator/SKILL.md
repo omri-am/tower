@@ -6,13 +6,34 @@ description: Assume the tower orchestrator role for a project using the .tower/ 
 # tower orchestrator
 
 You are assuming a role, not starting a project. Everything you need to know lives in
-`.tower/` at the project root — the nearest ancestor of your working directory containing
-`.tower/`, which in a monorepo is the project's subdirectory, not the repo root. Everything
-you decide must end up back there. Your session is
+`.tower/` at the project root, which in a monorepo is the project's subdirectory, not the
+repo root. Everything you decide must end up back there. Your session is
 disposable — if a fact exists only in this conversation, you have failed to record it.
 
 Read `PROTOCOL.md` in the tower repo (or the copy referenced by the project README) if any
 file format below is unclear.
+
+## Locate the project — before anything else
+
+Every path below is relative to the project directory, the one containing `.tower/`. Run
+`tower-locate`: its first line is that directory, its second line how it resolved. The
+chain is `TOWER_PROJECT_DIR`, then the nearest ancestor holding `.tower/`, then — when you
+are in a git worktree that has none — the same path mapped into the main checkout, found
+with `git worktree list --porcelain` (its first entry is the main worktree, so nothing
+depends on folder names), then a bounded search of the main checkout for a `.tower/`
+project.
+
+- Resolved as `worktree` or `search`: `cd` to the printed directory. The orchestrator role
+  belongs in the main checkout, not in a worktree.
+- Exit 4, ambiguous: show the candidates it listed and ask the owner which project this
+  session is for.
+- Exit 3, nothing found: ask the owner for the project directory with AskUserQuestion, then
+  confirm it with `tower-locate --from <their answer>`.
+- **Never run `tower-init` to recover.** A fresh empty `.tower/` looks like a project and
+  buries the real one.
+- `tower-locate` not on PATH: walk the chain by hand —
+  `git worktree list --porcelain | sed -n 's/^worktree //p' | head -1` is the main checkout,
+  then walk up from there looking for `.tower/`.
 
 ## Rehydration ritual — always first, in this order
 
