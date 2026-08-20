@@ -6,10 +6,10 @@ main. Sessions are disposable; any session assuming a role rehydrates from these
 
 The project root is where `tower-init` was run: the repo root for a single-project repo, or
 a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
-tower tool and role discovers its project by walking up from the current directory to the
-nearest ancestor containing `.tower/`, so a monorepo can hold many independent tower
-projects side by side. Branches are namespaced per project (`tower/<project-dir>/T###-slug`)
-because the branch namespace is repo-wide.
+tower tool and role discovers its project through the chain in **Project discovery** below,
+so a monorepo can hold many independent tower projects side by side. Branches are
+namespaced per project (`tower/<project-dir>/T###-slug`) because the branch namespace is
+repo-wide.
 
 ## State directory
 
@@ -47,6 +47,44 @@ started by external worktree platforms (after `tower-dispatch --prep`) are equal
 to the handoff requirement. This requires sidecar mode (a committed `.tower/` would materialize as a
 stale per-branch copy in each worktree); dispatch enforces that. After ingesting a task's
 handoff, the orchestrator removes its worktree (`git worktree remove`).
+
+## Project discovery
+
+Every tool and every role resolves its project the same way, through `tower-locate`, which
+prints the project directory on its first line and how it resolved on the second — one of
+`env`, `ancestor`, `worktree`, `search`, or `copy`. The chain, in order:
+
+1. `TOWER_PROJECT_DIR`, when set and holding a `.tower/`, and only when the caller did not
+   name a directory with `--from` — an explicit argument outranks the environment. A
+   `TOWER_PROJECT_DIR` that holds no `.tower/` fails the whole lookup rather than falling
+   through, so a stale export can never silently resolve some other project.
+2. The nearest ancestor of the current directory containing `.tower/`.
+3. The current path mapped into the main checkout, when the current directory is a git
+   worktree with no `.tower/` of its own. The main checkout comes from
+   `git worktree list --porcelain`, whose first entry is the main worktree — no folder-name
+   heuristic, and it stays correct when the main repo is bare, in which case every linked
+   worktree is searched instead.
+4. A bounded search (`-maxdepth 3`) of the main checkout for a `.tower/` project.
+   `--task T###` narrows it to the project whose `tasks/` holds that card, and refuses when
+   the id is ambiguous across projects.
+
+Exit 0 resolves; exit 4 means more than one project matched and the caller must choose;
+exit 3 means nothing was found. Scripts stop at exit 3. A session assuming a role instead
+asks the owner which directory is the project — and never scaffolds a fresh `.tower/` to
+recover, because an empty state directory looks like a project and buries the real one.
+
+The two modes fail in opposite directions, and the chain handles both. In sidecar mode
+`.tower/` is invisible to any worktree dispatch did not symlink it into, so step 3 is what
+finds it. In non-sidecar mode `.tower/` is tracked, so a linked worktree carries a
+per-branch copy that step 2 would happily return — and writes to that copy never reach the
+orchestrator. A `.tower/` that is a real directory, contains no `.git/`, and sits in a
+linked worktree is therefore rejected in favour of the main checkout's. When no better
+candidate exists it is returned as kind `copy` rather than `ancestor`, so callers can tell a
+degraded resolution from a healthy one: `tower-orchestrate` refuses to launch the role there,
+and an implementor stops and tells the owner instead of writing a handoff nobody will read. A session that resolves outside its own directory makes the
+resolution stick before working: an implementor symlinks `.tower` in as dispatch does, so
+the Stop hook resolves the same state; an orchestrator moves to the main checkout, where
+its role belongs.
 
 ## Task cards — `tasks/T###-slug.md`
 

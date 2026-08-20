@@ -49,8 +49,13 @@ For a repo that must stay clean of tower files (company projects), use
 via the local-only `.git/info/exclude`. Same protocol, second repo — see PROTOCOL.md.
 
 `tower-init` anchors the project where you run it, not at the repo root — in a monorepo,
-run it from the project's subdirectory. All tools find their project by walking up to the
-nearest `.tower/`, so one repo can hold several independent tower projects.
+run it from the project's subdirectory. All tools and both roles find their project through
+`tower-locate` — nearest `.tower/` above you, else the same path inside the main checkout
+(resolved from `git worktree list`, never from folder names), else a bounded search of it —
+so one repo can hold several independent tower projects and a session started in any
+worktree still finds the shared state. When even that fails, an orchestrator or implementor
+session asks you where the project is rather than guessing or scaffolding a new `.tower/`.
+See [PROTOCOL.md](PROTOCOL.md) for the full chain and its exit codes.
 
 1. Start the orchestrator: `tower-orchestrate` (from anywhere in the project) opens a
    Claude session that assumes the role, registers its address in `.tower/orchestrator`
@@ -78,10 +83,9 @@ that arms the Stop hook without env vars) but launches nothing — for worktree-
 platforms that start the agent themselves; then tell the agent to read its prompt file. By default
 dispatch creates a per-task git worktree at `<repo>-tower-worktrees/T###` on the card's
 branch and symlinks the shared `.tower/` into it (sidecar mode required for this). Running
-dispatch from inside a worktree that has no `.tower` adopts that worktree automatically:
-discovery first maps the current path back to the main checkout, then falls back to
-searching the main checkout for the project whose `tasks/` contains the requested card
-(refusing if the id is ambiguous across projects) — so `tower-dispatch T### --prep` works
+dispatch from inside a worktree that has no `.tower` adopts that worktree automatically,
+because `tower-locate --task T###` resolved the project from outside it — so
+`tower-dispatch T### --prep` works
 from anywhere inside the repo or any worktree of it when your own tooling creates the
 worktrees; the worktree's existing branch is recorded on the card.
 

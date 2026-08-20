@@ -11,22 +11,38 @@ hook will not let you finish without it.
 
 ## Order of operations
 
-1. Read the learnings selected for your card — before the card, before any code. They are
+1. Locate the project. Run `tower-locate`: its first line is the directory holding
+   `.tower/`, its second how it resolved — `TOWER_PROJECT_DIR`, the nearest ancestor with
+   `.tower/`, the same path mapped into the main checkout when you are in a worktree that
+   has none (via `git worktree list --porcelain`, whose first entry is the main worktree, so
+   nothing depends on folder names), or a bounded search of the main checkout. When the
+   resolved directory is not an ancestor of yours, make the resolution stick before doing
+   anything else, so the Stop hook and every later process see the same state: in sidecar
+   mode (`.tower/.git` exists) symlink it in with `ln -s <dir>/.tower .tower`, exactly as
+   `tower-dispatch` does for a dispatched worktree; otherwise `cd` to the resolved
+   directory, because a committed `.tower/` cannot be shadowed by a symlink. Exit 4 means
+   ambiguous and exit 3 means nothing found — in both cases ask the owner which directory
+   is the project, and **never run `tower-init`**: a fresh empty `.tower/` looks like a
+   project and buries the real one. Resolution kind `copy` on the second line means the only
+   `.tower/` available is a per-branch copy inside a linked worktree: stop there, tell the
+   owner the project has no canonical state reachable from here, and do not implement — a
+   handoff written into a copy is a handoff the orchestrator never reads.
+2. Read the learnings selected for your card — before the card, before any code. They are
    already in your dispatch prompt; regenerate them with `tower-learnings --for $TOWER_TASK`
    if you were started without one. The selection is scoped to the paths you own, so it is
    short on purpose; read `.tower/learnings.md` whole only when you need context the
    selection lacks. Previous agents paid for these lessons.
-2. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
+3. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
    in the `.tower-task` file at the project root).
    Re-read `## Corrections` if present — corrections supersede the original card body.
-3. Implement on the card's branch, touching only paths listed under `## File ownership`.
+4. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a
    symlink to the shared state, so whatever you write in it is immediately visible to the
    orchestrator and other sessions.
-4. Run every command under `## Verification`; check acceptance criteria boxes in the card
+5. Run every command under `## Verification`; check acceptance criteria boxes in the card
    as they become true.
-5. Open the PR (fill the card's `pr:` field), set card status `in-review`.
-6. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
+6. Open the PR (fill the card's `pr:` field), set card status `in-review`.
+7. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
    a draft at this point. When the owner merges the PR while your session is still alive,
    update the handoff with everything review changed before you finish; the merged state,
    not the opened PR, is what the orchestrator ingests.

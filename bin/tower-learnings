@@ -17,21 +17,17 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$MODE" ] || usage
 
-PROJECT_DIR="$PWD"
-while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
-  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
-done
-if [ ! -d "$PROJECT_DIR/.tower" ] && git rev-parse --show-toplevel >/dev/null 2>&1; then
-  CUR_TOP="$(git rev-parse --show-toplevel)"
-  MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
-  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
-    PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
-    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
-      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
-    done
-  fi
+LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+if [ -n "$TASK_ID" ]; then
+  LOCATED="$("$LOCATE" --task "$TASK_ID")" || LOCATED=""
+else
+  LOCATED="$("$LOCATE")" || LOCATED=""
 fi
-[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-learnings: no .tower/ in $PWD, any ancestor, or the main checkout" >&2; exit 1; }
+if [ -z "$LOCATED" ]; then
+  echo "tower-learnings: no single .tower/ project for $PWD - cd into the project dir first" >&2
+  exit 1
+fi
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
 
 LEARNINGS="$PROJECT_DIR/.tower/learnings.md"
 ARCHIVE="$PROJECT_DIR/.tower/learnings-archive.md"
