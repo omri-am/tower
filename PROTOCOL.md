@@ -18,6 +18,7 @@ because the branch namespace is repo-wide.
   design.md            living design doc, edited only by the orchestrator
   learnings.md         curated lessons, path-scoped, selected per card at dispatch
   learnings-archive.md retired lessons, out of every prompt, kept for provenance
+  card-sizing.md       card-size limits for this project, confirmed once by the owner
   tasks/               one card per task: T###-slug.md
   handoffs/            one handoff per finished task: T###-handoff.md
   prompts/             finalized dispatch prompts: T###-prompt.md
@@ -73,6 +74,16 @@ Body sections, all required:
 - `## Acceptance criteria` — checklist, all unchecked at creation. The card is done when
   every box is checked and verified.
 - `## Verification` — exact commands that prove the acceptance criteria.
+
+Card size: one card is one reviewable PR. Concretely, it crosses one boundary, lists five or
+fewer paths under `## File ownership`, and carries seven or fewer acceptance criteria. A card
+that wants more than that wants splitting. This is where the protocol's two opposing forces
+resolve: file ownership rewards large cards (fewer overlaps to sequence) while
+decision-completeness rewards small ones (every interface must be pre-decided), and the
+reviewable-PR ceiling is what breaks the tie. Splitting is preferred over widening — a card
+too large for one review is a card the owner cannot gate on. The numbers above are
+defaults; the project's live limits are `.tower/card-sizing.md`, which the orchestrator
+confirms with the owner once and then reads at every rehydration.
 
 Status semantics: `draft` cards are the orchestrator planning ahead — they carry scope,
 interfaces, and acceptance criteria but no prompt. The owner approves a draft to make it
@@ -206,6 +217,7 @@ project is self-contained.
 
 ## Roles are disposable
 
-Orchestrator rehydration ritual, in order: `design.md`, all cards with status other than
-`merged`, `learnings.md`, handoffs newer than the last `tower:` commit. After that the
-session is the orchestrator, regardless of which session it is or which vendor runs it.
+Orchestrator rehydration ritual, in order: `design.md`, `card-sizing.md` (absent means the
+card-size defaults above apply), all cards with status other than `merged`, `learnings.md`,
+handoffs newer than the last `tower:` commit. After that the session is the orchestrator,
+regardless of which session it is or which vendor runs it.
