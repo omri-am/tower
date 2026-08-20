@@ -93,7 +93,8 @@ while IFS= read -r ROOT; do
   while IFS= read -r STATE; do
     [ -n "$STATE" ] || continue
     if [ -n "$TASK" ]; then
-      CARD="$(find "$STATE/tasks" -maxdepth 1 \( -name "$TASK-*.md" -o -name "$TASK.md" \) 2>/dev/null | head -1)"
+      [ -d "$STATE/tasks" ] || continue
+      CARD="$(find "$STATE/tasks" -maxdepth 1 \( -name "$TASK-*.md" -o -name "$TASK.md" \) 2>/dev/null || true)"
       [ -n "$CARD" ] || continue
     fi
     CANDIDATES="$CANDIDATES$(dirname "$STATE")
@@ -119,8 +120,8 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 
 if [ -n "$COPY" ]; then
-  note "no canonical .tower/ found - using $COPY/.tower, a per-branch copy the orchestrator may never read"
-  resolve "$COPY" ancestor
+  note "no canonical .tower/ found - $COPY/.tower is a per-branch copy the orchestrator may never read"
+  resolve "$COPY" copy
 fi
 
 note "no .tower/ found in $START, its ancestors, or the main checkout"

@@ -12,6 +12,9 @@ PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
 case "$(printf '%s\n' "$LOCATED" | sed -n 2p)" in
   worktree|search)
     echo "tower-orchestrate: launching in the main checkout ($PROJECT_DIR) - the orchestrator role belongs there, not in a worktree" ;;
+  copy)
+    echo "tower-orchestrate: $PROJECT_DIR/.tower is a per-branch copy in a linked worktree, not the canonical state - pass the project dir in the main checkout instead" >&2
+    exit 1 ;;
 esac
 
 PROMPT="Invoke the tower-orchestrator skill and assume the orchestrator role for this project. Follow the skill fully: run the rehydration ritual including registering your address in .tower/orchestrator, then start the standing loop."

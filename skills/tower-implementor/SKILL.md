@@ -23,9 +23,10 @@ hook will not let you finish without it.
    directory, because a committed `.tower/` cannot be shadowed by a symlink. Exit 4 means
    ambiguous and exit 3 means nothing found — in both cases ask the owner which directory
    is the project, and **never run `tower-init`**: a fresh empty `.tower/` looks like a
-   project and buries the real one. If `tower-locate` warns that the `.tower/` it found is
-   a per-branch copy inside a linked worktree, believe it — the orchestrator never reads
-   what you write there.
+   project and buries the real one. Resolution kind `copy` on the second line means the only
+   `.tower/` available is a per-branch copy inside a linked worktree: stop there, tell the
+   owner the project has no canonical state reachable from here, and do not implement — a
+   handoff written into a copy is a handoff the orchestrator never reads.
 2. Read `.tower/learnings.md` — before the card, before any code. It exists because
    previous agents paid for these lessons.
 3. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or

@@ -49,8 +49,8 @@ handoff, the orchestrator removes its worktree (`git worktree remove`).
 ## Project discovery
 
 Every tool and every role resolves its project the same way, through `tower-locate`, which
-prints the project directory on its first line and how it resolved on the second. The chain,
-in order:
+prints the project directory on its first line and how it resolved on the second — one of
+`env`, `ancestor`, `worktree`, `search`, or `copy`. The chain, in order:
 
 1. `TOWER_PROJECT_DIR`, when set and holding a `.tower/`.
 2. The nearest ancestor of the current directory containing `.tower/`.
@@ -73,8 +73,10 @@ The two modes fail in opposite directions, and the chain handles both. In sideca
 finds it. In non-sidecar mode `.tower/` is tracked, so a linked worktree carries a
 per-branch copy that step 2 would happily return — and writes to that copy never reach the
 orchestrator. A `.tower/` that is a real directory, contains no `.git/`, and sits in a
-linked worktree is therefore rejected in favour of the main checkout's, with a warning when
-no better candidate exists. A session that resolves outside its own directory makes the
+linked worktree is therefore rejected in favour of the main checkout's. When no better
+candidate exists it is returned as kind `copy` rather than `ancestor`, so callers can tell a
+degraded resolution from a healthy one: `tower-orchestrate` refuses to launch the role there,
+and an implementor stops and tells the owner instead of writing a handoff nobody will read. A session that resolves outside its own directory makes the
 resolution stick before working: an implementor symlinks `.tower` in as dispatch does, so
 the Stop hook resolves the same state; an orchestrator moves to the main checkout, where
 its role belongs.

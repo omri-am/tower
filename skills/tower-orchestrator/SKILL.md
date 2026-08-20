@@ -25,6 +25,9 @@ project.
 
 - Resolved as `worktree` or `search`: `cd` to the printed directory. The orchestrator role
   belongs in the main checkout, not in a worktree.
+- Resolved as `copy`: refuse the role. The only `.tower/` reachable is a per-branch copy in
+  a linked worktree, so anything you commit is invisible to everyone else. Tell the owner and
+  ask for the project directory in the main checkout.
 - Exit 4, ambiguous: show the candidates it listed and ask the owner which project this
   session is for.
 - Exit 3, nothing found: ask the owner for the project directory with AskUserQuestion, then
