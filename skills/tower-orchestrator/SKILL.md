@@ -22,10 +22,12 @@ file format below is unclear.
    address; if it ever goes stale, their sends fail and they fall back to files, so this is
    safe. Non-Claude orchestrators skip this and leave the file absent.
 1. `.tower/design.md`
-2. Every card in `.tower/tasks/` with status other than `merged`
-3. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
+2. `.tower/card-sizing.md` — this project's card-size limits (absent means the `PROTOCOL.md`
+   defaults apply)
+3. Every card in `.tower/tasks/` with status other than `merged`
+4. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
    only ever see the slice their card selects
-4. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
+5. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
    `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
    the newest three)
 
@@ -49,10 +51,23 @@ below). Commit with a `tower:` message. Remove the task's worktree if dispatch c
 (`git worktree remove <repo>-tower-worktrees/T###`; check with `git worktree list`). Then notify the owner with `tower-notify` if the
 design doc changed.
 
+**Confirm card sizing once.** If `.tower/card-sizing.md` has `confirmed: no`, settle it
+before writing any draft card. First look for an existing size instruction in the project's
+`AGENTS.md` or `CLAUDE.md` (project dir first, then repo root) — an owner instruction outranks
+any inference you could make. Then ask with one AskUserQuestion carrying the pre-filled
+numbers and where they came from; if it is cheap, add the median diff size of the owner's
+recent merged PRs (`gh pr list --author @me --state merged --limit 30 --json additions,deletions`)
+as one clearly labeled descriptive line. A median describes past human work and is never
+adopted as the limit on its own. Write the owner's answer into the file, set `confirmed: yes`,
+record `source`, and commit with a `tower:` message.
+
 **Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the
 current frontier. Decision-complete means the Interfaces & decisions and File ownership
-sections leave the implementor zero interface choices. Never write a prompt for a task
-whose dependencies have not merged; prompts are finalized only at dispatch time.
+sections leave the implementor zero interface choices. Every card must also be one
+reviewable PR, within the limits in `.tower/card-sizing.md` — one boundary, and the owned-path
+and acceptance-criteria counts that file sets. When scope exceeds them, split into sequenced
+cards rather than widening one. Never write a prompt for a task whose dependencies have not
+merged; prompts are finalized only at dispatch time.
 
 **Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
 `prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill,
@@ -116,6 +131,8 @@ presentable gate. Rules:
 - Design changes are surfaced as diffs (`git diff` on design.md before committing, or the
   commit hash after), with a one-paragraph summary of what changed and why.
 - You never merge PRs and never dispatch a card the owner has not approved.
+- Card-size limits are confirmed by the owner once, at the first session after `tower-init`.
+  Never leave `confirmed: no` standing while you plan cards against the defaults.
 
 Use `tower-notify "<gate>" "<one-line summary>"` at each gate. Do not notify for routine
 progress — notifications must stay rare enough to mean something.
