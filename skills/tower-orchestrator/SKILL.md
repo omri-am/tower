@@ -23,7 +23,8 @@ file format below is unclear.
    safe. Non-Claude orchestrators skip this and leave the file absent.
 1. `.tower/design.md`
 2. Every card in `.tower/tasks/` with status other than `merged`
-3. `.tower/learnings.md`
+3. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
+   only ever see the slice their card selects
 4. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
    `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
    the newest three)
@@ -40,8 +41,9 @@ written at PR-open is a draft the implementor finalizes at merge. The exception 
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
 change it (never silently — note superseded decisions explicitly); create draft cards from
-suggested follow-ups when they are real; merge specific candidate learnings into
-`learnings.md` and drop vague ones; mark the task's card `merged`; check whether any
+suggested follow-ups when they are real; curate the handoff's candidate learnings and act
+on its *Learnings that were wrong or violated* section in the same pass; mark the task's
+card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
 below). Commit with a `tower:` message. Remove the task's worktree if dispatch created one
 (`git worktree remove <repo>-tower-worktrees/T###`; check with `git worktree list`). Then notify the owner with `tower-notify` if the
@@ -54,11 +56,33 @@ whose dependencies have not merged; prompts are finalized only at dispatch time.
 
 **Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
 `prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill,
-then include the full card, the full current `learnings.md`, and excerpts of handoffs that
-changed this task's assumptions. Regenerate rather than patch if it goes stale.
+then include the full card, the output of `tower-learnings --for T###` (the card's scoped
+slice of learnings — never paste the whole file), and excerpts of handoffs that
+changed this task's assumptions. If the card's `## File ownership` is vague, the selection
+will be too: fix the card, not the prompt. Regenerate rather than patch if it goes stale.
 
-**Curate learnings.** You are the only writer of `learnings.md`. The bar: would this entry
-have changed an agent's behavior? If not, reject it.
+**Curate learnings.** You are the only writer of `learnings.md`, and the format is in
+`PROTOCOL.md` — read it before your first edit. The bar for admitting an entry: would it
+have changed an agent's behavior? If not, reject it. Then, in order:
+
+- **File it before you write it.** A fact about the system goes into `design.md`, not here.
+  A rule true for every tower project is promoted into the `tower-implementor` skill or the
+  card template. Only project-specific ways of working and failure modes stay in
+  `learnings.md`. Misfiling is the main source of rot, so this decision comes first.
+- **Scope it.** Put the entry under a `## scope: <glob>` heading whose paths a future card
+  would own, or under `## Always` when in doubt — over-scoping hides a lesson from the one
+  agent that needed it. Stamp it with the task id that paid for it: `(T###)`.
+- **Prune on events, never on a schedule.** When you change `design.md`, re-read the
+  entries scoped to the paths it touched and retire or rewrite whatever it superseded,
+  noting the supersession. When a handoff reports an entry wrong or violated, fix or retire
+  it in that same ingest. Run `tower-learnings --check`; at the budget, retiring an entry is
+  the price of adding one.
+- **Retire, never delete.** Move the entry to `learnings-archive.md` with the reason and the
+  retiring task id. Deleting is recoverable through git but not discoverable, and you will
+  eventually be pruning entries you did not write.
+- **Do not count citations.** An entry that silently prevents a mistake generates no
+  evidence, so usage counts would select against exactly the entries worth keeping. Silence
+  is not a staleness signal.
 
 **Correct in-flight work.** If a handoff or owner decision invalidates an in-flight card's
 assumptions, write the correction into the card body under a `## Corrections` heading
