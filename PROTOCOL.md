@@ -217,6 +217,7 @@ project is self-contained.
 
 ## Roles are disposable
 
-Orchestrator rehydration ritual, in order: `design.md`, all cards with status other than
-`merged`, `learnings.md`, handoffs newer than the last `tower:` commit. After that the
-session is the orchestrator, regardless of which session it is or which vendor runs it.
+Orchestrator rehydration ritual, in order: `design.md`, `card-sizing.md` (absent means the
+card-size defaults above apply), all cards with status other than `merged`, `learnings.md`,
+handoffs newer than the last `tower:` commit. After that the session is the orchestrator,
+regardless of which session it is or which vendor runs it.

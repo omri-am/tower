@@ -11,7 +11,7 @@ between controllers, and the tower — the human — always has final authority.
 
 ## Why files
 
-- **Sessions rot; files don't.** Any session becomes the orchestrator by reading four
+- **Sessions rot; files don't.** Any session becomes the orchestrator by reading five
   files in order. Kill it anytime; nothing is lost.
 - **Ownership through diffs.** The owner reviews `git diff` on `.tower/design.md` and task
   cards, at their own pace — no livestream-watching, no lost awareness.
