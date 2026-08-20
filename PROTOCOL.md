@@ -52,7 +52,10 @@ Every tool and every role resolves its project the same way, through `tower-loca
 prints the project directory on its first line and how it resolved on the second — one of
 `env`, `ancestor`, `worktree`, `search`, or `copy`. The chain, in order:
 
-1. `TOWER_PROJECT_DIR`, when set and holding a `.tower/`.
+1. `TOWER_PROJECT_DIR`, when set and holding a `.tower/`, and only when the caller did not
+   name a directory with `--from` — an explicit argument outranks the environment. A
+   `TOWER_PROJECT_DIR` that holds no `.tower/` fails the whole lookup rather than falling
+   through, so a stale export can never silently resolve some other project.
 2. The nearest ancestor of the current directory containing `.tower/`.
 3. The current path mapped into the main checkout, when the current directory is a git
    worktree with no `.tower/` of its own. The main checkout comes from

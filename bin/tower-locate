@@ -6,10 +6,10 @@ usage() {
   exit 1
 }
 
-FROM="$PWD" TASK="" QUIET=0
+FROM="$PWD" FROM_GIVEN=0 TASK="" QUIET=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --from) [ $# -ge 2 ] || usage; FROM="$2"; shift 2 ;;
+    --from) [ $# -ge 2 ] || usage; FROM="$2"; FROM_GIVEN=1; shift 2 ;;
     --task) [ $# -ge 2 ] || usage; TASK="$2"; shift 2 ;;
     --quiet) QUIET=1; shift ;;
     *) usage ;;
@@ -28,7 +28,7 @@ walk_up() {
   echo "$dir"
 }
 
-if [ -n "${TOWER_PROJECT_DIR:-}" ]; then
+if [ "$FROM_GIVEN" = 0 ] && [ -n "${TOWER_PROJECT_DIR:-}" ]; then
   if [ -d "$TOWER_PROJECT_DIR/.tower" ]; then
     resolve "$(cd "$TOWER_PROJECT_DIR" && pwd)" env
   fi

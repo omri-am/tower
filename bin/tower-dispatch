@@ -30,10 +30,11 @@ if ! LOCATED="$("$LOCATE" --task "$TASK_ID")"; then
   exit 1
 fi
 PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+RESOLVED_BY="$(printf '%s\n' "$LOCATED" | sed -n 2p)"
 
 CUR_TOP="$(git rev-parse --show-toplevel)"
 ADOPT_WT=""
-case "$(printf '%s\n' "$LOCATED" | sed -n 2p)" in
+case "$RESOLVED_BY" in
   worktree|search)
     case "$PROJECT_DIR/" in "$CUR_TOP/"*) ;; *) ADOPT_WT="$CUR_TOP" ;; esac ;;
 esac
