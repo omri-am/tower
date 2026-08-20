@@ -52,7 +52,7 @@ done <<EOF
 $(grep -n '^## ' "$LEARNINGS" || true)
 EOF
 SECTIONS=$IDX
-FILE_LINES="$(wc -l < "$LEARNINGS" | tr -d ' ')"
+FILE_LINES="$(awk 'END{print NR}' "$LEARNINGS")"
 
 section_end() {
   local i="$1" next=$(($1 + 1))
@@ -88,7 +88,7 @@ case "$MODE" in
       grep -n '^- ' "$LEARNINGS" | grep -v '(T[0-9]' || true
     fi
     if [ "$TOTAL" -gt "$BUDGET" ]; then
-      echo "over budget by $((TOTAL - BUDGET)) - retire an entry to learnings-archive.md before adding another" >&2
+      echo "tower-learnings: over budget by $((TOTAL - BUDGET)) - retire an entry to learnings-archive.md before adding another" >&2
       exit 1
     fi
     ;;
@@ -102,6 +102,7 @@ case "$MODE" in
     ;;
 
   for)
+    set -f
     CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
     [ -n "$CARD" ] || { echo "tower-learnings: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
 
@@ -122,8 +123,10 @@ case "$MODE" in
           GP="$(glob_prefix "$G")"
           for P in $OWNED; do
             PP="$(glob_prefix "$P")"
-            case "$PP" in "$GP"*) SELECT=1 ;; esac
-            case "$GP" in "$PP"*) SELECT=1 ;; esac
+            if [ -n "$GP" ] && [ -n "$PP" ]; then
+              case "$PP" in "$GP"*) SELECT=1 ;; esac
+              case "$GP" in "$PP"*) SELECT=1 ;; esac
+            fi
           done
         done
       fi

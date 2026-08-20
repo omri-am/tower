@@ -128,7 +128,8 @@ pruner can check whether the context still exists. `##` headings are path scopes
 **Selection at dispatch, not curation by hope.** `tower-learnings --for T###` intersects
 the scope globs with the card's `## File ownership` and prints `## Always` plus the
 sections that match; matching is by literal path prefix in either direction, with
-wildcards truncated. Every unscoped heading is always included, so an unmigrated flat file
+wildcards truncated — so a token that begins with a wildcard has no literal prefix and
+matches nothing. Every unscoped heading is always included, so an unmigrated flat file
 still prints whole. Prompts are regenerated per dispatch, so this decouples file size from
 prompt cost — the file can grow without every implementor paying for all of it. Scope only
 when a lesson is clearly local; under-scoping costs tokens, over-scoping hides the lesson
