@@ -46,9 +46,12 @@ project.
    address; if it ever goes stale, their sends fail and they fall back to files, so this is
    safe. Non-Claude orchestrators skip this and leave the file absent.
 1. `.tower/design.md`
-2. Every card in `.tower/tasks/` with status other than `merged`
-3. `.tower/learnings.md`
-4. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
+2. `.tower/card-sizing.md` — this project's card-size limits (absent means the `PROTOCOL.md`
+   defaults apply)
+3. Every card in `.tower/tasks/` with status other than `merged`
+4. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
+   only ever see the slice their card selects
+5. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
    `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
    the newest three)
 
@@ -64,25 +67,61 @@ written at PR-open is a draft the implementor finalizes at merge. The exception 
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
 change it (never silently — note superseded decisions explicitly); create draft cards from
-suggested follow-ups when they are real; merge specific candidate learnings into
-`learnings.md` and drop vague ones; mark the task's card `merged`; check whether any
+suggested follow-ups when they are real; curate the handoff's candidate learnings and act
+on its *Learnings that were wrong or violated* section in the same pass; mark the task's
+card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
 below). Commit with a `tower:` message. Remove the task's worktree if dispatch created one
 (`git worktree remove <repo>-tower-worktrees/T###`; check with `git worktree list`). Then notify the owner with `tower-notify` if the
 design doc changed.
 
+**Confirm card sizing once.** If `.tower/card-sizing.md` has `confirmed: no`, settle it
+before writing any draft card. First look for an existing size instruction in the project's
+`AGENTS.md` or `CLAUDE.md` (project dir first, then repo root) — an owner instruction outranks
+any inference you could make. Then ask with one AskUserQuestion carrying the pre-filled
+numbers and where they came from; if it is cheap, add the median diff size of the owner's
+recent merged PRs (`gh pr list --author @me --state merged --limit 30 --json additions,deletions`)
+as one clearly labeled descriptive line. A median describes past human work and is never
+adopted as the limit on its own. Write the owner's answer into the file, set `confirmed: yes`,
+record `source`, and commit with a `tower:` message.
+
 **Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the
 current frontier. Decision-complete means the Interfaces & decisions and File ownership
-sections leave the implementor zero interface choices. Never write a prompt for a task
-whose dependencies have not merged; prompts are finalized only at dispatch time.
+sections leave the implementor zero interface choices. Every card must also be one
+reviewable PR, within the limits in `.tower/card-sizing.md` — one boundary, and the owned-path
+and acceptance-criteria counts that file sets. When scope exceeds them, split into sequenced
+cards rather than widening one. Never write a prompt for a task whose dependencies have not
+merged; prompts are finalized only at dispatch time.
 
 **Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
 `prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill,
-then include the full card, the full current `learnings.md`, and excerpts of handoffs that
-changed this task's assumptions. Regenerate rather than patch if it goes stale.
+then include the full card, the output of `tower-learnings --for T###` (the card's scoped
+slice of learnings — never paste the whole file), and excerpts of handoffs that
+changed this task's assumptions. If the card's `## File ownership` is vague, the selection
+will be too: fix the card, not the prompt. Regenerate rather than patch if it goes stale.
 
-**Curate learnings.** You are the only writer of `learnings.md`. The bar: would this entry
-have changed an agent's behavior? If not, reject it.
+**Curate learnings.** You are the only writer of `learnings.md`, and the format is in
+`PROTOCOL.md` — read it before your first edit. The bar for admitting an entry: would it
+have changed an agent's behavior? If not, reject it. Then, in order:
+
+- **File it before you write it.** A fact about the system goes into `design.md`, not here.
+  A rule true for every tower project is promoted into the `tower-implementor` skill or the
+  card template. Only project-specific ways of working and failure modes stay in
+  `learnings.md`. Misfiling is the main source of rot, so this decision comes first.
+- **Scope it.** Put the entry under a `## scope: <glob>` heading whose paths a future card
+  would own, or under `## Always` when in doubt — over-scoping hides a lesson from the one
+  agent that needed it. Stamp it with the task id that paid for it: `(T###)`.
+- **Prune on events, never on a schedule.** When you change `design.md`, re-read the
+  entries scoped to the paths it touched and retire or rewrite whatever it superseded,
+  noting the supersession. When a handoff reports an entry wrong or violated, fix or retire
+  it in that same ingest. Run `tower-learnings --check`; at the budget, retiring an entry is
+  the price of adding one.
+- **Retire, never delete.** Move the entry to `learnings-archive.md` with the reason and the
+  retiring task id. Deleting is recoverable through git but not discoverable, and you will
+  eventually be pruning entries you did not write.
+- **Do not count citations.** An entry that silently prevents a mistake generates no
+  evidence, so usage counts would select against exactly the entries worth keeping. Silence
+  is not a staleness signal.
 
 **Correct in-flight work.** If a handoff or owner decision invalidates an in-flight card's
 assumptions, write the correction into the card body under a `## Corrections` heading
@@ -116,6 +155,8 @@ presentable gate. Rules:
 - Design changes are surfaced as diffs (`git diff` on design.md before committing, or the
   commit hash after), with a one-paragraph summary of what changed and why.
 - You never merge PRs and never dispatch a card the owner has not approved.
+- Card-size limits are confirmed by the owner once, at the first session after `tower-init`.
+  Never leave `confirmed: no` standing while you plan cards against the defaults.
 
 Use `tower-notify "<gate>" "<one-line summary>"` at each gate. Do not notify for routine
 progress — notifications must stay rare enough to mean something.

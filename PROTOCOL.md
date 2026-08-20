@@ -16,7 +16,9 @@ repo-wide.
 ```
 .tower/
   design.md            living design doc, edited only by the orchestrator
-  learnings.md         curated lessons, read-first for every implementor
+  learnings.md         curated lessons, path-scoped, selected per card at dispatch
+  learnings-archive.md retired lessons, out of every prompt, kept for provenance
+  card-sizing.md       card-size limits for this project, confirmed once by the owner
   tasks/               one card per task: T###-slug.md
   handoffs/            one handoff per finished task: T###-handoff.md
   prompts/             finalized dispatch prompts: T###-prompt.md
@@ -111,6 +113,16 @@ Body sections, all required:
   every box is checked and verified.
 - `## Verification` — exact commands that prove the acceptance criteria.
 
+Card size: one card is one reviewable PR. Concretely, it crosses one boundary, lists five or
+fewer paths under `## File ownership`, and carries seven or fewer acceptance criteria. A card
+that wants more than that wants splitting. This is where the protocol's two opposing forces
+resolve: file ownership rewards large cards (fewer overlaps to sequence) while
+decision-completeness rewards small ones (every interface must be pre-decided), and the
+reviewable-PR ceiling is what breaks the tie. Splitting is preferred over widening — a card
+too large for one review is a card the owner cannot gate on. The numbers above are
+defaults; the project's live limits are `.tower/card-sizing.md`, which the orchestrator
+confirms with the owner once and then reads at every rehydration.
+
 Status semantics: `draft` cards are the orchestrator planning ahead — they carry scope,
 interfaces, and acceptance criteria but no prompt. The owner approves a draft to make it
 `ready`. Prompts are finalized only for `ready` cards whose dependencies are all `merged`.
@@ -118,7 +130,8 @@ interfaces, and acceptance criteria but no prompt. The owner approves a draft to
 ## Prompts — `prompts/T###-prompt.md`
 
 Written by the orchestrator immediately before dispatch, never in advance. Contents, in
-order: the tower-implementor contract reference, the full card, the current `learnings.md`,
+order: the tower-implementor contract reference, the full card, the learnings this card
+selects (`tower-learnings --for T###`, never the whole file),
 and excerpts of any handoffs that changed this task's assumptions. A prompt is a snapshot;
 if it goes stale before launch, the orchestrator regenerates it (cheap by design).
 
@@ -131,16 +144,63 @@ done, so the implementor updates the file when the owner merges while its sessio
 alive; if the session is already gone, the draft plus the PR's final diff are what remains.
 The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
 escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
-Suggested follow-up tasks, Candidate learnings. The Stop hook blocks an implementor session
+Suggested follow-up tasks, Candidate learnings, Learnings that were wrong or violated. The Stop hook blocks an implementor session
 from finishing while its handoff is missing.
 
 ## Learnings — `learnings.md`
 
-Format: `- [category] lesson — why it matters`, grouped under `##` category headings.
-Implementors read it before touching anything. Implementors never write it directly; they
-propose candidates in handoffs, and the orchestrator curates: specific and preventive
-entries merge, vague ones are rejected. A lesson that would not have changed an agent's
-behavior is noise and does not belong here.
+Implementors never write this file; they propose candidates in handoffs and the
+orchestrator curates. The failure this format defends against is not length — it is
+**contradiction**: an entry from T007 that the design superseded at T031 is read as
+current and sends the implementor the wrong way. Length costs tokens; contradiction costs
+correctness. Age is not decay, so nothing here is pruned by date.
+
+**The filing rule comes first.** Most rot is a misfiled entry, so before adding one, place
+it: a fact about the system goes in `design.md` (which already has supersede discipline);
+a rule true for every tower project is promoted into the `tower-implementor` skill or the
+card template; only a project-specific way of working or failure mode belongs here. Entries
+leave this file upward (promotion) and sideways (design.md), not only downward.
+
+**Format.** `- [category] lesson — why it matters (T###)`, where `T###` is the task whose
+handoff paid for it — provenance, not a date: it points at the handoff and the PR, so a
+pruner can check whether the context still exists. `##` headings are path scopes:
+
+```markdown
+## Always
+- [process] verification commands run in the project dir, not the repo root — worktrees
+  make them differ (T004)
+
+## scope: bin/**
+- [tooling] bash on macOS is 3.2: no mapfile, no associative arrays (T012)
+```
+
+**Selection at dispatch, not curation by hope.** `tower-learnings --for T###` intersects
+the scope globs with the card's `## File ownership` and prints `## Always` plus the
+sections that match; matching is by literal path prefix in either direction, with
+wildcards truncated — so a token that begins with a wildcard has no literal prefix and
+matches nothing. Every unscoped heading is always included, so an unmigrated flat file
+still prints whole. Prompts are regenerated per dispatch, so this decouples file size from
+prompt cost — the file can grow without every implementor paying for all of it. Scope only
+when a lesson is clearly local; under-scoping costs tokens, over-scoping hides the lesson
+from the one agent that needed it.
+
+**Budget and retirement.** 60 entries (`tower-learnings --check`, which also flags entries
+missing provenance). At the budget, adding requires retiring one — a forced tradeoff,
+because a calendar review never happens. Retirement moves the entry to
+`learnings-archive.md` with a reason and the retiring task id: out of every prompt, still
+greppable, and recoverable without archaeology.
+
+**When to prune — events, never a schedule.** Three triggers, all during ingest: a
+`design.md` change re-checks the entries scoped to the paths it touched; a handoff
+reporting an entry wrong or violated fixes or retires it that same pass; crossing the
+budget forces a sweep. There is deliberately no citation counter: a preventive entry that
+works produces no evidence — nothing goes wrong, so nothing is reported — and counting
+mentions would prune exactly the silent guardrails while keeping whatever generates
+drama. The only trustworthy signal is negative and comes from the handoff's *Learnings
+that were wrong or violated* section.
+
+The standing bar for admitting an entry is unchanged: would it have changed an agent's
+behavior? If not, it is noise.
 
 ## Lifecycle
 
@@ -195,6 +255,7 @@ project is self-contained.
 
 ## Roles are disposable
 
-Orchestrator rehydration ritual, in order: `design.md`, all cards with status other than
-`merged`, `learnings.md`, handoffs newer than the last `tower:` commit. After that the
-session is the orchestrator, regardless of which session it is or which vendor runs it.
+Orchestrator rehydration ritual, in order: `design.md`, `card-sizing.md` (absent means the
+card-size defaults above apply), all cards with status other than `merged`, `learnings.md`,
+handoffs newer than the last `tower:` commit. After that the session is the orchestrator,
+regardless of which session it is or which vendor runs it.

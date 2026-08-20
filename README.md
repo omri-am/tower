@@ -11,15 +11,17 @@ between controllers, and the tower — the human — always has final authority.
 
 ## Why files
 
-- **Sessions rot; files don't.** Any session becomes the orchestrator by reading four
+- **Sessions rot; files don't.** Any session becomes the orchestrator by reading five
   files in order. Kill it anytime; nothing is lost.
 - **Ownership through diffs.** The owner reviews `git diff` on `.tower/design.md` and task
   cards, at their own pace — no livestream-watching, no lost awareness.
 - **Vendor-neutral.** Implementors are launched from prompt files, so any CLI agent
   (Claude Code, codex, ...) can take a task. The expensive model plans and curates; cheaper
   models implement decision-complete cards.
-- **Learnings compound.** Every implementor reads `learnings.md` first; every handoff
-  proposes new entries; the orchestrator curates. Run N+1 is cheaper than run N.
+- **Learnings compound without rotting.** Every handoff proposes entries; the orchestrator
+  curates; each implementor is given only the entries its card's paths select. The file can
+  grow without every prompt paying for all of it, and entries leave by retirement or by
+  promotion into the skill — so run N+1 is cheaper than run N without becoming louder.
 
 The full contract is in [PROTOCOL.md](PROTOCOL.md). The design follows published evidence:
 decision-complete task specs are what make parallel implementors safe (Cognition's
@@ -86,6 +88,14 @@ because `tower-locate --task T###` resolved the project from outside it — so
 `tower-dispatch T### --prep` works
 from anywhere inside the repo or any worktree of it when your own tooling creates the
 worktrees; the worktree's existing branch is recorded on the card.
+
+`tower-learnings --for T###` prints the learnings a card selects — `## Always` plus every
+`## scope: <glob>` section whose paths intersect the card's `## File ownership` — which is
+what the orchestrator pastes into a dispatch prompt instead of the whole file.
+`--check` reports the entry count against the budget (60, `TOWER_LEARNINGS_BUDGET`) and
+flags entries missing their `(T###)` provenance; `--scopes` lists sections with entry
+counts, for the prune pass. Retired entries move to `.tower/learnings-archive.md`, out of
+every prompt but still in the repo.
 
 `tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
 PRs via gh; when one merges it flips the card to `merged` (committed), notifies, and runs

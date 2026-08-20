@@ -27,8 +27,11 @@ hook will not let you finish without it.
    `.tower/` available is a per-branch copy inside a linked worktree: stop there, tell the
    owner the project has no canonical state reachable from here, and do not implement — a
    handoff written into a copy is a handoff the orchestrator never reads.
-2. Read `.tower/learnings.md` — before the card, before any code. It exists because
-   previous agents paid for these lessons.
+2. Read the learnings selected for your card — before the card, before any code. They are
+   already in your dispatch prompt; regenerate them with `tower-learnings --for $TOWER_TASK`
+   if you were started without one. The selection is scoped to the paths you own, so it is
+   short on purpose; read `.tower/learnings.md` whole only when you need context the
+   selection lacks. Previous agents paid for these lessons.
 3. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
    in the `.tower-task` file at the project root).
    Re-read `## Corrections` if present — corrections supersede the original card body.
@@ -61,5 +64,10 @@ hook will not let you finish without it.
   there.
 - **The handoff is deliverable, not paperwork.** Decisions you made during work (only ones
   the card left open), discoveries the next agent should not re-pay for, candidate
-  learnings in `- [category] lesson — why` form. Write it even when stopping early or
+  learnings in `- [category] lesson — why` form with the paths they apply to. A candidate
+  that describes the system rather than how to work belongs in Discoveries — the
+  orchestrator files those into `design.md`. Quote any selected learning that was stale,
+  wrong, or that you had to work against under *Learnings that were wrong or violated*:
+  that section is the only staleness signal the protocol gets, because an entry that
+  quietly prevents a mistake leaves no trace. Write the handoff even when stopping early or
   blocked — especially then.

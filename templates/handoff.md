@@ -18,4 +18,12 @@ pr: ""
 
 ## Candidate learnings
 
-(Specific and preventive, in `- [category] lesson — why` form. Vague entries are rejected.)
+(Specific and preventive, in `- [category] lesson — why` form. Vague entries are rejected.
+A fact about the system belongs in Discoveries instead — the orchestrator files those into
+`design.md`. Name the paths the lesson applies to so it can be scoped.)
+
+## Learnings that were wrong or violated
+
+(Any entry from the selection you were given that turned out stale, wrong, or that you had
+to work against — quote it. This is the only reliable staleness signal there is: an entry
+that silently prevents mistakes leaves no trace, so nothing is inferred from silence.)
