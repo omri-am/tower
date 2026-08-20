@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-learnings --for <task-id> | --check | --scopes" >&2
+  exit 1
+}
+
+MODE="" TASK_ID=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --for) [ $# -ge 2 ] || usage; MODE="for"; TASK_ID="$2"; shift 2 ;;
+    --check) MODE="check"; shift ;;
+    --scopes) MODE="scopes"; shift ;;
+    *) usage ;;
+  esac
+done
+[ -n "$MODE" ] || usage
+
+PROJECT_DIR="$PWD"
+while [ "$PROJECT_DIR" != "/" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+  PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+done
+if [ ! -d "$PROJECT_DIR/.tower" ] && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  CUR_TOP="$(git rev-parse --show-toplevel)"
+  MAIN_TOP="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  if [ "$MAIN_TOP" != "$CUR_TOP" ]; then
+    PROJECT_DIR="$MAIN_TOP${PWD#"$CUR_TOP"}"
+    while [ "$PROJECT_DIR" != "$MAIN_TOP" ] && [ ! -d "$PROJECT_DIR/.tower" ]; do
+      PROJECT_DIR="$(dirname "$PROJECT_DIR")"
+    done
+  fi
+fi
+[ -d "$PROJECT_DIR/.tower" ] || { echo "tower-learnings: no .tower/ in $PWD, any ancestor, or the main checkout" >&2; exit 1; }
+
+LEARNINGS="$PROJECT_DIR/.tower/learnings.md"
+ARCHIVE="$PROJECT_DIR/.tower/learnings-archive.md"
+[ -f "$LEARNINGS" ] || { echo "tower-learnings: no $LEARNINGS" >&2; exit 1; }
+BUDGET="${TOWER_LEARNINGS_BUDGET:-60}"
+
+glob_prefix() {
+  printf '%s' "$1" | sed 's/[*?[].*//'
+}
+
+IDX=0
+while IFS= read -r LINE; do
+  [ -n "$LINE" ] || continue
+  HEAD_LN[$IDX]="${LINE%%:*}"
+  HEAD_TX[$IDX]="${LINE#*:}"
+  IDX=$((IDX + 1))
+done <<EOF
+$(grep -n '^## ' "$LEARNINGS" || true)
+EOF
+SECTIONS=$IDX
+FILE_LINES="$(wc -l < "$LEARNINGS" | tr -d ' ')"
+
+section_end() {
+  local i="$1" next=$(($1 + 1))
+  if [ "$next" -lt "$SECTIONS" ]; then
+    echo $((${HEAD_LN[$next]} - 1))
+  else
+    echo "$FILE_LINES"
+  fi
+}
+
+section_globs() {
+  case "$1" in
+    "## scope:"*) printf '%s' "${1#\#\# scope:}" | tr ',' ' ' ;;
+    *) echo "" ;;
+  esac
+}
+
+count_entries() {
+  grep -c '^- ' "$1" 2>/dev/null || true
+}
+
+case "$MODE" in
+  check)
+    TOTAL="$(count_entries "$LEARNINGS")"
+    TOTAL="${TOTAL:-0}"
+    ARCHIVED=0
+    [ -f "$ARCHIVE" ] && ARCHIVED="$(count_entries "$ARCHIVE")"
+    NO_PROV="$(grep '^- ' "$LEARNINGS" | grep -cv '(T[0-9]' || true)"
+    echo "entries: $TOTAL / budget $BUDGET"
+    echo "retired: ${ARCHIVED:-0} in learnings-archive.md"
+    if [ "${NO_PROV:-0}" -gt 0 ]; then
+      echo "no (T###) provenance: ${NO_PROV} - the pruner cannot trace these to a handoff"
+      grep -n '^- ' "$LEARNINGS" | grep -v '(T[0-9]' || true
+    fi
+    if [ "$TOTAL" -gt "$BUDGET" ]; then
+      echo "over budget by $((TOTAL - BUDGET)) - retire an entry to learnings-archive.md before adding another" >&2
+      exit 1
+    fi
+    ;;
+
+  scopes)
+    for ((i = 0; i < SECTIONS; i++)); do
+      END="$(section_end "$i")"
+      N="$(sed -n "${HEAD_LN[$i]},${END}p" "$LEARNINGS" | grep -c '^- ' || true)"
+      printf '%-4s %s\n' "${N:-0}" "${HEAD_TX[$i]}"
+    done
+    ;;
+
+  for)
+    CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
+    [ -n "$CARD" ] || { echo "tower-learnings: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
+
+    OWNED="$(awk '/^## File ownership/{f=1;next} /^## /{f=0} f' "$CARD" \
+      | tr -c 'A-Za-z0-9_./*-' '\n' \
+      | grep -E '/|\*|\.[A-Za-z0-9]+$' \
+      | sed -e 's|^\./||' -e 's/\.$//' \
+      | sort -u || true)"
+
+    echo "<!-- learnings selected for $TASK_ID from $(basename "$LEARNINGS") -->"
+    for ((i = 0; i < SECTIONS; i++)); do
+      GLOBS="$(section_globs "${HEAD_TX[$i]}")"
+      SELECT=0
+      if [ -z "$GLOBS" ]; then
+        SELECT=1
+      else
+        for G in $GLOBS; do
+          GP="$(glob_prefix "$G")"
+          for P in $OWNED; do
+            PP="$(glob_prefix "$P")"
+            case "$PP" in "$GP"*) SELECT=1 ;; esac
+            case "$GP" in "$PP"*) SELECT=1 ;; esac
+          done
+        done
+      fi
+      if [ "$SELECT" = 1 ]; then
+        END="$(section_end "$i")"
+        sed -n "${HEAD_LN[$i]},${END}p" "$LEARNINGS"
+      fi
+    done
+    ;;
+esac
