@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-pr-wait [<task-id>] [--interval seconds]" >&2
+  exit 1
+}
+
+TASK_ID="${TOWER_TASK:-}" INTERVAL=120
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --interval) [ $# -ge 2 ] || usage; INTERVAL="$2"; shift 2 ;;
+    -*) usage ;;
+    *) TASK_ID="$1"; shift ;;
+  esac
+done
+[ -n "$TASK_ID" ] || { echo "tower-pr-wait: no task id - pass one or set TOWER_TASK" >&2; exit 1; }
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! LOCATED="$("$BIN_DIR/tower-locate" --task "$TASK_ID")"; then
+  echo "tower-pr-wait: no single .tower/ project holds $TASK_ID - cd into the project dir first" >&2
+  exit 1
+fi
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+
+CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
+[ -n "$CARD" ] || { echo "tower-pr-wait: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
+
+frontmatter_field() {
+  sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
+}
+
+PR="$(frontmatter_field "$CARD" pr | tr -d '"#')"
+[ -n "$PR" ] || { echo "tower-pr-wait: card $TASK_ID has no pr: field - open the PR and fill it before waiting" >&2; exit 1; }
+
+while true; do
+  STATE="$(cd "$PROJECT_DIR" && gh pr view "$PR" --json state -q .state 2>/dev/null || echo "")"
+  case "$STATE" in
+    MERGED) echo "MERGED $PR"; exit 0 ;;
+    CLOSED) echo "CLOSED $PR"; exit 0 ;;
+  esac
+  sleep "$INTERVAL"
+done

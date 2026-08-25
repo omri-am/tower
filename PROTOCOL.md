@@ -140,8 +140,17 @@ if it goes stale before launch, the orchestrator regenerates it (cheap by design
 Written in two phases. A draft goes in when the PR opens — the Stop hook refuses to let an
 implementor session end without one, so early stops and blocks always leave a record. The
 real handoff is finalized after the PR merges: review-driven changes are part of what was
-done, so the implementor updates the file when the owner merges while its session is still
-alive; if the session is already gone, the draft plus the PR's final diff are what remains.
+done, so the implementor updates the file once the merge lands.
+
+The implementor learns of that merge itself. After opening the PR it backgrounds
+`tower-pr-wait`, which reads the card's `pr:` field, polls it, and exits the moment the PR
+leaves OPEN — the process exit is what wakes the session, so the owner is never the
+notification channel. Finalizing comes before the card flips to `merged`, never after:
+flipping first offers a draft up as the deliverable. The degraded case is unchanged — a
+`--headless` implementor exits when its turn ends and cannot be woken, and an owner may
+close the window early; in both, the draft plus the PR's final diff are what remains, and
+`tower-watch` flips the card instead.
+
 The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
 escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
 Suggested follow-up tasks, Candidate learnings, Learnings that were wrong or violated. The Stop hook blocks an implementor session
@@ -214,12 +223,14 @@ behavior? If not, it is noise.
    |                   |--------------------------->| card: in-flight
    |                   |                            | read learnings + card
    |                   |   (SendMessage correction) | implement, open PR
-   |   review PR       |<---------------------------| card: in-review
-   |------------------>|         merge              |
-   |                   |<---------------------------| write handoff
+   |   review PR       |                            | card: in-review + draft handoff
+   |                   |                            | tower-pr-wait: hold for merge
+   |   merge PR        |                            |
+   |----------------------------------------------->| finalize handoff, card: merged
+   |                   |<---------------------------| handoff ready to ingest
    |                   | ingest handoff             |
    |                   | update design/tasks/       |
-   |                   |   learnings, card: merged  |
+   |                   |   learnings                |
    |   notified of     | finalize next prompts      |
    |<------------------| design diff + ready tasks  |
 ```
@@ -248,7 +259,8 @@ are written into the in-flight card under a `## Corrections` heading (implemento
 it) and the owner is notified via `tower-notify`; instead of a background loop or file
 watcher, the orchestrator processes handoffs when the owner says a PR merged (or the owner
 runs `tower-watch`, which polls the in-review cards' PRs and notifies on merge and on
-blocked cards), and always runs the rehydration ritual at session start; escalations from implementors arrive as
+blocked cards — the fallback for cards whose implementor session is already gone, since a
+live one flips its own card), and always runs the rehydration ritual at session start; escalations from implementors arrive as
 `blocked` cards and handoff files rather than live messages, so check for `status: blocked`
 during every ingest pass. `tower-init` copies this file into `.tower/PROTOCOL.md` so the
 project is self-contained.
