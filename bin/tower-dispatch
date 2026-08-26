@@ -24,7 +24,8 @@ done
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
 
-LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATE="$BIN_DIR/tower-locate"
 if ! LOCATED="$("$LOCATE" --task "$TASK_ID")"; then
   echo "tower-dispatch: no single .tower/ project holds $TASK_ID - cd into the project dir, or run tower-init there first" >&2
   exit 1
@@ -72,6 +73,8 @@ if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
 fi
 case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1 ;; esac
 
+SESSION_NAME="$("$BIN_DIR/tower-session-name" --task "$TASK_ID" --from "$PROJECT_DIR")"
+
 TOPLEVEL="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel)"
 CREATE_WT=0
 if [ "$IN_PLACE" = 1 ]; then
@@ -101,9 +104,9 @@ fi
 case "$VENDOR" in
   claude)
     if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -p \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -n '$SESSION_NAME' -p \"\$(cat '$PROMPT_FILE')\""
     else
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude \"\$(cat '$PROMPT_FILE')\""
+      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -n '$SESSION_NAME' \"\$(cat '$PROMPT_FILE')\""
     fi
     ;;
   codex)
