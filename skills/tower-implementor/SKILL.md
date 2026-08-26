@@ -1,6 +1,6 @@
 ---
 name: tower-implementor
-description: Execute one tower task card as an implementor session - read learnings first, stay inside the card's file ownership and decisions, escalate missing decisions instead of making them, open the PR, and write the handoff before finishing. Use when a dispatch prompt references this skill or the session was launched by tower-dispatch (TOWER_TASK is set).
+description: Execute one tower task card as an implementor session - read learnings first, stay inside the card's file ownership and decisions, escalate missing decisions instead of making them, open the PR, then hold on the PR watch and finalize the handoff when it merges. Use when a dispatch prompt references this skill or the session was launched by tower-dispatch (TOWER_TASK is set).
 ---
 
 # tower implementor
@@ -43,9 +43,21 @@ hook will not let you finish without it.
    as they become true.
 6. Open the PR (fill the card's `pr:` field), set card status `in-review`.
 7. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
-   a draft at this point. When the owner merges the PR while your session is still alive,
-   update the handoff with everything review changed before you finish; the merged state,
-   not the opened PR, is what the orchestrator ingests.
+   a draft at this point. The merged state, not the opened PR, is what the orchestrator
+   ingests, so the draft is a record, not yet the deliverable.
+8. Arm the merge watch, then hold. Run `tower-pr-wait` as a background command (in Claude
+   Code, the Bash tool's `run_in_background`): it polls your card's PR and exits the moment
+   the PR leaves OPEN, which re-invokes your session with `MERGED <pr>` or `CLOSED <pr>`.
+   End the turn saying the session is holding for the merge and its window must stay open.
+   Never poll in the foreground, and never ask the owner to tell you when the PR lands —
+   that is the job this watch exists to remove. A session dispatched `--headless` exits when
+   its turn ends, so nothing is left to wake: there, skip the hold and finish on the draft.
+9. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
+   since you opened the PR (the PR's diff and its review threads), and finalize the handoff
+   with it. Only then flip the card `in-review` -> `merged` and commit `.tower` — `merged` is
+   the orchestrator's ingest gate, so flipping it before finalizing offers a draft up as the
+   deliverable. On `CLOSED`: record in the handoff that the PR was closed unmerged and what
+   remains, leave the card `in-review`, and run `tower-notify`.
 
 ## Hard rules
 
@@ -57,6 +69,10 @@ hook will not let you finish without it.
   never guess the orchestrator from the session list; sessions unrelated to the project
   share the machine. Cognition's rule applies: actions carry implicit decisions, and two
   agents deciding independently diverge.
+- **The session outlives the PR.** Opening the PR is not the end of the task; the merge is.
+  Hold on the merge watch instead of handing the owner the job of telling you the PR landed.
+  If the window is closed before the watch fires, the draft handoff plus the PR's final diff
+  are what remain — degraded, not broken.
 - **File ownership is a fence.** Needing a file outside your list means the card was cut
   wrong — escalate, do not touch it.
 - **Corrections in-flight.** If the orchestrator messages you a correction mid-task, treat

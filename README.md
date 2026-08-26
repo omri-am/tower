@@ -67,11 +67,14 @@ See [PROTOCOL.md](PROTOCOL.md) for the full chain and its exit codes.
 2. Approve drafts (edit `status: draft` -> `ready`, or tell the orchestrator to).
 3. The orchestrator finalizes `prompts/T###-prompt.md`, then: `tower-dispatch T001`.
    A new terminal opens with the implementor session, `TOWER_TASK` set, card `in-flight`.
-4. Implementor works under the `tower-implementor` contract, opens the PR, writes the
-   handoff (the Stop hook in [hooks/](hooks/README.md) enforces it).
-5. You review and merge the PR. The orchestrator ingests the handoff: design/tasks/
-   learnings updated, next prompts finalized, and you get a notification only at the
-   three HITL gates — draft approval, design change, PR ready.
+4. Implementor works under the `tower-implementor` contract, opens the PR, writes a draft
+   handoff (the Stop hook in [hooks/](hooks/README.md) enforces it), then holds on
+   `tower-pr-wait` rather than ending.
+5. You review and merge the PR. The holding implementor wakes on the merge itself, finalizes
+   its handoff with whatever review changed, and flips its card to `merged` — you never tell
+   it the PR landed. The orchestrator ingests that handoff: design/tasks/learnings updated,
+   next prompts finalized, and you get a notification only at the three HITL gates — draft
+   approval, design change, PR ready.
 
 `tower-dispatch` flags: `--vendor claude|codex` overrides the card, `--headless` runs
 `claude -p` / `codex exec` instead of opening a Terminal window, `--here` launches the
@@ -97,11 +100,18 @@ flags entries missing their `(T###)` provenance; `--scopes` lists sections with 
 counts, for the prune pass. Retired entries move to `.tower/learnings-archive.md`, out of
 every prompt but still in the repo.
 
+`tower-pr-wait [<task-id>] [--interval seconds]` blocks until that card's PR leaves OPEN,
+prints `MERGED <pr>` or `CLOSED <pr>`, and exits. It changes no state: it is the sensor an
+implementor backgrounds so that the process exit wakes its own session at the merge, which
+is why nobody has to tell an implementor its PR landed. Defaults to `$TOWER_TASK`.
+
 `tower-watch [--interval seconds] [--on-merge '<command>']` polls the in-review cards'
 PRs via gh; when one merges it flips the card to `merged` (committed), notifies, and runs
 the optional `--on-merge` command with `TOWER_TASK` and `TOWER_PR` set (e.g. to prompt a
 non-Claude orchestrator via `codex exec resume`). It also notifies when a card turns
-blocked. A Claude orchestrator on `/loop` does not need it.
+blocked. A Claude orchestrator on `/loop` does not need it. Because a live implementor flips
+its own card, `tower-watch` is the fallback for cards whose session is gone — headless
+dispatches, and windows closed before the merge.
 
 ## What it deliberately does not do
 
