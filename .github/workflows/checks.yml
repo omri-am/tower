@@ -9,7 +9,7 @@ jobs:
     # runner would fail on BSD-vs-GNU tooling differences, not on the code.
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Default fetch-depth is 1 (a single commit). The changelog check
           # needs the merge base between the PR branch and its target, so the
