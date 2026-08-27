@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.2.1 — 2026-08-27
+
 - Releasing works on a repository whose `main` requires a pull request. `tower-release <x.y.z>`
   now prepares the bump on a `release-v<x.y.z>` branch without tagging, and
   `tower-release --tag <x.y.z>` tags `main` after the merge. Because the tag lands on whatever
