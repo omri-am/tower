@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TOWER_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BIN_DIR="${TOWER_BIN_DIR:-$HOME/.local/bin}"
+LIBEXEC_DIR="${TOWER_LIBEXEC_DIR:-$HOME/.local/libexec}"
+COMMANDS="tower-init tower-orchestrate tower-dispatch tower-watch tower-learnings tower-pr-wait tower-notify tower-locate tower-version-check tower-bootstrap"
+
+mkdir -p "$BIN_DIR" "$LIBEXEC_DIR"
+install -m 0755 "$TOWER_HOME/bin/tower-shim" "$LIBEXEC_DIR/tower-shim"
+for CMD in $COMMANDS; do
+  ln -sfn "$LIBEXEC_DIR/tower-shim" "$BIN_DIR/$CMD"
+done
+
+echo "tower-bootstrap: shim installed at $LIBEXEC_DIR/tower-shim"
+echo "tower-bootstrap: linked $(printf '%s\n' $COMMANDS | wc -l | tr -d ' ') commands into $BIN_DIR"
+case ":$PATH:" in
+  *":$BIN_DIR:"*) echo "tower-bootstrap: $BIN_DIR already on PATH" ;;
+  *) echo "tower-bootstrap: add to PATH -> export PATH=\"$BIN_DIR:\$PATH\"" ;;
+esac
