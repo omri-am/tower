@@ -67,8 +67,15 @@ hook will not let you finish without it.
   `tower-notify "task blocked" "<id>: <one-line question>"`, and say so in your final
   message. Message a session directly only if `.tower/orchestrator` exists and names one —
   never guess the orchestrator from the session list; sessions unrelated to the project
-  share the machine. Cognition's rule applies: actions carry implicit decisions, and two
-  agents deciding independently diverge.
+  share the machine. Send whatever that file holds, verbatim. A name is the current form, and
+  first contact with it is rejected by an error naming the session's `[ref]`, so the resend is
+  `<name> [ref]`; a `uds:` line left by an older orchestrator still sends as-is and needs no
+  ref, and gets overwritten with a name at that orchestrator's next rehydration. A send that
+  fails changes nothing, and neither does one the owner never approves on the far side — the
+  `blocked` card, the handoff and `tower-notify` are the escalation, and the message only ever
+  makes it arrive sooner.
+  Cognition's rule applies: actions carry implicit decisions, and two agents deciding
+  independently diverge.
 - **The session outlives the PR.** Opening the PR is not the end of the task; the merge is.
   Hold on the merge watch instead of handing the owner the job of telling you the PR landed.
   If the window is closed before the watch fires, the draft handoff plus the PR's final diff

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PID="${CLAUDE_PID:-}"
+[ -n "$PID" ] || { echo "tower-whoami: CLAUDE_PID is unset - not inside a Claude Code session" >&2; exit 1; }
+
+REGISTRY="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions/$PID.json"
+[ -f "$REGISTRY" ] || { echo "tower-whoami: no session registry at $REGISTRY - this session is not addressable by other sessions" >&2; exit 2; }
+
+NAME="$(jq -r '.name // empty' "$REGISTRY" 2>/dev/null || true)"
+[ -n "$NAME" ] || { echo "tower-whoami: $REGISTRY carries no session name" >&2; exit 2; }
+
+echo "$NAME"

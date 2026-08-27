@@ -27,7 +27,12 @@ prompt and the tower-implementor contract, with no hook enforcement.
 Hard-enforces the escalation-routing rule: a tower implementor session (identified by
 `TOWER_TASK` or the `.tower-task` marker) may SendMessage only to the session named in
 `.tower/orchestrator`; every other target is denied with a reason pointing back to the
-file channel (blocked card + handoff + tower-notify). It resolves the project with
+file channel (blocked card + handoff + tower-notify). The comparison ignores a trailing
+` [ref]` on either side, because cross-session first contact is only accepted with the ref
+appended — matching on the bare name would deny exactly the send the file authorizes. It
+strips only a bracket group that actually ends the string, so a session name containing a
+bracket earlier keeps it and cannot collapse onto a different name. It resolves the project
+with
 `tower-locate` as well, and denies when the project cannot be located at all — an
 unreadable allowlist is not an open one. Sessions outside a tower implementor
 context pass through untouched, so the hook is safe to install globally. This exists
