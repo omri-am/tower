@@ -271,3 +271,21 @@ Orchestrator rehydration ritual, in order: `design.md`, `card-sizing.md` (absent
 card-size defaults above apply), all cards with status other than `merged`, `learnings.md`,
 handoffs newer than the last `tower:` commit. After that the session is the orchestrator,
 regardless of which session it is or which vendor runs it.
+
+## Protocol version
+
+`PROTOCOL_VERSION` in the tower checkout holds a single integer, bumped only when the format
+of a card, handoff, learnings entry or design file changes in a way an older session
+misreads. It is not the tower version and does not move when a feature ships.
+
+`tower-init` records both numbers in `.tower/version`:
+
+```
+tower 0.1.0
+protocol 1
+```
+
+`tower-version-check` compares the recorded protocol integer against the running tower's and
+warns on mismatch. Nothing migrates automatically: a wrong migration corrupts the audit
+trail, which is worse than a warning a human acts on. On a mismatch, re-read
+`.tower/PROTOCOL.md` — the copy embedded in the project — before trusting any card format.

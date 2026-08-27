@@ -104,22 +104,39 @@ report_if_newer() {
   fi
 }
 
+report_protocol_mismatch() {
+  local mine theirs project located
+  mine="$(tower_protocol_version "$ROOT")"
+  if [ -z "$mine" ]; then return 0; fi
+  located="$("$ROOT/bin/tower-locate" --quiet 2>/dev/null || true)"
+  project="$(printf '%s\n' "$located" | sed -n 1p)"
+  if [ -z "$project" ] || [ ! -r "$project/.tower/version" ]; then return 0; fi
+  theirs="$(sed -n 's/^protocol[[:space:]]*//p' "$project/.tower/version" | tr -d '[:space:]')"
+  case "$theirs" in ''|*[!0-9]*) return 0 ;; esac
+  if [ "$theirs" != "$mine" ]; then
+    echo "tower: .tower/ was written for protocol $theirs, this tower speaks protocol $mine - re-read .tower/PROTOCOL.md before continuing" >&2
+  fi
+}
+
 if [ "$MODE" = sync ]; then
   refresh
   LATEST="$(cache_latest)"
   case "$LATEST" in
-    ''|*[!0-9.]*) exit 0 ;;
+    ''|*[!0-9.]*) ;;
+    *)
+      semver_gt "$LATEST" "$LOCAL"
+      case "$?" in
+        0) print_newer "$LATEST" ;;
+        1) echo "tower: $LOCAL is current" >&2 ;;
+      esac
+      ;;
   esac
-  semver_gt "$LATEST" "$LOCAL"
-  case "$?" in
-    0) print_newer "$LATEST" ;;
-    1) echo "tower: $LOCAL is current" >&2 ;;
-    *) exit 0 ;;
-  esac
+  report_protocol_mismatch
   exit 0
 fi
 
 report_if_newer "$(cache_latest)"
+report_protocol_mismatch
 
 if ! cache_fresh; then
   if take_lock; then

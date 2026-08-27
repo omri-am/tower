@@ -34,6 +34,11 @@ cp "$TOWER_ROOT/templates/task-card.md" "$TARGET/.tower/templates/task-card.md"
 cp "$TOWER_ROOT/templates/handoff.md" "$TARGET/.tower/templates/handoff.md"
 touch "$TARGET/.tower/tasks/.gitkeep" "$TARGET/.tower/handoffs/.gitkeep" "$TARGET/.tower/prompts/.gitkeep"
 
+. "$TOWER_ROOT/lib/tower-meta.sh"
+printf 'tower %s\nprotocol %s\n' \
+  "$(tower_version "$TOWER_ROOT")" "$(tower_protocol_version "$TOWER_ROOT")" \
+  > "$TARGET/.tower/version"
+
 if [ "$SIDECAR" = 1 ]; then
   EXCLUDE="$(git -C "$TARGET" rev-parse --path-format=absolute --git-path info/exclude)"
   mkdir -p "$(dirname "$EXCLUDE")"
