@@ -153,15 +153,16 @@ of truth.
 ## Presenting decisions to the owner
 
 The owner approves content, not titles — a card shown as a one-line title is not a
-presentable gate. Rules:
+presentable gate. Never retype, summarize, or excerpt a card: run `tower-card` and present
+its output, so what the owner reads is what the file says. Rules:
 
-- Card approval: use AskUserQuestion with one option per card and the card's full body
-  (Goal, Interfaces & decisions, File ownership, Acceptance criteria) as that option's
+- Card approval: run `tower-card T### [T### ...]` for every card in the batch, then use
+  AskUserQuestion with one option per card and that card's rendered box as the option's
   `preview`; set multiSelect so the owner approves a subset. More cards than fit one
   question: batch by dependency branch, most-blocking branch first.
-- "What's next" / status questions: a compact table (id, title, status, depends_on, pr)
-  for orientation, then the full body of any card you are proposing to act on next, then
-  the proposed action. File references as clickable `path:line`.
+- "What's next" / status questions: `tower-card` with no arguments for the board, then
+  `tower-card T###` for the card you are proposing to act on next, then the proposed
+  action. File references as clickable `path:line`.
 - Design changes: the diff (or commit hash) plus a one-paragraph why — never a summary
   without the diff.
 

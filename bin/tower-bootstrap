@@ -4,7 +4,7 @@ set -euo pipefail
 TOWER_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${TOWER_BIN_DIR:-$HOME/.local/bin}"
 LIBEXEC_DIR="${TOWER_LIBEXEC_DIR:-$HOME/.local/libexec}"
-COMMANDS="tower-init tower-orchestrate tower-dispatch tower-watch tower-learnings tower-pr-wait tower-notify tower-locate tower-session-name tower-whoami tower-version-check tower-bootstrap"
+COMMANDS="tower-init tower-orchestrate tower-dispatch tower-watch tower-card tower-learnings tower-pr-wait tower-notify tower-locate tower-session-name tower-whoami tower-version-check tower-bootstrap"
 
 mkdir -p "$BIN_DIR" "$LIBEXEC_DIR"
 install -m 0755 "$TOWER_HOME/bin/tower-shim" "$LIBEXEC_DIR/tower-shim"
