@@ -93,10 +93,7 @@ report_if_newer() {
 }
 
 if [ "$MODE" = sync ]; then
-  if take_lock; then
-    refresh
-    rmdir "$LOCK_DIR" 2>/dev/null || true
-  fi
+  refresh
   LATEST="$(cache_latest)"
   if [ -z "$LATEST" ]; then exit 0; fi
   if semver_gt "$LATEST" "$LOCAL"; then
