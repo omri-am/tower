@@ -45,6 +45,25 @@ new_tag_repo() {
   git -C "$dir" push -q origin main
 }
 
+new_tag_repo_no_push() {
+  local dir="$1" version="$2"
+  rm -rf "$dir" "$ORIGIN"
+  git init -q --bare "$ORIGIN"
+  mkdir -p "$dir/.claude-plugin" "$dir/lib" "$dir/scripts"
+  cp "$ROOT/lib/tower-semver.sh" "$ROOT/lib/tower-meta.sh" "$dir/lib/"
+  cp "$ROOT/scripts/tower-release" "$dir/scripts/"
+  chmod +x "$dir/scripts/tower-release"
+  printf '{\n  "name": "tower",\n  "version": "%s"\n}\n' "$version" > "$dir/.claude-plugin/plugin.json"
+  printf '# Changelog\n\n## Unreleased\n\n- Something shipped.\n\n' > "$dir/CHANGELOG.md"
+  git init -q "$dir"
+  git -C "$dir" symbolic-ref HEAD refs/heads/main
+  git -C "$dir" config user.email t@t
+  git -C "$dir" config user.name t
+  git -C "$dir" remote add origin "$ORIGIN"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "version $version"
+}
+
 new_repo "$R"
 "$R/scripts/tower-release" 0.0.9 >/dev/null 2>&1
 assert_status "refuses a version that is not newer" "$?" "1"
@@ -178,6 +197,15 @@ assert_status "phase 2 refuses when local main is out of sync with origin/main" 
 assert_eq "the out-of-sync refusal names itself" \
   "$(printf '%s' "$OUT" | grep -c 'tower-release: local main does not match origin/main')" "1"
 assert_eq "no tag created when out of sync with origin" "$(git -C "$R" tag --list v0.2.0)" ""
+
+new_tag_repo_no_push "$R" "0.2.0"
+OUT="$("$R/scripts/tower-release" --tag 0.2.0 2>&1)"
+assert_status "phase 2 refuses cleanly when origin has no main - exit 1, not git's raw 128" "$?" "1"
+assert_eq "the no-origin-main refusal names itself" \
+  "$(printf '%s' "$OUT" | grep -c 'tower-release: cannot resolve origin/main')" "1"
+assert_eq "every line of the refusal carries the tower-release prefix" \
+  "$(printf '%s\n' "$OUT" | grep -vc '^tower-release:')" "0"
+assert_eq "no tag created when origin has no main" "$(git -C "$R" tag --list v0.2.0)" ""
 
 new_tag_repo "$R" "0.1.0"
 OUT="$("$R/scripts/tower-release" --tag 0.2.0 2>&1)"
