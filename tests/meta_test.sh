@@ -29,6 +29,13 @@ assert_eq "protocol from file" "$(tower_protocol_version "$TMP")" "4"
 printf 'abc\n' > "$TMP/PROTOCOL_VERSION"
 assert_empty "non-integer protocol is empty" "$(tower_protocol_version "$TMP")"
 
+printf '{"version":"1.1.1","other":"x","version":"2.2.2"}' > "$TMP/.claude-plugin/plugin.json"
+result_fallback="$(bash -c "mkdir -p $TMP/fakepath; printf '#!/bin/bash\nexit 1' > $TMP/fakepath/jq; chmod +x $TMP/fakepath/jq; export PATH=$TMP/fakepath:/usr/bin:/bin; . $ROOT/lib/tower-meta.sh; tower_json_string '$TMP/.claude-plugin/plugin.json' version")"
+assert_eq "duplicate key fallback returns first value" "$result_fallback" "1.1.1"
+
+printf '4 5\n' > "$TMP/PROTOCOL_VERSION"
+assert_empty "protocol with embedded space is empty" "$(tower_protocol_version "$TMP")"
+
 assert_eq "marketplace names the plugin tower" \
   "$(grep -c '"name": "tower"' "$ROOT/.claude-plugin/marketplace.json")" "2"
 assert_eq "orchestrate prompt mentions the namespaced skill" \
