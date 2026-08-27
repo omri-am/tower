@@ -102,15 +102,23 @@ Recommended, as a Claude Code plugin:
 ```
 /plugin marketplace add omri-am/tower
 /plugin install tower@tower
-/tower-bootstrap
+/tower:tower-bootstrap
 ```
 
 The first two lines install the skills, the version-notice hook and the templates, and
-Claude Code keeps them updated. `/tower-bootstrap` links the `tower-*` shell commands into
-`~/.local/bin` through a resolver shim that finds the live install at call time — so
-`/plugin update tower@tower` needs no relinking afterwards. Add `~/.local/bin` to your PATH
-if the bootstrap says so. Plugin-installed skills are namespaced
-(`tower:tower-orchestrator`, `tower:tower-implementor`, `tower:tower-flush`); the
+Claude Code keeps them updated. `/tower:tower-bootstrap` links the `tower-*` shell commands
+into `~/.local/bin` through a resolver shim that finds the live install at call time — so
+`/plugin update tower@tower` needs no relinking afterwards. If that command does not
+resolve, run the script directly instead — list the cached versions, then invoke the one
+you have:
+
+```
+ls -d ~/.claude/plugins/cache/tower/tower/*/
+bash ~/.claude/plugins/cache/tower/tower/<version>/bin/tower-bootstrap
+```
+
+Add `~/.local/bin` to your PATH if the bootstrap says so. Plugin-installed skills are
+namespaced (`tower:tower-orchestrator`, `tower:tower-implementor`, `tower:tower-flush`); the
 `install.sh` route below keeps the bare names.
 
 > **Leave auto-update off for this marketplace.** Skills changing mid-session is harmless

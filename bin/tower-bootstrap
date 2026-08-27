@@ -8,7 +8,18 @@ COMMANDS="tower-init tower-orchestrate tower-dispatch tower-watch tower-card tow
 
 mkdir -p "$BIN_DIR" "$LIBEXEC_DIR"
 install -m 0755 "$TOWER_HOME/bin/tower-shim" "$LIBEXEC_DIR/tower-shim"
-printf '%s\n' "$TOWER_HOME" > "$LIBEXEC_DIR/tower-root"
+case "$TOWER_HOME" in
+  "${HOME:-}/.claude/plugins/cache/"*)
+    if [ -e "$LIBEXEC_DIR/tower-root" ] && rm -f "$LIBEXEC_DIR/tower-root" 2>/dev/null; then
+      echo "tower-bootstrap: plugin install, removed the stale tower-root from an earlier clone-route bootstrap"
+    else
+      echo "tower-bootstrap: plugin install, not recording tower-root (resolves via the plugin registry/cache instead)"
+    fi
+    ;;
+  *)
+    printf '%s\n' "$TOWER_HOME" > "$LIBEXEC_DIR/tower-root"
+    ;;
+esac
 for CMD in $COMMANDS; do
   ln -sfn "$LIBEXEC_DIR/tower-shim" "$BIN_DIR/$CMD"
 done
