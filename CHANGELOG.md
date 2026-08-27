@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.1.1 — 2026-08-27
+
 - Tower installs as a Claude Code plugin from its own marketplace, so features arrive
   through `/plugin update tower@tower` instead of a manual `git pull`.
 - `tower-bootstrap` links the shell commands through a resolver shim, so a version bump
