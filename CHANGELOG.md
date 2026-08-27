@@ -5,6 +5,12 @@ what the version gives them.
 
 ## Unreleased
 
+- Pull requests now run CI: `tests/run.sh` and a new `scripts/tower-changelog-check`, which
+  fails a PR that touches `bin/`, `lib/`, `hooks/`, `scripts/`, `skills/`, `templates/`,
+  `commands/`, `.claude-plugin/` or `PROTOCOL_VERSION` without also touching `CHANGELOG.md`.
+  The omission this catches used to surface only at release time, where fixing it cost an
+  extra commit; now it surfaces on the PR that caused it.
+
 ## v0.2.1 — 2026-08-27
 
 - Releasing works on a repository whose `main` requires a pull request. `tower-release <x.y.z>`
