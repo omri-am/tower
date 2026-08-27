@@ -146,7 +146,8 @@ Then:
 1. **Design.** The orchestrator session assumes its role, registers its own session name in
    `.tower/orchestrator` so implementors can escalate to it, and starts its standing loop.
    Design together; it writes draft cards into `.tower/tasks/`.
-2. **Approve drafts.** Edit `status: draft` -> `ready` yourself, or tell the orchestrator
+2. **Approve drafts.** Read them with `tower-card` for the board and `tower-card T001` for
+   one card in full, then edit `status: draft` -> `ready` yourself, or tell the orchestrator
    to. This is gate 1.
 3. **Dispatch.** The orchestrator finalizes `prompts/T###-prompt.md`, then you (or it) run
    `tower-dispatch T001`. A new terminal opens with an implementor session, `TOWER_TASK`
@@ -239,6 +240,7 @@ whole attention budget the protocol asks for.
 | `tower-init [--sidecar] [dir]` | you, once | Scaffolds `.tower/` and commits it |
 | `tower-orchestrate` | you | Opens the named orchestrator session and assumes the role |
 | `tower-dispatch <id>` | orchestrator | Creates the worktree, marks the card in-flight, launches the implementor |
+| `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
 | `tower-learnings --for\|--check\|--scopes` | orchestrator | Selects, audits, or lists scoped learnings |
 | `tower-pr-wait [id]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>` |
 | `tower-watch` | you, optionally | Fallback poller that flips merged cards whose session is gone |
@@ -277,12 +279,37 @@ merge it flips the card to `merged`, commits, notifies, and runs the optional co
 `TOWER_TASK` and `TOWER_PR` set — e.g. to prompt a non-Claude orchestrator via
 `codex exec resume`. A Claude orchestrator on `/loop` does not need it.
 
+### `tower-card`
+
+`tower-card T###` renders the frontmatter, every section in card order, and a done/total
+count on the acceptance criteria; with no arguments it prints the board and a status tally.
+It exists because the owner approves content, not titles — the orchestrator runs this same
+command so the card in the transcript is the card on disk.
+
+Two behaviours look inconsistent until you see why. The box is drawn even when stdout is not
+a tty, because the orchestrator calls this through a tool that is never a tty but whose
+output a human reads; colour is the opposite, added only for a real terminal. Fenced code
+under `## Verification` keeps its lines intact and runs past the right border rather than
+being wrapped or clipped, so the commands stay copy-pasteable.
+
+Body content outside any `## ` section — an orchestrator checkpoint note before the first
+heading, or a card that never got its headings — is rendered as an unlabelled leading block
+rather than dropped. Cards record `pr:` as a full GitHub URL in practice, so the PR column
+shows the pull number it finds (`#15425`), and several become `#15942 +2` on the board with
+every number in the card view. Ids match case-insensitively, so a card filed `T073a` answers
+to `t073a`.
+
+`--plain` drops the box, the glyphs and the colour, for piping and for orchestrators that
+are not Claude Code: its output is pure ASCII, it never truncates a title or a dependency
+list, and the card body it prints is byte-identical to the file.
+
 ## Configuration
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `TOWER_NO_VERSION_CHECK` | unset | `1` silences the update notice |
 | `TOWER_VERSION_CHECK_TTL` | `86400` | Seconds between update checks |
+| `TOWER_CARD_WIDTH` | terminal width, else `80` | Render width for `tower-card` (floor 46) |
 | `TOWER_LEARNINGS_BUDGET` | `60` | Entry count `tower-learnings --check` measures against |
 | `TOWER_TASK` | set by dispatch | The implementor's task id |
 | `TOWER_PROJECT_DIR` | unset | First link in the project-discovery chain |

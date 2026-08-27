@@ -1,0 +1,410 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-card [<task-id>...] [--plain]" >&2
+  exit 1
+}
+
+PLAIN=0 IDS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --plain) PLAIN=1; shift ;;
+    -h|--help) usage ;;
+    -*) usage ;;
+    *) IDS="$IDS $1"; shift ;;
+  esac
+done
+IDS="${IDS# }"
+
+[ "$PLAIN" = 1 ] || export LC_CTYPE="${LC_CTYPE:-UTF-8}"
+
+LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+FIRST_ID="${IDS%% *}"
+if [ -n "$FIRST_ID" ]; then
+  LOCATED="$("$LOCATE" --task "$FIRST_ID")" || LOCATED=""
+else
+  LOCATED="$("$LOCATE")" || LOCATED=""
+fi
+if [ -z "$LOCATED" ]; then
+  echo "tower-card: no single .tower/ project for $PWD - cd into the project dir first" >&2
+  exit 1
+fi
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+TASKS="$PROJECT_DIR/.tower/tasks"
+[ -d "$TASKS" ] || { echo "tower-card: no $TASKS" >&2; exit 1; }
+
+if [ -t 1 ] && [ "$PLAIN" = 0 ]; then
+  C_DIM=$'\033[2m' C_B=$'\033[1m' C_R=$'\033[0m'
+  C_GRN=$'\033[32m' C_YEL=$'\033[33m' C_CYN=$'\033[36m' C_RED=$'\033[31m'
+else
+  C_DIM="" C_B="" C_R="" C_GRN="" C_YEL="" C_CYN="" C_RED=""
+fi
+
+if [ -n "${TOWER_CARD_WIDTH:-}" ]; then
+  TERM_W="$TOWER_CARD_WIDTH"
+elif [ -t 1 ]; then
+  TERM_W="$(tput cols 2>/dev/null || echo 80)"
+else
+  TERM_W=80
+fi
+W=80
+[ "$TERM_W" -lt 80 ] && W="$TERM_W"
+[ "$W" -lt 46 ] && W=46
+INNER=$((W - 4))
+
+dashes() {
+  local n="${1:-0}"
+  [ "$n" -gt 0 ] || return 0
+  printf '%*s' "$n" "" | sed 's/ /─/g'
+}
+
+clipped() {
+  local s="${1:-}" w="$2"
+  [ ${#s} -le "$w" ] || s="${s:0:$((w - 1))}…"
+  printf '%s' "$s"
+}
+
+padded() {
+  local s w n
+  w="$2"
+  s="$(clipped "${1:-}" "$w")"
+  n=$((w - ${#s}))
+  [ "$n" -lt 0 ] && n=0
+  printf '%s%*s' "$s" "$n" ""
+}
+
+glyph_for() {
+  case "$1" in
+    draft)     printf '○' ;;
+    ready)     printf '●' ;;
+    in-flight) printf '◐' ;;
+    in-review) printf '⇢' ;;
+    merged)    printf '✔' ;;
+    blocked)   printf '✖' ;;
+    *)         printf '·' ;;
+  esac
+}
+
+color_for() {
+  case "$1" in
+    draft)     printf '%s' "$C_DIM" ;;
+    ready)     printf '%s' "$C_B$C_GRN" ;;
+    in-flight) printf '%s' "$C_YEL" ;;
+    in-review) printf '%s' "$C_CYN" ;;
+    merged)    printf '%s' "$C_GRN" ;;
+    blocked)   printf '%s' "$C_B$C_RED" ;;
+    *)         printf '%s' "" ;;
+  esac
+}
+
+card_path() {
+  find "$TASKS" -maxdepth 1 \( -iname "$1-*.md" -o -iname "$1.md" \) 2>/dev/null | sort | head -1
+}
+
+frontmatter() {
+  awk 'NR==1 && $0=="---" {inside=1; next} inside && $0=="---" {exit} inside {print}' "$1"
+}
+
+card_body() {
+  awk 'NR==1 && $0=="---" {n=1; next} n==1 && $0=="---" {n=2; next} n==2 {print}' "$1"
+}
+
+fm_field() {
+  printf '%s\n' "$2" | sed -n "s/^$1:[[:space:]]*//p" | head -1 | sed 's/^"//; s/"$//; s/[[:space:]]*$//'
+}
+
+placeholder() {
+  if [ "$PLAIN" = 1 ]; then printf '%s' "-"; else printf '%s' "—"; fi
+}
+
+pr_display() {
+  local pr nums; pr="$(fm_field pr "$1")"
+  [ -n "$pr" ] || { placeholder; return; }
+  nums="$(printf '%s\n' "$pr" | tr ' ,' '\n\n' | sed -n 's|.*/pull/\([0-9][0-9]*\).*|#\1|p' | paste -sd, - | sed 's/,/, /g')"
+  if [ -n "$nums" ]; then
+    printf '%s' "$nums"
+    return
+  fi
+  case "$pr" in
+    \#*) printf '%s' "$pr" ;;
+    *[!0-9]*) printf '%s' "$pr" ;;
+    *) printf '#%s' "$pr" ;;
+  esac
+}
+
+fm_list() {
+  local raw; raw="$(fm_field "$1" "$2")"
+  case "$raw" in
+    "["*"]") raw="${raw#[}"; raw="${raw%]}" ;;
+    "") raw="$(printf '%s\n' "$2" | sed -n "/^$1:/,/^[a-z_]*:/p" | sed -n 's/^[[:space:]]*-[[:space:]]*//p' | paste -sd, -)" ;;
+  esac
+  raw="$(printf '%s' "$raw" | sed 's/[[:space:]]//g; s/,/, /g')"
+  [ -n "$raw" ] || raw="$(placeholder)"
+  printf '%s' "$raw"
+}
+
+row() {
+  printf '%s│%s %s %s│%s\n' "$C_DIM" "$C_R" "$(padded "${1:-}" "$INNER")" "$C_DIM" "$C_R"
+}
+
+openrow() {
+  printf '%s│%s %s\n' "$C_DIM" "$C_R" "${1:-}"
+}
+
+rule() { printf '%s├%s┤%s\n' "$C_DIM" "$(dashes $((W - 2)))" "$C_R"; }
+bottom() { printf '%s╰%s╯%s\n' "$C_DIM" "$(dashes $((W - 2)))" "$C_R"; }
+
+emit_wrapped() {
+  local text="$1" prefix="$2" cont="$3" avail avail_cont first=1
+  avail=$((INNER - ${#prefix}))
+  avail_cont=$((INNER - ${#cont}))
+  [ "$avail_cont" -lt "$avail" ] && avail="$avail_cont"
+  [ "$avail" -lt 8 ] && avail=8
+  while IFS= read -r seg; do
+    if [ "$first" = 1 ]; then row "$prefix$seg"; first=0; else row "$cont$seg"; fi
+  done <<EOF
+$(printf '%s\n' "$text" | fold -s -w "$avail" | sed 's/[[:space:]]*$//')
+EOF
+}
+
+render_card() {
+  local file="$1" fm id title status depends vendor branch pr
+  fm="$(frontmatter "$file")"
+  id="$(fm_field id "$fm")"; [ -n "$id" ] || id="$2"
+  title="$(fm_field title "$fm")"; [ -n "$title" ] || title="(untitled)"
+  status="$(fm_field status "$fm")"; [ -n "$status" ] || status="unknown"
+  depends="$(fm_list depends_on "$fm")"
+  vendor="$(fm_field vendor "$fm")"; [ -n "$vendor" ] || vendor="any"
+  branch="$(fm_field branch "$fm")"; [ -n "$branch" ] || branch="$(placeholder)"
+  pr="$(pr_display "$fm")"
+
+  local left right fill
+  left="╭─ $id · $title " right=" $(glyph_for "$status") $status ─╮"
+  fill=$((W - ${#left} - ${#right}))
+  while [ "$fill" -lt 1 ] && [ ${#title} -gt 4 ]; do
+    title="${title:0:$((${#title} - 2))}…"
+    left="╭─ $id · $title "
+    fill=$((W - ${#left} - ${#right}))
+  done
+  [ "$fill" -lt 1 ] && fill=1
+  printf '%s\n' "${C_DIM}╭─ ${C_R}${C_B}$id · $title${C_R}${C_DIM} $(dashes "$fill") ${C_R}$(color_for "$status")$(glyph_for "$status") $status${C_R}${C_DIM} ─╮${C_R}"
+
+  local m1="depends_on: $depends    vendor: $vendor" m2="branch: $branch    pr: $pr"
+  if [ ${#m1} -le "$INNER" ] && [ ${#m2} -le "$INNER" ]; then
+    row "$m1"
+    row "$m2"
+  else
+    emit_wrapped "depends_on: $depends" "" "  "
+    emit_wrapped "vendor: $vendor" "" "  "
+    emit_wrapped "branch: $branch" "" "  "
+    emit_wrapped "pr: $pr" "" "  "
+  fi
+
+  local LINES N=0 line
+  while IFS= read -r line; do
+    LINES[$N]="$line"; N=$((N + 1))
+  done <<EOF
+$(card_body "$file")
+EOF
+
+  local HEAD_IDX="" i
+  i=0
+  while [ "$i" -lt "$N" ]; do
+    case "${LINES[$i]}" in "## "*) HEAD_IDX="$HEAD_IDX $i" ;; esac
+    i=$((i + 1))
+  done
+
+  if [ -z "$HEAD_IDX" ]; then
+    render_section -1 0 "$N"
+  else
+    local first_head
+    for first_head in $HEAD_IDX; do break; done
+    [ "$first_head" -gt 0 ] && render_section -1 0 "$first_head"
+    for i in $HEAD_IDX; do
+      local start=$((i + 1)) end="$N" nxt found=0
+      for nxt in $HEAD_IDX; do
+        if [ "$found" = 1 ]; then end=$((nxt)); break; fi
+        [ "$nxt" = "$i" ] && found=1
+      done
+      render_section "$i" "$start" "$end"
+    done
+  fi
+  bottom
+}
+
+render_section() {
+  local head="$1" start="$2" end="$3" i label="" done_n=0 total_n=0 has=0
+  [ "$head" -lt 0 ] || label="$(printf '%s' "${LINES[$head]#\#\# }" | tr '[:lower:]' '[:upper:]')"
+
+  i="$start"
+  while [ "$i" -lt "$end" ]; do
+    case "${LINES[$i]}" in
+      "- [ ]"*|"- [x]"*|"- [X]"*) total_n=$((total_n + 1))
+        case "${LINES[$i]}" in "- [x]"*|"- [X]"*) done_n=$((done_n + 1)) ;; esac ;;
+    esac
+    case "${LINES[$i]}" in ""|'```'*) : ;; *) has=1 ;; esac
+    i=$((i + 1))
+  done
+
+  if [ "$head" -lt 0 ]; then
+    [ "$has" = 1 ] || return 0
+    rule
+  else
+    rule
+    if [ "$total_n" -gt 0 ]; then
+      emit_wrapped "$label  $done_n/$total_n" "" "  "
+    else
+      emit_wrapped "$label" "" "  "
+    fi
+    if [ "$has" = 0 ]; then
+      row "  $(placeholder)"
+      return
+    fi
+  fi
+
+  local in_code=0 seen=0 blanks=0 text
+  i="$start"
+  while [ "$i" -lt "$end" ]; do
+    line="${LINES[$i]}"
+    i=$((i + 1))
+    case "$line" in
+      '```'*)
+        if [ "$in_code" = 0 ]; then in_code=1; row; else in_code=0; row; fi
+        seen=1 blanks=0
+        continue ;;
+    esac
+    if [ "$in_code" = 1 ]; then
+      openrow "  $line"; seen=1 blanks=0; continue
+    fi
+    if [ -z "$line" ]; then
+      [ "$seen" = 1 ] && blanks=$((blanks + 1))
+      continue
+    fi
+    while [ "$blanks" -gt 0 ]; do row; blanks=$((blanks - 1)); done
+    seen=1
+    case "$line" in
+      "- [ ]"*) text="${line#- \[ \]}"; emit_wrapped "${text# }" "  ☐ " "    " ;;
+      "- [x]"*) text="${line#- \[x\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
+      "- [X]"*) text="${line#- \[X\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
+      "- "*)    emit_wrapped "${line#- }" "  • " "    " ;;
+      "* "*)    emit_wrapped "${line#\* }" "  • " "    " ;;
+      *)        emit_wrapped "$line" "  " "  " ;;
+    esac
+  done
+}
+
+render_plain() {
+  local file="$1" fm id title status branch pr
+  fm="$(frontmatter "$file")"
+  id="$(fm_field id "$fm")"; [ -n "$id" ] || id="$2"
+  title="$(fm_field title "$fm")"; [ -n "$title" ] || title="(untitled)"
+  status="$(fm_field status "$fm")"; [ -n "$status" ] || status="unknown"
+  branch="$(fm_field branch "$fm")"; [ -n "$branch" ] || branch="$(placeholder)"
+  pr="$(pr_display "$fm")"
+  echo "$id  $title  [$status]"
+  echo "depends_on: $(fm_list depends_on "$fm")    vendor: $(fm_field vendor "$fm")"
+  echo "branch: $branch    pr: $pr"
+  card_body "$file" | sed '/./,$!d'
+}
+
+board() {
+  local files count=0 id title status depends pr
+  files="$(find "$TASKS" -maxdepth 1 -name '*.md' 2>/dev/null | sort)"
+  if [ -z "$files" ]; then
+    echo "tower-card: no cards in $TASKS" >&2
+    exit 1
+  fi
+  local id_w=5 status_w=12 deps_w=14 pr_w=10 title_w show_deps=1 header
+  title_w=$((W - id_w - status_w - deps_w - pr_w - 8))
+  while [ "$title_w" -lt 16 ] && [ "$deps_w" -gt 6 ]; do
+    deps_w=$((deps_w - 1)); title_w=$((title_w + 1))
+  done
+  while [ "$title_w" -lt 16 ] && [ "$pr_w" -gt 6 ]; do
+    pr_w=$((pr_w - 1)); title_w=$((title_w + 1))
+  done
+  if [ "$title_w" -lt 12 ]; then
+    show_deps=0
+    title_w=$((W - id_w - status_w - pr_w - 6))
+  fi
+  [ "$title_w" -lt 8 ] && title_w=8
+
+  if [ "$PLAIN" = 0 ]; then
+    header="$(padded ID "$id_w")  $(padded STATUS "$status_w")  $(padded TITLE "$title_w")"
+    [ "$show_deps" = 0 ] || header="$header  $(padded DEPS "$deps_w")"
+    printf '%s%s  PR%s\n' "$C_DIM" "$header" "$C_R"
+  fi
+  local n_draft=0 n_ready=0 n_flight=0 n_review=0 n_merged=0 n_blocked=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    local fm; fm="$(frontmatter "$f")"
+    id="$(fm_field id "$fm")"
+    [ -n "$id" ] || id="$(basename "$f" .md)"
+    title="$(fm_field title "$fm")"; [ -n "$title" ] || title="(untitled)"
+    status="$(fm_field status "$fm")"; [ -n "$status" ] || status="unknown"
+    depends="$(fm_list depends_on "$fm")"
+    pr="$(pr_display "$fm")"
+    if [ "$PLAIN" = 0 ]; then
+      case "$pr" in
+        *", "*) pr="${pr%%,*} +$(( $(printf '%s' "$pr" | tr -cd ',' | wc -c | tr -d ' ') ))" ;;
+      esac
+      pr="$(clipped "$pr" "$pr_w")"
+      title="$(clipped "$title" "$title_w")"
+      depends="$(clipped "$depends" "$deps_w")"
+    fi
+    count=$((count + 1))
+    case "$status" in
+      draft) n_draft=$((n_draft + 1)) ;;
+      ready) n_ready=$((n_ready + 1)) ;;
+      in-flight) n_flight=$((n_flight + 1)) ;;
+      in-review) n_review=$((n_review + 1)) ;;
+      merged) n_merged=$((n_merged + 1)) ;;
+      blocked) n_blocked=$((n_blocked + 1)) ;;
+    esac
+    if [ "$PLAIN" = 1 ]; then
+      printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$status" "$title" "$depends" "$pr"
+    else
+      local line
+      line="$(padded "$id" "$id_w")  $(color_for "$status")$(padded "$(glyph_for "$status") $status" "$status_w")$C_R"
+      line="$line  $(padded "$title" "$title_w")"
+      [ "$show_deps" = 0 ] || line="$line  $(padded "$depends" "$deps_w")"
+      printf '%s  %s\n' "$line" "$pr"
+    fi
+  done <<EOF
+$files
+EOF
+
+  [ "$PLAIN" = 1 ] && return 0
+  local tally="$count cards"
+  [ "$n_blocked" -gt 0 ] && tally="$tally · $n_blocked blocked"
+  [ "$n_flight" -gt 0 ] && tally="$tally · $n_flight in-flight"
+  [ "$n_review" -gt 0 ] && tally="$tally · $n_review in-review"
+  [ "$n_ready" -gt 0 ] && tally="$tally · $n_ready ready"
+  [ "$n_draft" -gt 0 ] && tally="$tally · $n_draft draft"
+  [ "$n_merged" -gt 0 ] && tally="$tally · $n_merged merged"
+  echo
+  while IFS= read -r line; do
+    printf '%s%s%s\n' "$C_DIM" "$line" "$C_R"
+  done <<EOF
+$(printf '%s\n' "$tally" | fold -s -w "$W" | sed 's/[[:space:]]*$//')
+EOF
+}
+
+if [ -z "$IDS" ]; then
+  board
+  exit 0
+fi
+
+FAILED=0 FIRST=1
+for ID in $IDS; do
+  FILE="$(card_path "$ID")"
+  if [ -z "$FILE" ]; then
+    echo "tower-card: no card $ID in $TASKS" >&2
+    FAILED=1
+    continue
+  fi
+  [ "$FIRST" = 1 ] || echo
+  FIRST=0
+  if [ "$PLAIN" = 1 ]; then render_plain "$FILE" "$ID"; else render_card "$FILE" "$ID"; fi
+done
+exit "$FAILED"
