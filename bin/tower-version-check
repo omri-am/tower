@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+MODE=notice
+case "${1:-}" in
+  --notice) MODE=notice ;;
+  "") MODE=sync ;;
+  *) echo "usage: tower-version-check [--notice]" >&2; exit 0 ;;
+esac
+
+if [ "${TOWER_NO_VERSION_CHECK:-0}" = 1 ]; then exit 0; fi
+
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${TOWER_ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
+if [ ! -r "$ROOT/lib/tower-semver.sh" ] || [ ! -r "$ROOT/lib/tower-meta.sh" ]; then exit 0; fi
+. "$ROOT/lib/tower-semver.sh"
+. "$ROOT/lib/tower-meta.sh"
+
+CACHE_DIR="${TOWER_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/tower}"
+CACHE_FILE="$CACHE_DIR/version-check"
+LOCK_DIR="$CACHE_DIR/refresh.lock"
+TTL="${TOWER_VERSION_CHECK_TTL:-86400}"
+
+LOCAL="$(tower_version "$ROOT")"
+if [ -z "$LOCAL" ]; then exit 0; fi
+
+remote_url() {
+  if [ -n "${TOWER_VERSION_REMOTE:-}" ]; then printf '%s' "$TOWER_VERSION_REMOTE"; return 0; fi
+  local known="$HOME/.claude/plugins/known_marketplaces.json" url=""
+  if [ -r "$known" ] && command -v jq >/dev/null 2>&1; then
+    url="$(jq -r '.tower.source.url // (if .tower.source.repo then "https://github.com/" + .tower.source.repo + ".git" else empty end)' "$known" 2>/dev/null)"
+    if [ "$url" = "null" ]; then url=""; fi
+  fi
+  if [ -z "$url" ]; then url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"; fi
+  printf '%s' "$url"
+}
+
+fetch_latest() {
+  local url="$1"
+  git ls-remote --tags "$url" 'v*' 2>/dev/null \
+    | sed -n 's#.*refs/tags/##p' \
+    | sed 's/\^{}$//' \
+    | semver_max
+}
+
+write_cache() {
+  mkdir -p "$CACHE_DIR" 2>/dev/null || return 0
+  printf '%s\n%s\n' "$(date +%s)" "$1" > "$CACHE_FILE.tmp" 2>/dev/null || return 0
+  mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null || return 0
+}
+
+cache_epoch() { sed -n 1p "$CACHE_FILE" 2>/dev/null | tr -d '[:space:]'; }
+cache_latest() { sed -n 2p "$CACHE_FILE" 2>/dev/null | tr -d '[:space:]'; }
+
+cache_fresh() {
+  local then now
+  then="$(cache_epoch)"
+  case "$then" in ''|*[!0-9]*) return 1 ;; esac
+  now="$(date +%s)"
+  [ $((now - then)) -lt "$TTL" ]
+}
+
+take_lock() {
+  mkdir -p "$CACHE_DIR" 2>/dev/null || return 1
+  if mkdir "$LOCK_DIR" 2>/dev/null; then return 0; fi
+  if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +5 2>/dev/null)" ]; then
+    rmdir "$LOCK_DIR" 2>/dev/null && mkdir "$LOCK_DIR" 2>/dev/null && return 0
+  fi
+  return 1
+}
+
+refresh() {
+  local url latest
+  url="$(remote_url)"
+  if [ -z "$url" ]; then return 0; fi
+  latest="$(fetch_latest "$url")"
+  if [ -n "$latest" ]; then write_cache "$latest"; fi
+}
+
+update_hint() {
+  case "$ROOT" in
+    "$HOME/.claude/plugins/cache/"*) printf '/plugin update tower@tower' ;;
+    *) printf 'git -C %s pull' "$ROOT" ;;
+  esac
+}
+
+report_if_newer() {
+  local latest="$1"
+  case "$latest" in ''|*[!0-9.]*) return 0 ;; esac
+  if semver_gt "$latest" "$LOCAL"; then
+    echo "tower: $latest available (you have $LOCAL) -> $(update_hint)" >&2
+  fi
+}
+
+if [ "$MODE" = sync ]; then
+  if take_lock; then
+    refresh
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+  LATEST="$(cache_latest)"
+  if [ -z "$LATEST" ]; then exit 0; fi
+  if semver_gt "$LATEST" "$LOCAL"; then
+    report_if_newer "$LATEST"
+  else
+    echo "tower: $LOCAL is current" >&2
+  fi
+  exit 0
+fi
+
+report_if_newer "$(cache_latest)"
+
+if ! cache_fresh; then
+  if take_lock; then
+    ( refresh; rmdir "$LOCK_DIR" 2>/dev/null || true ) >/dev/null 2>&1 &
+  fi
+fi
+exit 0
