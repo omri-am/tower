@@ -7,8 +7,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 die() { echo "tower-release: $1" >&2; exit 1; }
 
-[ $# -eq 1 ] || die "usage: tower-release <x.y.z>"
-NEW="$1"
+usage() { die "usage: tower-release <x.y.z> | tower-release --tag <x.y.z>"; }
+
+if [ "${1:-}" = "--tag" ]; then
+  MODE="tag"
+  [ $# -eq 2 ] || usage
+  NEW="$2"
+else
+  MODE="prepare"
+  [ $# -eq 1 ] || usage
+  NEW="$1"
+fi
+
 case "$NEW" in
   [0-9]*.[0-9]*.[0-9]*) : ;;
   *) die "$NEW is not an x.y.z version" ;;
@@ -17,6 +27,34 @@ case "$NEW" in *[!0-9.]*) die "$NEW is not an x.y.z version" ;; esac
 
 MANIFEST="$ROOT/.claude-plugin/plugin.json"
 CHANGELOG="$ROOT/CHANGELOG.md"
+
+if [ "$MODE" = "tag" ]; then
+  git -C "$ROOT" diff --quiet || die "working tree has unstaged changes"
+  git -C "$ROOT" diff --cached --quiet || die "working tree has staged changes"
+
+  BRANCH="$(git -C "$ROOT" symbolic-ref --short -q HEAD || true)"
+  [ "$BRANCH" = "main" ] || die "current branch is ${BRANCH:-detached HEAD}, not main"
+
+  git -C "$ROOT" fetch origin -q || die "could not fetch origin"
+  LOCAL_MAIN="$(git -C "$ROOT" rev-parse main)"
+  REMOTE_MAIN="$(git -C "$ROOT" rev-parse origin/main)"
+  [ "$LOCAL_MAIN" = "$REMOTE_MAIN" ] || die "local main does not match origin/main"
+
+  [ -r "$MANIFEST" ] || die "no manifest at $MANIFEST"
+  CURRENT="$(tower_version "$ROOT")"
+  [ "$CURRENT" = "$NEW" ] || die "manifest reads $CURRENT, not $NEW"
+
+  if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
+    die "tag v$NEW already exists"
+  fi
+
+  git -C "$ROOT" tag "v$NEW"
+
+  echo "tower-release: v$NEW tagged on main"
+  echo "tower-release: review, then run -> git push origin v$NEW"
+  exit 0
+fi
+
 [ -r "$MANIFEST" ] || die "no manifest at $MANIFEST"
 [ -r "$CHANGELOG" ] || die "no changelog at $CHANGELOG"
 
@@ -28,6 +66,9 @@ git -C "$ROOT" diff --quiet || die "working tree has unstaged changes"
 git -C "$ROOT" diff --cached --quiet || die "working tree has staged changes"
 if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
   die "tag v$NEW already exists"
+fi
+if git -C "$ROOT" rev-parse -q --verify "refs/heads/release-v$NEW" >/dev/null; then
+  die "branch release-v$NEW already exists"
 fi
 
 UNRELEASED_HEADINGS="$(grep -c '^## Unreleased$' "$CHANGELOG" || true)"
@@ -69,9 +110,10 @@ awk -v new="## v$NEW — $TODAY" '
 ' "$CHANGELOG" > "$TMP"
 mv "$TMP" "$CHANGELOG"
 
+git -C "$ROOT" checkout -q -b "release-v$NEW"
 git -C "$ROOT" add "$MANIFEST" "$CHANGELOG"
 git -C "$ROOT" commit -q -m "Release v$NEW"
-git -C "$ROOT" tag "v$NEW"
 
-echo "tower-release: v$NEW committed and tagged"
-echo "tower-release: review, then run -> git push && git push origin v$NEW"
+echo "tower-release: v$NEW committed on release-v$NEW"
+echo "tower-release: run -> git push -u origin release-v$NEW"
+echo "tower-release: open a pull request, merge it, then run -> tower-release --tag $NEW"
