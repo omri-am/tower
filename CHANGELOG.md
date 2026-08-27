@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.2.0 — 2026-08-27
+
 - `tower-card` renders a task card as a bordered CLI view — frontmatter, every section, and a
   done/total count on the acceptance criteria — or the whole board with no arguments, so
   reviewing a card before approving it never means opening `.tower/tasks/`. The orchestrator
