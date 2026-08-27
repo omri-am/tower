@@ -30,14 +30,21 @@ if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
   die "tag v$NEW already exists"
 fi
 
+UNRELEASED_HEADINGS="$(grep -c '^## Unreleased$' "$CHANGELOG")"
+[ "$UNRELEASED_HEADINGS" -eq 1 ] || die "CHANGELOG.md has $UNRELEASED_HEADINGS '## Unreleased' headings, expected exactly 1"
+
 UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr -d '[:space:]')"
 [ -n "$UNRELEASED" ] || die "CHANGELOG.md has nothing under '## Unreleased' - a version bump with no entry tells nobody what shipped"
 
 TODAY="$(date +%Y-%m-%d)"
+ESCAPED_CURRENT="${CURRENT//./\\.}"
 TMP="$(mktemp)"
 
-sed 's/"version"[[:space:]]*:[[:space:]]*"'"$CURRENT"'"/"version": "'"$NEW"'"/' "$MANIFEST" > "$TMP"
+sed 's/^\([[:space:]]*\)"version"[[:space:]]*:[[:space:]]*"'"$ESCAPED_CURRENT"'"/\1"version": "'"$NEW"'"/' "$MANIFEST" > "$TMP"
 mv "$TMP" "$MANIFEST"
+
+VERIFY="$(tower_version "$ROOT")"
+[ "$VERIFY" = "$NEW" ] || die "manifest rewrite did not take - $MANIFEST still does not read $NEW"
 
 TMP="$(mktemp)"
 awk -v new="## v$NEW — $TODAY" '
