@@ -160,4 +160,55 @@ assert_eq "target stdout is unpolluted" \
   "$(env HOME="$FAKE_HOME" TOWER_ROOT="$DEV" TOWER_VERSION_REMOTE="$REMOTE" TOWER_CACHE_DIR="$CACHE" \
        "$BINDIR/tower-locate" 2>/dev/null)" "locate from 9.9.9"
 
+PLUGIN_HOME="$TMP/plugin-home"
+mkdir -p "$PLUGIN_HOME"
+PLUGIN_ROOT="$PLUGIN_HOME/.claude/plugins/cache/tower/tower/0.3.0"
+make_root "$PLUGIN_ROOT" 0.3.0
+cp "$ROOT/bin/tower-shim" "$PLUGIN_ROOT/bin/tower-shim"
+cp "$ROOT/bin/tower-bootstrap" "$PLUGIN_ROOT/bin/tower-bootstrap"
+chmod +x "$PLUGIN_ROOT/bin/tower-shim" "$PLUGIN_ROOT/bin/tower-bootstrap"
+PLUGIN_LIBEXEC="$TMP/plugin-libexec"
+PLUGIN_BINDIR="$TMP/plugin-bin"
+OUT_PLUGIN_BOOTSTRAP="$(env TOWER_BIN_DIR="$PLUGIN_BINDIR" TOWER_LIBEXEC_DIR="$PLUGIN_LIBEXEC" HOME="$PLUGIN_HOME" \
+    "$PLUGIN_ROOT/bin/tower-bootstrap" 2>&1)"
+assert_true "bootstrap from a plugin cache path writes no tower-root" \
+  test ! -e "$PLUGIN_LIBEXEC/tower-root"
+assert_eq "bootstrap from a plugin cache path with no prior tower-root says so in its output" \
+  "$(printf '%s' "$OUT_PLUGIN_BOOTSTRAP" | grep -c 'not recording tower-root')" "1"
+assert_eq "bootstrap from a plugin cache path with no prior tower-root does not claim a removal" \
+  "$(printf '%s' "$OUT_PLUGIN_BOOTSTRAP" | grep -c 'removed the stale tower-root')" "0"
+
+STALE_LIBEXEC="$TMP/stale-libexec"
+mkdir -p "$STALE_LIBEXEC"
+printf '%s\n' "$TMP/some-old-checkout" > "$STALE_LIBEXEC/tower-root"
+OUT_STALE_REMOVED="$(env TOWER_BIN_DIR="$TMP/stale-bin" TOWER_LIBEXEC_DIR="$STALE_LIBEXEC" HOME="$PLUGIN_HOME" \
+    "$PLUGIN_ROOT/bin/tower-bootstrap" 2>&1)"
+assert_true "bootstrap from a plugin cache path removes a stale tower-root left by an earlier clone-route bootstrap" \
+  test ! -e "$STALE_LIBEXEC/tower-root"
+assert_eq "removing a stale tower-root gets its own message" \
+  "$(printf '%s' "$OUT_STALE_REMOVED" | grep -c 'removed the stale tower-root')" "1"
+assert_eq "removing a stale tower-root does not also print the no-prior-file message" \
+  "$(printf '%s' "$OUT_STALE_REMOVED" | grep -c 'not recording tower-root')" "0"
+assert_eq "the two tower-root outcomes are worded differently" \
+  "$([ "$OUT_PLUGIN_BOOTSTRAP" != "$OUT_STALE_REMOVED" ] && echo yes || echo no)" "yes"
+
+IMMUTABLE_LIBEXEC="$TMP/immutable-libexec"
+mkdir -p "$IMMUTABLE_LIBEXEC"
+printf '%s\n' "$TMP/some-old-checkout" > "$IMMUTABLE_LIBEXEC/tower-root"
+if command -v chflags >/dev/null 2>&1 && chflags uchg "$IMMUTABLE_LIBEXEC/tower-root" 2>/dev/null; then
+  IMMUTABLE_BINDIR="$TMP/immutable-bin"
+  OUT_IMMUTABLE="$(env TOWER_BIN_DIR="$IMMUTABLE_BINDIR" TOWER_LIBEXEC_DIR="$IMMUTABLE_LIBEXEC" HOME="$PLUGIN_HOME" \
+      "$PLUGIN_ROOT/bin/tower-bootstrap" 2>&1)"
+  STATUS_IMMUTABLE="$?"
+  chflags nouchg "$IMMUTABLE_LIBEXEC/tower-root" 2>/dev/null || true
+  assert_status "a stale tower-root that cannot be deleted does not abort the bootstrap" "$STATUS_IMMUTABLE" "0"
+  assert_true "the shim still gets installed when the stale tower-root cannot be deleted" \
+    test -x "$IMMUTABLE_LIBEXEC/tower-shim"
+  assert_true "commands still get linked when the stale tower-root cannot be deleted" \
+    test -L "$IMMUTABLE_BINDIR/tower-init"
+else
+  chflags nouchg "$IMMUTABLE_LIBEXEC/tower-root" 2>/dev/null || true
+  echo "  SKIP: chflags unavailable, cannot construct a permission failure on the tower-root removal here" >&2
+fi
+
 summary
