@@ -69,11 +69,21 @@ assert_status "refuses a changelog with more than one Unreleased heading" "$?" "
 new_repo "$R"
 printf '{\n  "name": "tower",\n  "version": "0.1.0",\n  "engines": {\n    "version": "0a1a0"\n  }\n}\n' > "$R/.claude-plugin/plugin.json"
 git -C "$R" add -A
-git -C "$R" commit -q -m "nested version key"
+git -C "$R" commit -q -m "nested version key with an unrelated value"
 "$R/scripts/tower-release" 0.2.0 >/dev/null 2>&1
-assert_status "happy path succeeds with a nested version key present" "$?" "0"
-assert_eq "top-level version bumped" "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.2.0"
-assert_eq "nested version key left untouched" "$(grep -c '\"version\": \"0a1a0\"' "$R/.claude-plugin/plugin.json")" "1"
+assert_status "happy path succeeds with a differently-valued nested version key" "$?" "0"
+assert_eq "top-level version bumped despite the nested key" "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.2.0"
+assert_eq "differently-valued nested version key left untouched" "$(grep -c '\"version\": \"0a1a0\"' "$R/.claude-plugin/plugin.json")" "1"
+
+new_repo "$R"
+printf '{\n  "name": "tower",\n  "version": "0.1.0",\n  "engines": {\n    "version": "0.1.0"\n  }\n}\n' > "$R/.claude-plugin/plugin.json"
+git -C "$R" add -A
+git -C "$R" commit -q -m "nested version key with the same value"
+"$R/scripts/tower-release" 0.2.0 >/dev/null 2>&1
+assert_status "happy path succeeds with a same-valued nested version key" "$?" "0"
+assert_eq "top-level version bumped, not the nested one" "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.2.0"
+assert_eq "exactly one line reads the new version" "$(grep -c '\"version\": \"0.2.0\"' "$R/.claude-plugin/plugin.json")" "1"
+assert_eq "the same-valued nested key still reads the old version" "$(grep -c '\"version\": \"0.1.0\"' "$R/.claude-plugin/plugin.json")" "1"
 
 new_repo "$R"
 printf '{\n  "name": "tower",\n  "version":\n    "0.1.0"\n}\n' > "$R/.claude-plugin/plugin.json"

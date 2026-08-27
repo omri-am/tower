@@ -37,10 +37,26 @@ UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr 
 [ -n "$UNRELEASED" ] || die "CHANGELOG.md has nothing under '## Unreleased' - a version bump with no entry tells nobody what shipped"
 
 TODAY="$(date +%Y-%m-%d)"
-ESCAPED_CURRENT="${CURRENT//./\\.}"
 TMP="$(mktemp)"
 
-sed 's/^\([[:space:]]*\)"version"[[:space:]]*:[[:space:]]*"'"$ESCAPED_CURRENT"'"/\1"version": "'"$NEW"'"/' "$MANIFEST" > "$TMP"
+awk -v cur="$CURRENT" -v new="$NEW" '
+  BEGIN {
+    n = split(cur, parts, ".")
+    escaped = parts[1]
+    for (i = 2; i <= n; i++) escaped = escaped "\\." parts[i]
+    re = "^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"" escaped "\""
+  }
+  !done && match($0, re) {
+    full_end = RSTART + RLENGTH
+    match($0, /^[[:space:]]*/)
+    indent = substr($0, 1, RLENGTH)
+    suffix = substr($0, full_end)
+    print indent "\"version\": \"" new "\"" suffix
+    done = 1
+    next
+  }
+  { print }
+' "$MANIFEST" > "$TMP"
 mv "$TMP" "$MANIFEST"
 
 VERIFY="$(tower_version "$ROOT")"
