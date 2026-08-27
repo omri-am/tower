@@ -13,11 +13,18 @@ if [ -z "$TASK" ] && [ -n "$PROJECT_DIR" ]; then
 fi
 [ -n "$TASK" ] || exit 0
 
+strip_ref() {
+  case "$1" in
+    *" ["*"]") printf '%s' "${1% \[*}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
 TO="$(printf '%s' "$INPUT" | jq -r '.tool_input.to // empty' 2>/dev/null || true)"
 ALLOWED=""
 [ -n "$PROJECT_DIR" ] && ALLOWED="$(head -1 "$PROJECT_DIR/.tower/orchestrator" 2>/dev/null || true)"
 
-if [ -n "$ALLOWED" ] && [ "$TO" = "$ALLOWED" ]; then
+if [ -n "$ALLOWED" ] && [ "$(strip_ref "$TO")" = "$(strip_ref "$ALLOWED")" ]; then
   exit 0
 fi
 

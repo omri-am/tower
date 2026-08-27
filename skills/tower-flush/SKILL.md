@@ -22,8 +22,9 @@ Go through these, writing only what is NOT already in the files:
    what an agent did, it is noise — leave it out.
 4. **Ingest debt.** Handoffs you read but never fully processed: finish ingesting them now
    or note explicitly in `design.md`'s open questions which handoffs remain unprocessed.
-5. **Role registration.** If `.tower/orchestrator` contains this session's address, delete
-   the file — your address dies with you.
+5. **Role registration.** If `.tower/orchestrator` names this session (compare it against
+   `tower-whoami`), delete the file — your name dies with you, and a stale one silently
+   swallows escalations.
 
 Commit everything inside `.tower/` (sidecar mode) or the project repo with a `tower:`
 message. Then state in your final message, in one paragraph, what you flushed and what —

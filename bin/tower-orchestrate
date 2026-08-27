@@ -2,7 +2,8 @@
 set -euo pipefail
 
 TARGET="${1:-$PWD}"
-LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+LOCATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATE="$LOCATE_DIR/tower-locate"
 
 if [ $# -ge 1 ]; then
   LOCATED="$("$LOCATE" --from "$TARGET")" || LOCATED=""
@@ -23,7 +24,9 @@ case "$RESOLVED_BY" in
     exit 1 ;;
 esac
 
+SESSION_NAME="$("$LOCATE_DIR/tower-session-name" --orch --from "$PROJECT_DIR")"
+
 PROMPT="Invoke the tower-orchestrator skill (listed as tower:tower-orchestrator when tower is installed as a Claude Code plugin) and assume the orchestrator role for this project. Follow the skill fully: run the rehydration ritual including registering your address in .tower/orchestrator, then start the standing loop."
 
 cd "$PROJECT_DIR"
-exec claude "$PROMPT"
+exec claude -n "$SESSION_NAME" "$PROMPT"

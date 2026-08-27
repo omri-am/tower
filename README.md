@@ -99,15 +99,16 @@ session asks you where the project is rather than guessing or scaffolding a new 
 See [PROTOCOL.md](PROTOCOL.md) for the full chain and its exit codes.
 
 1. Start the orchestrator: `tower-orchestrate` (from anywhere in the project) opens a
-   Claude session that assumes the role, registers its address in `.tower/orchestrator`
-   for implementor escalations, and starts its standing loop — or do the same manually by
+   Claude session named `tower-<project>-<digest>-orch`, which assumes the role, registers that
+   name in `.tower/orchestrator` for implementor escalations, and starts its standing loop — or do the same manually by
    invoking `tower-orchestrator` in a session. Design together; it writes draft cards into
    `.tower/tasks/`. To retire an orchestrator (or any tower session), invoke `tower-flush`
    in it first — it writes everything it knows into `.tower/` so the next session loses
    nothing.
 2. Approve drafts (edit `status: draft` -> `ready`, or tell the orchestrator to).
 3. The orchestrator finalizes `prompts/T###-prompt.md`, then: `tower-dispatch T001`.
-   A new terminal opens with the implementor session, `TOWER_TASK` set, card `in-flight`.
+   A new terminal opens with the implementor session named
+   `tower-<project>-<digest>-<task-id>`, `TOWER_TASK` set, card `in-flight`.
 4. Implementor works under the `tower-implementor` contract, opens the PR, writes a draft
    handoff (the Stop hook in [hooks/](hooks/README.md) enforces it), then holds on
    `tower-pr-wait` rather than ending.
@@ -141,6 +142,18 @@ flags entries missing their `(T###)` provenance; `--scopes` lists sections with 
 counts, for the prune pass. Retired entries move to `.tower/learnings-archive.md`, out of
 every prompt but still in the repo.
 
+`tower-session-name --orch | --task <id> [--from <dir>]` prints the session name a tower role
+answers to — `tower-<project>-<digest>-orch` or `tower-<project>-<digest>-<task-id>`, where the
+digest is a short hash of the project's path. Both launchers name their sessions from it, and
+anything that needs to address a tower session derives it here rather than by hand, so the two
+sides cannot disagree. The digest is what keeps the name unique when two projects share a
+directory basename.
+
+`tower-whoami` prints this session's own name — the address other sessions message it by,
+read from the Claude Code session registry keyed on `$CLAUDE_PID`. The orchestrator writes it
+into `.tower/orchestrator` during rehydration; exit 2 means the session is not addressable at
+all, in which case escalations arrive as `blocked` cards instead of messages.
+
 `tower-pr-wait [<task-id>] [--interval seconds]` blocks until that card's PR leaves OPEN,
 prints `MERGED <pr>` or `CLOSED <pr>`, and exits. It changes no state: it is the sensor an
 implementor backgrounds so that the process exit wakes its own session at the merge, which
@@ -162,5 +175,5 @@ possible phase 2 once the protocol proves itself.
 
 ## Requirements
 
-macOS (osascript for notifications and terminal launch; `sed -i ''`), git, Claude Code for
-the orchestrator and the Stop hook; codex CLI optional for implementors.
+macOS (osascript for notifications and terminal launch; `sed -i ''`), git, jq, Claude Code
+for the orchestrator and the Stop hook; codex CLI optional for implementors.

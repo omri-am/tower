@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: tower-session-name --orch | --task <id> [--from <dir>]" >&2
+  exit 1
+}
+
+SUFFIX="" FROM_FLAG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --orch) SUFFIX="orch"; shift ;;
+    --task) [ $# -ge 2 ] || usage; SUFFIX="$2"; shift 2 ;;
+    --from) [ $# -ge 2 ] || usage; FROM_FLAG="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[ -n "$SUFFIX" ] || usage
+
+LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+if [ -n "$FROM_FLAG" ]; then
+  LOCATED="$("$LOCATE" --from "$FROM_FLAG")" || LOCATED=""
+else
+  LOCATED="$("$LOCATE")" || LOCATED=""
+fi
+if [ -z "$LOCATED" ]; then
+  echo "tower-session-name: no single .tower/ project for ${FROM_FLAG:-$PWD} - cd into the project dir, or pass --from <dir>" >&2
+  exit 1
+fi
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+
+PATH_DIGEST="$(printf '%s' "$PROJECT_DIR" | shasum | cut -c1-4)"
+echo "tower-$(basename "$PROJECT_DIR")-$PATH_DIGEST-$SUFFIX"

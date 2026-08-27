@@ -246,10 +246,40 @@ The orchestrator calls `tower-notify` at each gate and otherwise does not interr
 ## Escalation routing
 
 Escalation is file-based by default: `blocked` card + handoff + `tower-notify`. Direct
-session-to-session messages are opt-in only — the owner may write a reachable orchestrator
-session name into `.tower/orchestrator`, and only a session named there gets messaged.
+session-to-session messages ride on top of that and never replace it: a send can fail while
+the files cannot, and delivery to a peer session is gated on approval at the receiving end, so
+a message arriving sooner is a possibility, never a guarantee.
+
+Addressing is by session name because a name can belong to a role. `SendMessage` also accepts
+`uds:<socket path>`, and that form needs no `[ref]`, but a socket path belongs to a process:
+the orchestrator that gets flushed and replaced comes back on a new PID behind a new socket,
+so a recorded path dies with the session that wrote it while a role name addresses whichever
+session currently holds the role.
+
+Two mechanisms produce those names. The launchers set them via `claude -n`, taking the name
+from `tower-session-name`, which is the single definition of the format: `--orch` yields
+`tower-<project>-<digest>-orch` and `--task <id>` yields `tower-<project>-<digest>-<task-id>`,
+where `<digest>` is the first four hex characters of the project directory's path hash. The
+digest is what makes the name an address: a bare basename collides whenever two projects are
+called `api`, and `T001` is identical across projects by construction, so without it two
+unrelated sessions answer to one name and `ListAgents` shows rows nothing can tell apart.
+Never hand-derive the name — run `tower-session-name` so both sides compute the same string.
+
+And `tower-whoami` reads a session's own name back out of the Claude Code session registry,
+which is how an orchestrator registers itself in `.tower/orchestrator` even when the role was
+assumed by hand in an already-running session — that session carries a derived name, not the
+convention one, which is exactly why the file is the authority and the convention is only how
+the other side guesses right on the first try.
+
+Only a session named in that file gets messaged; when the file is absent, nobody does. A `--headless` implementor is addressable in neither direction as a target — headless
+sessions do not enter the registry, so `-n` labels them without making them reachable, and
+their corrections stay in the card. First contact with a session the sender did not spawn is
+rejected with an error naming that session's `[ref]`, and the resend carries it as
+`<name> [ref]`.
+
 Agents must never guess a role-holder from the machine's session list; unrelated sessions
-share the machine.
+share the machine. Deriving a name from the project and confirming it in `ListAgents` is not
+guessing — picking the plausible-looking row is.
 
 ## Orchestrators without Claude Code plumbing
 
@@ -269,10 +299,12 @@ them (`tower:tower-orchestrator`, `tower:tower-implementor`, `tower:tower-flush`
 
 ## Roles are disposable
 
-Orchestrator rehydration ritual, in order: `design.md`, `card-sizing.md` (absent means the
-card-size defaults above apply), all cards with status other than `merged`, `learnings.md`,
-handoffs newer than the last `tower:` commit. After that the session is the orchestrator,
-regardless of which session it is or which vendor runs it.
+Orchestrator rehydration ritual, in order: register in `.tower/orchestrator` with
+`tower-whoami`, then `design.md`, `card-sizing.md` (absent means the card-size defaults above
+apply), all cards with status other than `merged`, `learnings.md`, handoffs newer than the
+last `tower:` commit. After that the session is the orchestrator, regardless of which session
+it is or which vendor runs it — the registration is the one step that names a specific
+session, which is why retiring the role deletes it.
 
 ## Protocol version
 

@@ -40,11 +40,17 @@ project.
 
 ## Rehydration ritual — always first, in this order
 
-0. Register as the reachable orchestrator: if `$CLAUDE_CODE_MESSAGING_SOCKET` is set, run
-   `echo "uds:$CLAUDE_CODE_MESSAGING_SOCKET" > .tower/orchestrator` (overwrite — a previous
-   session's address is stale by definition). Implementor escalations are messaged to this
-   address; if it ever goes stale, their sends fail and they fall back to files, so this is
-   safe. Non-Claude orchestrators skip this and leave the file absent.
+0. Register as the reachable orchestrator: run `tower-whoami > .tower/orchestrator`
+   (overwrite — a previous session's name is stale by definition). The file holds a name, not
+   the `uds:$CLAUDE_CODE_MESSAGING_SOCKET` address this protocol used to record: both are
+   valid `SendMessage` targets, but the socket belongs to your process and dies with it, while
+   the name belongs to the role and outlives you.
+   `tower-orchestrate` names this session from `tower-session-name --orch` via `claude -n`, and
+   `tower-whoami` reads back whatever name the session actually carries, including the derived
+   one when the role was assumed by hand. If `tower-whoami` exits non-zero this session is not
+   addressable — `rm -f .tower/orchestrator` rather than leave a stale name, and escalations
+   arrive as `blocked` cards instead. Non-Claude orchestrators skip this and leave the file
+   absent.
 1. `.tower/design.md`
 2. `.tower/card-sizing.md` — this project's card-size limits (absent means the `PROTOCOL.md`
    defaults apply)
@@ -126,10 +132,19 @@ have changed an agent's behavior? If not, reject it. Then, in order:
 
 **Correct in-flight work.** If a handoff or owner decision invalidates an in-flight card's
 assumptions, write the correction into the card body under a `## Corrections` heading
-(implementors re-read it), and additionally message the implementor session directly when
-you can identify it with certainty — its dispatch worktree path, never a guess from the
-session list. If the owner recorded your session name in `.tower/orchestrator`,
-implementors will message you there when blocked; keep that file current or absent.
+(implementors re-read it), and additionally message the implementor session directly. Get its
+address from `tower-session-name --task <id>` — never assemble the name yourself, because the
+name carries a digest of the project path and a hand-built one silently addresses nothing.
+Confirm that exact name appears in `ListAgents` before sending, and never fall back to picking
+a plausible-looking row, because sessions unrelated to the project share the machine. Two rows
+carrying the same name is not a tie to break: the digest exists to prevent it, so stop and tell
+the owner. A codex implementor has no such name, and neither does a `--headless` one — headless
+sessions never enter the session registry, so `-n` names them in the terminal but not as a
+message target; for both, the correction lives in the card only. First contact with a session
+this conversation did not spawn is rejected with an error naming the session's `[ref]` — resend
+as `<name> [ref]` using the ref from that error or from `ListAgents`. Your own registration in
+`.tower/orchestrator` is what lets a blocked implementor message you back; keep it current or
+absent.
 
 **Sync the board.** If the project tracks work on the agent-kanban board, mirror card
 status changes there. The board is the owner's glanceable view; `.tower/` stays the source
