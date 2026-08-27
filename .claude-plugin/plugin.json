@@ -1,6 +1,6 @@
 {
   "name": "tower",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "File-based orchestration for multi-agent development: one orchestrator plans and curates, parallel implementor sessions each execute one task, all durable state is markdown in a git-versioned .tower/ directory.",
   "author": {
     "name": "Omri Amit",
