@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "tower",
+  "description": "File-based multi-agent orchestration for Claude Code.",
+  "owner": {
+    "name": "Omri Amit",
+    "email": "omry.amit@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "tower",
+      "source": "./",
+      "description": "Orchestrator and implementor roles, the .tower protocol, and the tower shell commands."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "tower",
+  "version": "0.1.0",
+  "description": "File-based orchestration for multi-agent development: one orchestrator plans and curates, parallel implementor sessions each execute one task, all durable state is markdown in a git-versioned .tower/ directory.",
+  "author": {
+    "name": "Omri Amit",
+    "email": "omry.amit@gmail.com"
+  },
+  "homepage": "https://github.com/omri-am/tower",
+  "repository": "https://github.com/omri-am/tower",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "multi-agent",
+    "worktrees",
+    "handoffs"
+  ]
+}

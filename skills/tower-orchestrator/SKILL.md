@@ -94,7 +94,8 @@ cards rather than widening one. Never write a prompt for a task whose dependenci
 merged; prompts are finalized only at dispatch time.
 
 **Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
-`prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill,
+`prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill
+(listed as `tower:tower-implementor` when tower is installed as a Claude Code plugin),
 then include the full card, the output of `tower-learnings --for T###` (the card's scoped
 slice of learnings — never paste the whole file), and excerpts of handoffs that
 changed this task's assumptions. If the card's `## File ownership` is vague, the selection
