@@ -8,7 +8,9 @@ is_root() {
 }
 
 from_registry() {
-  local reg="$HOME/.claude/plugins/installed_plugins.json" path=""
+  local home="${HOME:-}" reg path=""
+  if [ -z "$home" ]; then printf ''; return 0; fi
+  reg="$home/.claude/plugins/installed_plugins.json"
   if [ -r "$reg" ] && command -v jq >/dev/null 2>&1; then
     path="$(jq -r '.plugins["tower@tower"][]?.installPath // empty' "$reg" 2>/dev/null | tail -1)"
   fi
@@ -16,7 +18,9 @@ from_registry() {
 }
 
 from_cache() {
-  local base="$HOME/.claude/plugins/cache/tower/tower" newest=""
+  local home="${HOME:-}" base newest=""
+  if [ -z "$home" ]; then return 0; fi
+  base="$home/.claude/plugins/cache/tower/tower"
   if [ ! -d "$base" ]; then return 0; fi
   newest="$(cd "$base" && ls -1d */ 2>/dev/null | tr -d / | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
   if [ -n "$newest" ]; then printf '%s/%s' "$base" "$newest"; fi

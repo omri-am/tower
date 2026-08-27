@@ -60,6 +60,15 @@ if command -v jq >/dev/null 2>&1; then
   assert_eq "registry wins over the cache glob" "$(run_link tower-locate)" "locate from 0.9.0"
 fi
 
+NOJQ="$TMP/nojq"
+mkdir -p "$NOJQ"
+for TOOL in bash basename dirname tail ls tr sort; do
+  TOOLPATH="$(type -P "$TOOL" 2>/dev/null)"
+  [ -n "$TOOLPATH" ] && ln -sf "$TOOLPATH" "$NOJQ/$TOOL"
+done
+assert_eq "registry present but jq unavailable still falls through to the cache glob" \
+  "$(run_link tower-locate env PATH="$NOJQ")" "locate from 0.10.0"
+
 printf '{"version":2,"plugins":{"tower@tower":[{"installPath":"%s/gone","version":"0.9.0"}]}}\n' "$OLD" > "$REG"
 assert_eq "dead registry path falls through to the cache glob" \
   "$(run_link tower-locate)" "locate from 0.10.0"
@@ -76,6 +85,12 @@ assert_status "exit status is preserved" "$?" "42"
 
 env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$BINDIR/tower-init" >/dev/null 2>&1
 assert_status "unresolvable root exits 127" "$?" "127"
+
+OUT_NO_HOME="$(bash -c 'unset HOME; export TOWER_NO_VERSION_CHECK=1; exec "$1"' _ "$BINDIR/tower-init" 2>&1)"
+STATUS_NO_HOME="$?"
+assert_status "unset HOME still exits 127" "$STATUS_NO_HOME" "127"
+assert_eq "unset HOME produces no unbound variable leakage" \
+  "$(printf '%s' "$OUT_NO_HOME" | grep -c 'unbound variable')" "0"
 
 NOT_TOWER="$TMP/nottower"
 mkdir -p "$NOT_TOWER/bin"
