@@ -62,7 +62,7 @@ fi
 
 NOJQ="$TMP/nojq"
 mkdir -p "$NOJQ"
-for TOOL in bash basename dirname tail ls tr sort readlink; do
+for TOOL in bash basename dirname tail ls tr sort readlink sed; do
   TOOLPATH="$(type -P "$TOOL" 2>/dev/null)"
   [ -n "$TOOLPATH" ] && ln -sf "$TOOLPATH" "$NOJQ/$TOOL"
 done
@@ -113,6 +113,33 @@ assert_eq "the failure message does not tell the user to re-run bootstrap" \
   "$(printf '%s' "$OUT_ISOLATED" | grep -c 'run tower-bootstrap again')" "0"
 assert_eq "the failure message names TOWER_ROOT as the fallback" \
   "$(printf '%s' "$OUT_ISOLATED" | grep -c 'TOWER_ROOT')" "1"
+
+STALE="$TMP/staleroot"
+mkdir -p "$STALE/bin" "$STALE/libexec"
+cp "$ROOT/bin/tower-shim" "$STALE/libexec/tower-shim"
+ln -sfn "$STALE/libexec/tower-shim" "$STALE/bin/tower-init"
+printf '%s\n' "$TMP/deleted-checkout" > "$STALE/libexec/tower-root"
+OUT_STALE="$(env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$STALE/bin/tower-init" 2>&1)"
+STATUS_STALE="$?"
+assert_status "a root file pointing at a deleted checkout falls through, not accepted" "$STATUS_STALE" "127"
+assert_eq "the deleted-checkout case gets the corrected failure message" \
+  "$(printf '%s' "$OUT_STALE" | grep -c 'install the tower plugin, or set TOWER_ROOT')" "1"
+
+SPACE_HOME="$TMP/space-home"
+mkdir -p "$SPACE_HOME"
+SPACE_DEV="$TMP/my checkout"
+make_root "$SPACE_DEV" 9.9.9
+cp "$ROOT/bin/tower-shim" "$SPACE_DEV/bin/tower-shim"
+cp "$ROOT/bin/tower-bootstrap" "$SPACE_DEV/bin/tower-bootstrap"
+chmod +x "$SPACE_DEV/bin/tower-shim" "$SPACE_DEV/bin/tower-bootstrap"
+SPACE_LIBEXEC="$TMP/space-libexec"
+SPACE_BINDIR="$TMP/space-bin"
+env TOWER_BIN_DIR="$SPACE_BINDIR" TOWER_LIBEXEC_DIR="$SPACE_LIBEXEC" HOME="$SPACE_HOME" \
+    "$SPACE_DEV/bin/tower-bootstrap" >/dev/null 2>&1
+OUT_SPACE="$(env HOME="$SPACE_HOME" TOWER_NO_VERSION_CHECK=1 "$SPACE_BINDIR/tower-init" 2>&1)"
+STATUS_SPACE="$?"
+assert_status "a checkout path containing a space still resolves, not 127" "$STATUS_SPACE" "0"
+assert_eq "the space-containing checkout actually ran the command" "$OUT_SPACE" "init 9.9.9 args:"
 
 REMOTE="$TMP/remote"
 git init -q "$REMOTE"

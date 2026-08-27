@@ -37,7 +37,7 @@ from_root_file() {
     esac
   done
   dir="$(cd "$(dirname "$self")" && pwd)" || return 0
-  if [ -r "$dir/tower-root" ]; then head -1 "$dir/tower-root" 2>/dev/null | tr -d '[:space:]'; fi
+  if [ -r "$dir/tower-root" ]; then head -1 "$dir/tower-root" 2>/dev/null | sed 's/[[:space:]]*$//'; fi
 }
 
 from_self() {
