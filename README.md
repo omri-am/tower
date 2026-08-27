@@ -31,11 +31,49 @@ Cognition, and practitioner writeups.
 
 ## Install
 
+Recommended, as a Claude Code plugin:
+
+```
+/plugin marketplace add omri-am/tower
+/plugin install tower@tower
+/tower-bootstrap
+```
+
+The first two lines install the skills, the version-notice hook and the templates, and
+Claude Code keeps them updated. `/tower-bootstrap` links the `tower-*` shell commands into
+`~/.local/bin` through a resolver shim that finds the live install at call time — so
+`/plugin update tower@tower` needs no relinking afterwards. Add `~/.local/bin` to your PATH
+if the bootstrap says so.
+
+Leave auto-update **off** for this marketplace. Skills changing mid-session is harmless for
+a skills library; it is not harmless here, where a live orchestrator rehydrates from
+`.tower/` files whose templates could change underneath it. Take updates when the notice
+tells you one exists.
+
+From a clone, which is the route for non-Claude agents:
+
 ```
 git clone git@github.com:omri-am/tower.git && cd tower && ./install.sh
 ```
 
-Links the two skills into `~/.claude/skills/` and prints the PATH line for `bin/`.
+Links the three skills into `~/.claude/skills/` and prints the PATH line for `bin/`. Update
+with `git pull`.
+
+## Staying current
+
+An install checks for a newer tagged version at most once a day, in the background, and
+never blocks a command on the network. When one exists you get one line:
+
+```
+tower: 0.4.0 available (you have 0.3.1) -> /plugin update tower@tower
+```
+
+on stderr before any `tower-*` command, and as a note at the start of a Claude session.
+`CHANGELOG.md` says what each version added.
+
+- `TOWER_NO_VERSION_CHECK=1` turns the notice off.
+- `TOWER_VERSION_CHECK_TTL=<seconds>` changes the check interval, default `86400`.
+- `tower-version-check` run on its own checks immediately and reports either way.
 
 ## Quickstart
 
