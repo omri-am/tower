@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$ROOT/lib/tower-semver.sh"
+. "$ROOT/lib/tower-meta.sh"
+
+die() { echo "tower-release: $1" >&2; exit 1; }
+
+[ $# -eq 1 ] || die "usage: tower-release <x.y.z>"
+NEW="$1"
+case "$NEW" in
+  [0-9]*.[0-9]*.[0-9]*) : ;;
+  *) die "$NEW is not an x.y.z version" ;;
+esac
+case "$NEW" in *[!0-9.]*) die "$NEW is not an x.y.z version" ;; esac
+
+MANIFEST="$ROOT/.claude-plugin/plugin.json"
+CHANGELOG="$ROOT/CHANGELOG.md"
+[ -r "$MANIFEST" ] || die "no manifest at $MANIFEST"
+[ -r "$CHANGELOG" ] || die "no changelog at $CHANGELOG"
+
+CURRENT="$(tower_version "$ROOT")"
+[ -n "$CURRENT" ] || die "cannot read the current version from $MANIFEST"
+semver_gt "$NEW" "$CURRENT" || die "$NEW is not newer than the current $CURRENT"
+
+git -C "$ROOT" diff --quiet || die "working tree has unstaged changes"
+git -C "$ROOT" diff --cached --quiet || die "working tree has staged changes"
+if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
+  die "tag v$NEW already exists"
+fi
+
+UNRELEASED_HEADINGS="$(grep -c '^## Unreleased$' "$CHANGELOG" || true)"
+[ "$UNRELEASED_HEADINGS" -eq 1 ] || die "CHANGELOG.md has $UNRELEASED_HEADINGS '## Unreleased' headings, expected exactly 1"
+
+UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr -d '[:space:]')"
+[ -n "$UNRELEASED" ] || die "CHANGELOG.md has nothing under '## Unreleased' - a version bump with no entry tells nobody what shipped"
+
+TODAY="$(date +%Y-%m-%d)"
+TMP="$(mktemp)"
+
+awk -v cur="$CURRENT" -v new="$NEW" '
+  BEGIN {
+    n = split(cur, parts, ".")
+    escaped = parts[1]
+    for (i = 2; i <= n; i++) escaped = escaped "\\." parts[i]
+    re = "^[[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\"" escaped "\""
+  }
+  !done && match($0, re) {
+    full_end = RSTART + RLENGTH
+    match($0, /^[[:space:]]*/)
+    indent = substr($0, 1, RLENGTH)
+    suffix = substr($0, full_end)
+    print indent "\"version\": \"" new "\"" suffix
+    done = 1
+    next
+  }
+  { print }
+' "$MANIFEST" > "$TMP"
+mv "$TMP" "$MANIFEST"
+
+VERIFY="$(tower_version "$ROOT")"
+[ "$VERIFY" = "$NEW" ] || die "manifest rewrite did not take - $MANIFEST still does not read $NEW"
+
+TMP="$(mktemp)"
+awk -v new="## v$NEW — $TODAY" '
+  /^## Unreleased$/ && !done { print "## Unreleased"; print ""; print new; done=1; next }
+  { print }
+' "$CHANGELOG" > "$TMP"
+mv "$TMP" "$CHANGELOG"
+
+git -C "$ROOT" add "$MANIFEST" "$CHANGELOG"
+git -C "$ROOT" commit -q -m "Release v$NEW"
+git -C "$ROOT" tag "v$NEW"
+
+echo "tower-release: v$NEW committed and tagged"
+echo "tower-release: review, then run -> git push && git push origin v$NEW"

@@ -1,8 +1,18 @@
 # tower hooks
 
-Both hooks are copy-paste snippets (`settings-snippets.json`), installed into the **target
-project's** `.claude/settings.json` — never auto-installed. Neither is load-bearing: the
-protocol works without them, they just remove manual steps.
+One hook is auto-installed: the version notice in `hooks.json`, which ships with the plugin
+and needs no setup. Every other hook here is a copy-paste snippet (`settings-snippets.json`)
+installed into the **target project's** `.claude/settings.json` — never auto-installed.
+None is load-bearing: the protocol works without them, they just remove manual steps.
+
+## tower-version-notice.sh (SessionStart hook, auto-installed with the plugin)
+
+Runs `bin/tower-version-check --notice` and, when a newer tower exists, emits the same
+one-line notice as `hookSpecificOutput.additionalContext` so the session can tell its owner.
+Silent when the install is current, so a current install costs no tokens. Reads only the
+cache, never the network, so it cannot delay session start. Silenced by
+`TOWER_NO_VERSION_CHECK=1`. Users on the `install.sh` route get this only if they add the
+snippet by hand; the plugin route gets it automatically.
 
 ## implementor-stop-check.sh (Stop hook, implementor sessions)
 

@@ -293,7 +293,9 @@ blocked cards — the fallback for cards whose implementor session is already go
 live one flips its own card), and always runs the rehydration ritual at session start; escalations from implementors arrive as
 `blocked` cards and handoff files rather than live messages, so check for `status: blocked`
 during every ingest pass. `tower-init` copies this file into `.tower/PROTOCOL.md` so the
-project is self-contained.
+project is self-contained. Skill names differ by install route: a plugin install namespaces
+them (`tower:tower-orchestrator`, `tower:tower-implementor`, `tower:tower-flush`); the
+`install.sh` route keeps the bare names.
 
 ## Roles are disposable
 
@@ -303,3 +305,24 @@ apply), all cards with status other than `merged`, `learnings.md`, handoffs newe
 last `tower:` commit. After that the session is the orchestrator, regardless of which session
 it is or which vendor runs it — the registration is the one step that names a specific
 session, which is why retiring the role deletes it.
+
+## Protocol version
+
+`PROTOCOL_VERSION` in the tower checkout holds a single integer, bumped only when the format
+of a card, handoff, learnings entry or design file changes in a way an older session
+misreads. It is not the tower version and does not move when a feature ships.
+
+`tower-init` records both numbers in `.tower/version`:
+
+```
+tower x.y.z
+protocol 1
+```
+
+`tower-version-check` compares the recorded protocol integer against the running tower's and
+warns on mismatch. Nothing migrates automatically: a wrong migration corrupts the audit
+trail, which is worse than a warning a human acts on. On a mismatch, re-read
+`.tower/PROTOCOL.md` — the copy embedded in the project — before trusting any card format.
+Only a project scaffolded by a `tower-init` that already had this file has `.tower/version`
+at all, so the mismatch warning cannot fire for a project that predates it, and there is no
+migration to backfill one.

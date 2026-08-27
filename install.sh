@@ -16,3 +16,5 @@ case ":$PATH:" in
   *":$TOWER_ROOT/bin:"*) echo "install: $TOWER_ROOT/bin already on PATH" ;;
   *) echo "install: add to PATH -> export PATH=\"$TOWER_ROOT/bin:\$PATH\"" ;;
 esac
+
+echo "install: for the plugin route instead, see the Install section of README.md"
