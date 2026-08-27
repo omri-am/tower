@@ -16,7 +16,15 @@ if [ ! -r "$ROOT/lib/tower-semver.sh" ] || [ ! -r "$ROOT/lib/tower-meta.sh" ]; t
 . "$ROOT/lib/tower-semver.sh"
 . "$ROOT/lib/tower-meta.sh"
 
-CACHE_DIR="${TOWER_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/tower}"
+if [ -n "${TOWER_CACHE_DIR:-}" ]; then
+  CACHE_DIR="$TOWER_CACHE_DIR"
+elif [ -n "${XDG_CACHE_HOME:-}" ]; then
+  CACHE_DIR="$XDG_CACHE_HOME/tower"
+elif [ -n "${HOME:-}" ]; then
+  CACHE_DIR="$HOME/.cache/tower"
+else
+  exit 0
+fi
 CACHE_FILE="$CACHE_DIR/version-check"
 LOCK_DIR="$CACHE_DIR/refresh.lock"
 TTL="${TOWER_VERSION_CHECK_TTL:-86400}"
@@ -26,7 +34,7 @@ if [ -z "$LOCAL" ]; then exit 0; fi
 
 remote_url() {
   if [ -n "${TOWER_VERSION_REMOTE:-}" ]; then printf '%s' "$TOWER_VERSION_REMOTE"; return 0; fi
-  local known="$HOME/.claude/plugins/known_marketplaces.json" url=""
+  local known="${HOME:-}/.claude/plugins/known_marketplaces.json" url=""
   if [ -r "$known" ] && command -v jq >/dev/null 2>&1; then
     url="$(jq -r '.tower.source.url // (if .tower.source.repo then "https://github.com/" + .tower.source.repo + ".git" else empty end)' "$known" 2>/dev/null)"
     if [ "$url" = "null" ]; then url=""; fi
@@ -79,28 +87,35 @@ refresh() {
 
 update_hint() {
   case "$ROOT" in
-    "$HOME/.claude/plugins/cache/"*) printf '/plugin update tower@tower' ;;
+    "${HOME:-}/.claude/plugins/cache/"*) printf '/plugin update tower@tower' ;;
     *) printf 'git -C %s pull' "$ROOT" ;;
   esac
+}
+
+print_newer() {
+  echo "tower: $1 available (you have $LOCAL) -> $(update_hint)" >&2
 }
 
 report_if_newer() {
   local latest="$1"
   case "$latest" in ''|*[!0-9.]*) return 0 ;; esac
   if semver_gt "$latest" "$LOCAL"; then
-    echo "tower: $latest available (you have $LOCAL) -> $(update_hint)" >&2
+    print_newer "$latest"
   fi
 }
 
 if [ "$MODE" = sync ]; then
   refresh
   LATEST="$(cache_latest)"
-  if [ -z "$LATEST" ]; then exit 0; fi
-  if semver_gt "$LATEST" "$LOCAL"; then
-    report_if_newer "$LATEST"
-  else
-    echo "tower: $LOCAL is current" >&2
-  fi
+  case "$LATEST" in
+    ''|*[!0-9.]*) exit 0 ;;
+  esac
+  semver_gt "$LATEST" "$LOCAL"
+  case "$?" in
+    0) print_newer "$LATEST" ;;
+    1) echo "tower: $LOCAL is current" >&2 ;;
+    *) exit 0 ;;
+  esac
   exit 0
 fi
 

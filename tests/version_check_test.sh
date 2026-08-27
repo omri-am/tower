@@ -83,6 +83,15 @@ assert_status "malformed cache still exits 0" \
   "$(run_check "$CACHE" "$CHECK" --notice >/dev/null 2>&1; echo $?)" "0"
 
 CACHE="$(next_cache)"
+printf '%s\nnot-a-version\n' "$(date +%s)" > "$CACHE/version-check"
+OUT="$(env TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$TMP/nope" TOWER_CACHE_DIR="$CACHE" \
+         HOME="$TMP/fakehome" "$CHECK" 2>&1)"
+assert_empty "two-line cache with an unparseable version is silent in sync mode" "$OUT"
+assert_status "two-line cache with an unparseable version still exits 0 in sync mode" \
+  "$(env TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$TMP/nope" TOWER_CACHE_DIR="$CACHE" \
+       HOME="$TMP/fakehome" "$CHECK" >/dev/null 2>&1; echo $?)" "0"
+
+CACHE="$(next_cache)"
 mkdir -p "$CACHE/refresh.lock"
 run_check "$CACHE" "$CHECK" --notice >/dev/null 2>&1
 WAITED=0
@@ -100,6 +109,16 @@ OUT="$(run_check "$CACHE" "$CHECK")"
 assert_eq "sync mode refreshes even when the stampede lock is held" \
   "$(printf '%s' "$OUT" | grep -c '0\.4\.0 available')" "1"
 rmdir "$CACHE/refresh.lock" 2>/dev/null || true
+
+OUT="$(env -u HOME -u XDG_CACHE_HOME -u TOWER_CACHE_DIR TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$REMOTE" "$CHECK" 2>&1)"
+assert_empty "unset HOME, XDG_CACHE_HOME and TOWER_CACHE_DIR: sync mode prints nothing" "$OUT"
+assert_status "unset HOME, XDG_CACHE_HOME and TOWER_CACHE_DIR: sync mode exits 0" \
+  "$(env -u HOME -u XDG_CACHE_HOME -u TOWER_CACHE_DIR TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$REMOTE" "$CHECK" >/dev/null 2>&1; echo $?)" "0"
+
+OUT="$(env -u HOME -u XDG_CACHE_HOME -u TOWER_CACHE_DIR TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$REMOTE" "$CHECK" --notice 2>&1)"
+assert_empty "unset HOME, XDG_CACHE_HOME and TOWER_CACHE_DIR: notice mode prints nothing" "$OUT"
+assert_status "unset HOME, XDG_CACHE_HOME and TOWER_CACHE_DIR: notice mode exits 0" \
+  "$(env -u HOME -u XDG_CACHE_HOME -u TOWER_CACHE_DIR TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$REMOTE" "$CHECK" --notice >/dev/null 2>&1; echo $?)" "0"
 
 CACHE="$(next_cache)"
 assert_status "unreachable remote still exits 0" \
