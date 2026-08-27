@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+die() { echo "tower-changelog-check: $1" >&2; exit 1; }
+
+BASE="${1:-origin/main}"
+
+git -C "$ROOT" rev-parse -q --verify "$BASE" >/dev/null 2>&1 || die "cannot resolve base '$BASE'"
+
+CHANGED="$(git -C "$ROOT" diff --name-only "$BASE...HEAD")" || die "git diff failed for '$BASE...HEAD'"
+
+[ -n "$CHANGED" ] || exit 0
+
+if printf '%s\n' "$CHANGED" | grep -q '^CHANGELOG\.md$'; then
+  exit 0
+fi
+
+TRIGGER_RE='^(bin/|lib/|hooks/|scripts/|skills/|templates/|commands/|\.claude-plugin/|PROTOCOL_VERSION$)'
+TRIGGERED="$(printf '%s\n' "$CHANGED" | grep -E "$TRIGGER_RE" || true)"
+
+[ -n "$TRIGGERED" ] || exit 0
+
+{
+  echo "tower-changelog-check: these paths need a CHANGELOG.md entry:"
+  printf '%s\n' "$TRIGGERED" | sed 's/^/tower-changelog-check:   /'
+} >&2
+exit 1
