@@ -42,6 +42,46 @@ assert_empty "bad plugin root produces no output" "$OUT"
 assert_status "bad plugin root still exits 0" \
   "$(cd "$TMP" && env HOME="$TMP/home" CLAUDE_PLUGIN_ROOT="$TMP/gone" bash "$HOOK" >/dev/null 2>&1; echo $?)" "0"
 
+NOJQ="$TMP/nojq"
+mkdir -p "$NOJQ"
+for TOOL in bash env sed tr printf; do
+  TOOLPATH="$(type -P "$TOOL" 2>/dev/null)"
+  [ -n "$TOOLPATH" ] && ln -sf "$TOOLPATH" "$NOJQ/$TOOL"
+done
+
+CTRLROOT="$TMP/ctrlroot"
+mkdir -p "$CTRLROOT/bin"
+cat > "$CTRLROOT/bin/tower-version-check" <<'EOF'
+#!/usr/bin/env bash
+printf 'tower: 1.2.0 available (control\tchar\rhere) -> pull\n' >&2
+EOF
+chmod +x "$CTRLROOT/bin/tower-version-check"
+
+OUT="$(env -i PATH="$NOJQ" HOME="$TMP/home" CLAUDE_PLUGIN_ROOT="$CTRLROOT" bash "$HOOK" 2>/dev/null)"
+assert_eq "sed fallback: control-char notice stays one line" \
+  "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" "1"
+if command -v python3 >/dev/null 2>&1; then
+  assert_eq "sed fallback: control-char notice is valid json" \
+    "$(printf '%s' "$OUT" | python3 -c 'import json,sys; json.load(sys.stdin); print("ok")')" "ok"
+fi
+
+QUOTEROOT="$TMP/quoteroot"
+mkdir -p "$QUOTEROOT/bin"
+cat > "$QUOTEROOT/bin/tower-version-check" <<'EOF'
+#!/usr/bin/env bash
+printf 'tower: 1.2.0 available (path "C:\\Users\\test") -> pull\n' >&2
+EOF
+chmod +x "$QUOTEROOT/bin/tower-version-check"
+
+OUT="$(env -i PATH="$NOJQ" HOME="$TMP/home" CLAUDE_PLUGIN_ROOT="$QUOTEROOT" bash "$HOOK" 2>/dev/null)"
+if command -v python3 >/dev/null 2>&1; then
+  assert_eq "sed fallback: quote-and-backslash notice is valid json" \
+    "$(printf '%s' "$OUT" | python3 -c 'import json,sys; json.load(sys.stdin); print("ok")')" "ok"
+  assert_eq "sed fallback: quote-and-backslash message text survives" \
+    "$(printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["hookSpecificOutput"]["additionalContext"])')" \
+    'tower: 1.2.0 available (path "C:\Users\test") -> pull'
+fi
+
 assert_eq "hooks.json registers exactly one event" \
   "$(grep -c '"SessionStart"' "$ROOT/hooks/hooks.json")" "1"
 assert_eq "hooks.json uses CLAUDE_PLUGIN_ROOT" \
