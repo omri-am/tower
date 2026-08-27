@@ -5,6 +5,17 @@ what the version gives them.
 
 ## Unreleased
 
+- Releasing works on a repository whose `main` requires a pull request. `tower-release <x.y.z>`
+  now prepares the bump on a `release-v<x.y.z>` branch without tagging, and
+  `tower-release --tag <x.y.z>` tags `main` after the merge. Because the tag lands on whatever
+  `main` became, the merge method no longer matters — squash, rebase and merge commit all
+  produce a truthful tag.
+- `tower-bootstrap` no longer records a plugin-cache path in `tower-root`, so a bootstrap can
+  never pin the version that happened to be installed at the time. A stale file from an earlier
+  clone-route bootstrap is removed, and the run says so.
+- The README names the bootstrap command correctly as `/tower:tower-bootstrap`, with a shell
+  fallback that cannot silently run the wrong cached version.
+
 ## v0.2.0 — 2026-08-27
 
 - `tower-card` renders a task card as a bordered CLI view — frontmatter, every section, and a
