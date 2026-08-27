@@ -1,0 +1,23 @@
+name: checks
+
+on:
+  pull_request:
+
+jobs:
+  checks:
+    # macOS-first codebase: no sort -V, no GNU date -d, no grep -P. A Linux
+    # runner would fail on BSD-vs-GNU tooling differences, not on the code.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Default fetch-depth is 1 (a single commit). The changelog check
+          # needs the merge base between the PR branch and its target, so the
+          # checkout needs full history, not just the tip.
+          fetch-depth: 0
+
+      - name: Run test suite
+        run: bash tests/run.sh
+
+      - name: Check for a changelog entry
+        run: bash scripts/tower-changelog-check "origin/${{ github.base_ref }}"
