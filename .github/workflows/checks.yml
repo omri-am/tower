@@ -20,4 +20,6 @@ jobs:
         run: bash tests/run.sh
 
       - name: Check for a changelog entry
-        run: bash scripts/tower-changelog-check "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/tower-changelog-check "origin/$BASE_REF"
