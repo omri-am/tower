@@ -28,14 +28,16 @@ fi
 CACHE_FILE="$CACHE_DIR/version-check"
 LOCK_DIR="$CACHE_DIR/refresh.lock"
 TTL="${TOWER_VERSION_CHECK_TTL:-86400}"
+case "$TTL" in ''|*[!0-9]*) TTL=86400 ;; esac
 
 LOCAL="$(tower_version "$ROOT")"
 if [ -z "$LOCAL" ]; then exit 0; fi
 
 remote_url() {
   if [ -n "${TOWER_VERSION_REMOTE:-}" ]; then printf '%s' "$TOWER_VERSION_REMOTE"; return 0; fi
-  local known="${HOME:-}/.claude/plugins/known_marketplaces.json" url=""
-  if [ -r "$known" ] && command -v jq >/dev/null 2>&1; then
+  local marketplace="${HOME:-}/.claude/plugins/marketplaces/tower" known="${HOME:-}/.claude/plugins/known_marketplaces.json" url=""
+  url="$(git -C "$marketplace" remote get-url origin 2>/dev/null || true)"
+  if [ -z "$url" ] && [ -r "$known" ] && command -v jq >/dev/null 2>&1; then
     url="$(jq -r '.tower.source.url // (if .tower.source.repo then "https://github.com/" + .tower.source.repo + ".git" else empty end)' "$known" 2>/dev/null)"
     if [ "$url" = "null" ]; then url=""; fi
   fi
@@ -45,7 +47,7 @@ remote_url() {
 
 fetch_latest() {
   local url="$1"
-  git ls-remote --tags "$url" 'v*' 2>/dev/null \
+  GIT_TERMINAL_PROMPT=0 git ls-remote --tags "$url" 'v*' </dev/null 2>/dev/null \
     | sed -n 's#.*refs/tags/##p' \
     | sed 's/\^{}$//' \
     | semver_max

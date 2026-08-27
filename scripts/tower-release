@@ -30,7 +30,7 @@ if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$NEW" >/dev/null; then
   die "tag v$NEW already exists"
 fi
 
-UNRELEASED_HEADINGS="$(grep -c '^## Unreleased$' "$CHANGELOG")"
+UNRELEASED_HEADINGS="$(grep -c '^## Unreleased$' "$CHANGELOG" || true)"
 [ "$UNRELEASED_HEADINGS" -eq 1 ] || die "CHANGELOG.md has $UNRELEASED_HEADINGS '## Unreleased' headings, expected exactly 1"
 
 UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr -d '[:space:]')"

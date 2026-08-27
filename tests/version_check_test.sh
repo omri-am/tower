@@ -148,4 +148,13 @@ OUT="$(env TOWER_ROOT="$PLUGIN_ROOT" TOWER_VERSION_REMOTE="$REMOTE" TOWER_CACHE_
 assert_eq "plugin install suggests /plugin update" \
   "$(printf '%s' "$OUT" | grep -c '/plugin update tower@tower')" "1"
 
+CACHE="$(next_cache)"
+printf '%s\n0.3.1\n' "$(date +%s)" > "$CACHE/version-check"
+OUT="$(env TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$TMP/nope" TOWER_CACHE_DIR="$CACHE" \
+         HOME="$TMP/fakehome" TOWER_VERSION_CHECK_TTL=abc "$CHECK" --notice 2>&1)"
+assert_empty "non-numeric TTL leaks no integer-expression error" "$OUT"
+assert_status "non-numeric TTL still exits 0" \
+  "$(env TOWER_ROOT="$FAKE_ROOT" TOWER_VERSION_REMOTE="$TMP/nope" TOWER_CACHE_DIR="$CACHE" \
+       HOME="$TMP/fakehome" TOWER_VERSION_CHECK_TTL=abc "$CHECK" --notice >/dev/null 2>&1; echo $?)" "0"
+
 summary

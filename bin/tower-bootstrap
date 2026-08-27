@@ -8,6 +8,7 @@ COMMANDS="tower-init tower-orchestrate tower-dispatch tower-watch tower-learning
 
 mkdir -p "$BIN_DIR" "$LIBEXEC_DIR"
 install -m 0755 "$TOWER_HOME/bin/tower-shim" "$LIBEXEC_DIR/tower-shim"
+printf '%s\n' "$TOWER_HOME" > "$LIBEXEC_DIR/tower-root"
 for CMD in $COMMANDS; do
   ln -sfn "$LIBEXEC_DIR/tower-shim" "$BIN_DIR/$CMD"
 done

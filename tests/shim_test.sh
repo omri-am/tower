@@ -62,7 +62,7 @@ fi
 
 NOJQ="$TMP/nojq"
 mkdir -p "$NOJQ"
-for TOOL in bash basename dirname tail ls tr sort; do
+for TOOL in bash basename dirname tail ls tr sort readlink; do
   TOOLPATH="$(type -P "$TOOL" 2>/dev/null)"
   [ -n "$TOOLPATH" ] && ln -sf "$TOOLPATH" "$NOJQ/$TOOL"
 done
@@ -83,12 +83,14 @@ assert_eq "arguments reach the target" \
 env HOME="$FAKE_HOME" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$DEV" "$BINDIR/tower-watch" >/dev/null 2>&1
 assert_status "exit status is preserved" "$?" "42"
 
-env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$BINDIR/tower-init" >/dev/null 2>&1
-assert_status "unresolvable root exits 127" "$?" "127"
+OUT_ROOT_FILE="$(env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$BINDIR/tower-init" 2>&1)"
+assert_status "bootstrap's recorded root resolves even when HOME points elsewhere" \
+  "$(env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$BINDIR/tower-init" >/dev/null 2>&1; echo $?)" "0"
+assert_eq "the recorded checkout root ran the command, not a plugin cache" "$OUT_ROOT_FILE" "init 9.9.9 args:"
 
 OUT_NO_HOME="$(bash -c 'unset HOME; export TOWER_NO_VERSION_CHECK=1; exec "$1"' _ "$BINDIR/tower-init" 2>&1)"
 STATUS_NO_HOME="$?"
-assert_status "unset HOME still exits 127" "$STATUS_NO_HOME" "127"
+assert_status "unset HOME still resolves through the recorded root file" "$STATUS_NO_HOME" "0"
 assert_eq "unset HOME produces no unbound variable leakage" \
   "$(printf '%s' "$OUT_NO_HOME" | grep -c 'unbound variable')" "0"
 
@@ -96,8 +98,21 @@ NOT_TOWER="$TMP/nottower"
 mkdir -p "$NOT_TOWER/bin"
 printf '#!/usr/bin/env bash\necho wrong\n' > "$NOT_TOWER/bin/tower-locate"
 chmod +x "$NOT_TOWER/bin/tower-locate"
-env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$NOT_TOWER" "$BINDIR/tower-locate" >/dev/null 2>&1
-assert_status "a directory without skills is not a tower root" "$?" "127"
+OUT_NOT_TOWER="$(env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$NOT_TOWER" "$BINDIR/tower-locate" 2>/dev/null)"
+assert_eq "a directory without skills is not a tower root - falls through instead of using it" \
+  "$OUT_NOT_TOWER" "locate from 9.9.9"
+
+ISOLATED="$TMP/isolated"
+mkdir -p "$ISOLATED"
+cp "$ROOT/bin/tower-shim" "$ISOLATED/tower-init"
+chmod +x "$ISOLATED/tower-init"
+OUT_ISOLATED="$(env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$ISOLATED/tower-init" 2>&1)"
+STATUS_ISOLATED="$?"
+assert_status "a bare shim copy with no root file and no plugin still exits 127" "$STATUS_ISOLATED" "127"
+assert_eq "the failure message does not tell the user to re-run bootstrap" \
+  "$(printf '%s' "$OUT_ISOLATED" | grep -c 'run tower-bootstrap again')" "0"
+assert_eq "the failure message names TOWER_ROOT as the fallback" \
+  "$(printf '%s' "$OUT_ISOLATED" | grep -c 'TOWER_ROOT')" "1"
 
 REMOTE="$TMP/remote"
 git init -q "$REMOTE"

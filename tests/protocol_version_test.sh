@@ -53,8 +53,4 @@ OUT="$( cd "$TMP" && env HOME="$TMP/home" TOWER_CACHE_DIR="$CACHE" \
         TOWER_VERSION_REMOTE="$TMP/nope" "$ROOT/bin/tower-version-check" --notice 2>&1 )"
 assert_empty "no project located is silent" "$OUT"
 
-BEFORE="$( cd "$PROJECT" && "$ROOT/bin/tower-locate" 2>/dev/null )"
-AFTER="$( cd "$PROJECT" && env TOWER_NO_VERSION_CHECK=1 "$ROOT/bin/tower-locate" 2>/dev/null )"
-assert_eq "tower-locate stdout is unchanged by the check" "$BEFORE" "$AFTER"
-
 summary

@@ -26,6 +26,20 @@ from_cache() {
   if [ -n "$newest" ]; then printf '%s/%s' "$base" "$newest"; fi
 }
 
+from_root_file() {
+  local self="$0" dir
+  while [ -L "$self" ]; do
+    dir="$(cd "$(dirname "$self")" && pwd)" || return 0
+    self="$(readlink "$self")"
+    case "$self" in
+      /*) ;;
+      *) self="$dir/$self" ;;
+    esac
+  done
+  dir="$(cd "$(dirname "$self")" && pwd)" || return 0
+  if [ -r "$dir/tower-root" ]; then head -1 "$dir/tower-root" 2>/dev/null | tr -d '[:space:]'; fi
+}
+
 from_self() {
   local dir
   dir="$(cd "$(dirname "$0")" && pwd)" || return 0
@@ -33,12 +47,12 @@ from_self() {
 }
 
 ROOT=""
-for CANDIDATE in "${TOWER_ROOT:-}" "$(from_registry)" "$(from_cache)" "$(from_self)"; do
+for CANDIDATE in "${TOWER_ROOT:-}" "$(from_registry)" "$(from_cache)" "$(from_root_file)" "$(from_self)"; do
   if is_root "$CANDIDATE"; then ROOT="$CANDIDATE"; break; fi
 done
 
 if [ -z "$ROOT" ]; then
-  echo "tower: cannot resolve the tower install - run tower-bootstrap again, or set TOWER_ROOT" >&2
+  echo "tower: cannot resolve the tower install - install the tower plugin, or set TOWER_ROOT to the tower checkout" >&2
   exit 127
 fi
 

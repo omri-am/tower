@@ -43,7 +43,9 @@ The first two lines install the skills, the version-notice hook and the template
 Claude Code keeps them updated. `/tower-bootstrap` links the `tower-*` shell commands into
 `~/.local/bin` through a resolver shim that finds the live install at call time — so
 `/plugin update tower@tower` needs no relinking afterwards. Add `~/.local/bin` to your PATH
-if the bootstrap says so.
+if the bootstrap says so. Plugin-installed skills are namespaced (`tower:tower-orchestrator`,
+`tower:tower-implementor`, `tower:tower-flush`); the `install.sh` route below keeps the bare
+names.
 
 Leave auto-update **off** for this marketplace. Skills changing mid-session is harmless for
 a skills library; it is not harmless here, where a live orchestrator rehydrates from
@@ -68,8 +70,9 @@ never blocks a command on the network. When one exists you get one line:
 tower: 0.4.0 available (you have 0.3.1) -> /plugin update tower@tower
 ```
 
-on stderr before any `tower-*` command, and as a note at the start of a Claude session.
-`CHANGELOG.md` says what each version added.
+on stderr before any `tower-*` command run through the `tower-bootstrap` shim (the clone
+route's `bin/tower-*` calls, run without bootstrapping, skip it), and as a note at the start
+of a Claude session. `CHANGELOG.md` says what each version added.
 
 - `TOWER_NO_VERSION_CHECK=1` turns the notice off.
 - `TOWER_VERSION_CHECK_TTL=<seconds>` changes the check interval, default `86400`.

@@ -67,6 +67,15 @@ git -C "$R" commit -q -m "duplicate unreleased heading"
 assert_status "refuses a changelog with more than one Unreleased heading" "$?" "1"
 
 new_repo "$R"
+printf '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- First.\n' > "$R/CHANGELOG.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "changelog with zero Unreleased headings"
+OUT="$("$R/scripts/tower-release" 0.2.0 2>&1)"
+assert_status "refuses a changelog with zero Unreleased headings" "$?" "1"
+assert_eq "the zero-heading refusal names itself instead of dying silently" \
+  "$(printf '%s' "$OUT" | grep -c "tower-release: CHANGELOG.md has 0 '## Unreleased' headings")" "1"
+
+new_repo "$R"
 printf '{\n  "name": "tower",\n  "version": "0.1.0",\n  "engines": {\n    "version": "0a1a0"\n  }\n}\n' > "$R/.claude-plugin/plugin.json"
 git -C "$R" add -A
 git -C "$R" commit -q -m "nested version key with an unrelated value"
