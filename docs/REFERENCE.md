@@ -15,6 +15,7 @@ in [PROTOCOL.md](../PROTOCOL.md).
 | `tower-pr-wait [id]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>` |
 | `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
 | `tower-handoffs` | orchestrator | Lists finalized handoffs whose content has not been ingested |
+| `tower-doctor [--from <dir>]` | you, orchestrator | Diagnoses local recovery issues and prints next steps without changing state |
 | `tower-locate [--from\|--task]` | tooling | Resolves the project directory |
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
 | `tower-whoami` | tooling | Prints this session's own addressable name |
@@ -57,6 +58,27 @@ and the worktree's existing branch is recorded on the card.
 merge it notifies and runs the optional command with
 `TOWER_TASK` and `TOWER_PR` set — e.g. to prompt a non-Claude orchestrator via
 `codex exec resume`. A Claude orchestrator on `/loop` does not need it.
+
+## `tower-doctor`
+
+Inspects the project resolved by `tower-locate`, including canonical state reached through
+a worktree symlink. It reports existing dispatch locks, blocked or invalid cards, missing
+active-task branches and worktrees, missing or conflicting shared state links and task
+markers, missing PR references and handoffs, and merged handoffs awaiting ingestion.
+Merged tasks do not need a surviving worktree. Draft and ready cards do not need one either.
+
+Each finding has a stable code in brackets, the affected task or project, and a next step.
+Commands in the advice quote filesystem paths; ambiguous repairs require manual inspection
+instead of recommending deletion of possibly valuable state. Exit `0` means no findings,
+`1` means attention is needed, and project-discovery failures retain `tower-locate`'s exit
+codes (`3` for no project, `4` for ambiguity).
+
+Doctor reads local files and Git metadata only. It does not run agents, poll GitHub, repair
+files, commit, or clear locks. Its shim invocation skips the background update check too.
+The protocol has no session heartbeat or lock-owner record, so doctor cannot prove an
+agent has stopped or a lock is stale. It reports a present lock with conditional recovery
+advice and never infers failure from card age. A pending ingestion or blocked card can be
+normal work awaiting action; findings are not all corruption.
 
 ## `tower-handoffs`
 

@@ -5,6 +5,11 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-doctor` diagnoses local recovery issues in cards, dispatch locks, worktrees and
+  handoffs, with actionable next steps and an exit status for automation. It is read-only
+  and offline, including through the bootstrap shim; it never guesses session liveness
+  or declares a lock stale without evidence.
+
 ## v0.3.0 — 2026-09-07
 
 - Dispatch validates repository identity, canonical shared state and task markers before
