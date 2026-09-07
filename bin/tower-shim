@@ -62,7 +62,7 @@ if [ ! -x "$TARGET" ]; then
   exit 127
 fi
 
-if [ "$CMD" != "tower-version-check" ] && [ -x "$ROOT/bin/tower-version-check" ]; then
+if [ "$CMD" != "tower-version-check" ] && [ "$CMD" != "tower-doctor" ] && [ -x "$ROOT/bin/tower-version-check" ]; then
   TOWER_ROOT="$ROOT" "$ROOT/bin/tower-version-check" --notice || true
 fi
 

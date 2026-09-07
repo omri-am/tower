@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export GIT_OPTIONAL_LOCKS=0
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BIN_DIR/../lib/tower-doctor.sh"
+case "$#" in
+  0) LOCATED="$("$BIN_DIR/tower-locate")" ;;
+  2)
+    [ "$1" = --from ] || { echo 'usage: tower-doctor [--from <dir>]' >&2; exit 1; }
+    LOCATED="$("$BIN_DIR/tower-locate" --from "$2")" ;;
+  *) echo 'usage: tower-doctor [--from <dir>]' >&2; exit 1 ;;
+esac
+
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+FINDINGS=0 CARDS=0
+if [ "$(printf '%s\n' "$LOCATED" | sed -n 2p)" = copy ]; then
+  doctor_report state-copy project 'only a noncanonical worktree copy of .tower is reachable' \
+    'Locate the canonical project and run tower-doctor --from <project-dir>; do not initialize replacement state.'
+  exit 1
+fi
+PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
+CANONICAL_STATE="$(cd "$PROJECT_DIR/.tower" && pwd -P)"
+[ ! -L "$PROJECT_DIR/.tower" ] || PROJECT_DIR="$(dirname "$CANONICAL_STATE")"
+TOPLEVEL="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel)"
+doctor_prepare_repository "$TOPLEVEL"
+
+printf 'tower-doctor: %s\n' "$PROJECT_DIR"
+doctor_lock
+for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
+  [ -f "$CARD" ] || continue
+  CARDS=$((CARDS + 1))
+  doctor_card "$CARD"
+done
+printf 'Session liveness and remote PR state were not checked.\n'
+if [ "$FINDINGS" = 0 ]; then
+  printf 'tower-doctor: checked %s card(s); no issues found\n' "$CARDS"
+  exit 0
+fi
+printf 'tower-doctor: checked %s card(s); %s finding(s) need attention\n' "$CARDS" "$FINDINGS"
+exit 1

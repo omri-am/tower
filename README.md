@@ -121,6 +121,10 @@ it again in the recorded branch's existing worktree, preserving uncommitted work
 the previous session has stopped first. `tower-handoffs` lists finalized handoffs that the
 orchestrator still needs to ingest, independently of other commits.
 
+Run `tower-doctor` when a project needs recovery. It inspects cards, dispatch locks,
+worktrees and handoffs, prints findings with next steps, and changes nothing. Use
+`tower-doctor --from <project-dir>` from outside the project.
+
 ## Learn more
 
 - [docs/REFERENCE.md](docs/REFERENCE.md) — core ideas in depth, every command and flag,

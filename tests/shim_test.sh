@@ -211,4 +211,17 @@ else
   echo "  SKIP: chflags unavailable, cannot construct a permission failure on the tower-root removal here" >&2
 fi
 
+cp "$ROOT/bin/tower-shim" "$ISOLATED/tower-doctor"
+cp "$ROOT/bin/tower-doctor" "$DEV/bin/tower-doctor"
+cp "$ROOT/lib/tower-doctor.sh" "$DEV/lib/tower-doctor.sh"
+cp "$ROOT/bin/tower-locate" "$DEV/bin/tower-locate"
+chmod +x "$ISOLATED/tower-doctor" "$DEV/bin/tower-doctor"
+mkdir -p "$TMP/doctor-project/.tower/tasks"
+git init -q "$TMP/doctor-project"
+printf '#!/usr/bin/env bash\ntouch "%s"\n' "$TMP/notice-invoked" > "$DEV/bin/tower-version-check"
+env HOME="$FAKE_HOME" TOWER_ROOT="$DEV" "$ISOLATED/tower-doctor" --from "$TMP/doctor-project" > "$TMP/doctor.out" 2>&1
+assert_status 'doctor runs through resolver shim' "$?" 0
+assert_true 'shim doctor reaches real diagnostic command' grep -q 'no issues found' "$TMP/doctor.out"
+assert_false 'doctor does not trigger background update side effects' test -e "$TMP/notice-invoked"
+
 summary
