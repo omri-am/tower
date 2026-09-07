@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.3.0 — 2026-09-07
+
 - Dispatch validates repository identity, canonical shared state and task markers before
   adopting a worktree. In-place dispatch checks out its recorded branch, and default
   worktree and branch names include the project path to avoid monorepo task-ID collisions.
