@@ -8,7 +8,7 @@ The project root is where `tower-init` was run: the repo root for a single-proje
 a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
 tower tool and role discovers its project through the chain in **Project discovery** below,
 so a monorepo can hold many independent tower projects side by side. Branches are
-namespaced per project (`tower/<project-dir>/T###-slug`) because the branch namespace is
+namespaced per project (`tower/<project-key>/T###-slug`) because the branch namespace is
 repo-wide.
 
 ## State directory
@@ -37,7 +37,9 @@ detection is `.tower/.git` existing. Think before adding a remote to a sidecar: 
 describes the parent codebase, so it usually belongs local-only or on the same-tier host.
 
 **Worktrees**: implementors work in per-task git worktrees, which `tower-dispatch` creates
-(at `<repo>-tower-worktrees/T###`, on the card's branch) — `--in-place` opts out. `.tower/`
+(at `<repo>-tower-worktrees/<project-key>/T###`, on the card's branch; the key is `root`
+for a root project and `projects/<project-relative-path>` otherwise) — `--in-place` opts out and requires a clean checkout,
+then creates or checks out the card's branch. `.tower/`
 stays canonical in the main checkout; dispatch symlinks it into the worktree's project dir,
 so every session — orchestrator in the main checkout, implementors in worktrees — reads and
 writes the same state, and a handoff written from a worktree is immediately visible to the
@@ -47,6 +49,19 @@ started by external worktree platforms (after `tower-dispatch --prep`) are equal
 to the handoff requirement. This requires sidecar mode (a committed `.tower/` would materialize as a
 stale per-branch copy in each worktree); dispatch enforces that. After ingesting a task's
 handoff, the orchestrator removes its worktree (`git worktree remove`).
+
+Dispatch validates adopted worktrees against the project's common Git directory and
+canonical state, and refuses detached HEADs, the project checkout itself, and another
+task's marker. A short directory lock inside the state repo's Git directory serializes
+dispatch validation and claiming. An uncatchable termination can leave that lock behind;
+remove it only after confirming the dispatch process has stopped. `--resume` accepts an
+`in-flight` card and reuses the worktree on its recorded branch, including uncommitted
+implementation. Dispatch records the selected vendor on the card so resuming retains a
+vendor override. Never resume while the previous session is still running.
+
+Tower commits must name their intended paths with `git commit --only -- <paths>` so they
+do not consume unrelated staged work. Agents committing several state files name all of
+those files explicitly.
 
 ## Project discovery
 
@@ -97,6 +112,7 @@ depends_on: []       # list of task ids, e.g. [T001, T002]
 vendor: any          # claude | codex | any
 branch: ""           # filled at dispatch
 pr: ""               # filled when the PR is opened
+ingested_handoff: "" # git hash-object of the handoff last processed by the orchestrator
 ---
 ```
 
@@ -107,7 +123,11 @@ Body sections, all required:
   the orchestrator. A card is decision-complete when the implementor never has to choose an
   interface. If a decision is missing, the implementor escalates instead of deciding.
 - `## File ownership` — the files/directories this task may touch. Two in-flight cards must
-  never overlap here; overlapping cards are sequenced with `depends_on`.
+  never overlap here; overlapping cards are sequenced with `depends_on`. List one normalized,
+  project-relative path per `- path` or ``- `path` `` bullet, with any explanation after the
+  path. Dispatch conservatively checks literal prefixes of globs against `in-flight`,
+  `in-review`, and `blocked` cards while holding its claim lock. Review and blocked work
+  retain ownership until explicitly resolved; `merged` releases it.
 - `## Out of scope` — explicit non-goals.
 - `## Acceptance criteria` — checklist, all unchecked at creation. The card is done when
   every box is checked and verified.
@@ -149,12 +169,24 @@ notification channel. Finalizing comes before the card flips to `merged`, never 
 flipping first offers a draft up as the deliverable. The degraded case is unchanged — a
 `--headless` implementor exits when its turn ends and cannot be woken, and an owner may
 close the window early; in both, the draft plus the PR's final diff are what remains, and
-`tower-watch` flips the card instead.
+`tower-watch` reports the merge without changing card status. If the implementor session
+is gone, the orchestrator reconstructs and finalizes the handoff from the draft, merged
+diff and review threads before setting `merged`. It must not race a live implementor's
+finalization; when session liveness is uncertain, leave the card `in-review`.
 
 The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
 escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
 Suggested follow-up tasks, Candidate learnings, Learnings that were wrong or violated. The Stop hook blocks an implementor session
 from finishing while its handoff is missing.
+
+**Ingestion receipts.** `merged` means the PR merged and the handoff is finalized; it does
+not mean the orchestrator processed it. `tower-handoffs` lists merged task IDs whose
+handoff hash differs from the card's `ingested_handoff`. Missing or empty receipts mean
+unprocessed, including on older cards. A missing handoff on a merged card is an error.
+After ingesting, set `ingested_handoff` to `git hash-object handoffs/T###-handoff.md` and
+commit that card together with the design, learnings and follow-up cards changed by the
+ingest. If a handoff changes during ingest, re-read it before recording its hash. Neither
+commit timestamps nor the last `tower:` commit are ingestion cursors.
 
 ## Learnings — `learnings.md`
 
@@ -185,9 +217,9 @@ pruner can check whether the context still exists. `##` headings are path scopes
 
 **Selection at dispatch, not curation by hope.** `tower-learnings --for T###` intersects
 the scope globs with the card's `## File ownership` and prints `## Always` plus the
-sections that match; matching is by literal path prefix in either direction, with
-wildcards truncated — so a token that begins with a wildcard has no literal prefix and
-matches nothing. Every unscoped heading is always included, so an unmigrated flat file
+sections that match. It uses the same bullet-path parser and conservative prefix matcher
+as dispatch, including extensionless files and directory boundaries. A wildcard with no
+literal prefix matches all paths; `.` owns the whole project. Every unscoped heading is always included, so an unmigrated flat file
 still prints whole. Prompts are regenerated per dispatch, so this decouples file size from
 prompt cost — the file can grow without every implementor paying for all of it. Scope only
 when a lesson is clearly local; under-scoping costs tokens, over-scoping hides the lesson
@@ -289,8 +321,9 @@ are written into the in-flight card under a `## Corrections` heading (implemento
 it) and the owner is notified via `tower-notify`; instead of a background loop or file
 watcher, the orchestrator processes handoffs when the owner says a PR merged (or the owner
 runs `tower-watch`, which polls the in-review cards' PRs and notifies on merge and on
-blocked cards — the fallback for cards whose implementor session is already gone, since a
-live one flips its own card), and always runs the rehydration ritual at session start; escalations from implementors arrive as
+blocked cards without changing their status), and always runs the rehydration ritual at
+session start. Recover a stopped implementor's final handoff before marking its card
+merged; escalations from implementors arrive as
 `blocked` cards and handoff files rather than live messages, so check for `status: blocked`
 during every ingest pass. `tower-init` copies this file into `.tower/PROTOCOL.md` so the
 project is self-contained. Skill names differ by install route: a plugin install namespaces
@@ -301,8 +334,8 @@ them (`tower:tower-orchestrator`, `tower:tower-implementor`, `tower:tower-flush`
 
 Orchestrator rehydration ritual, in order: register in `.tower/orchestrator` with
 `tower-whoami`, then `design.md`, `card-sizing.md` (absent means the card-size defaults above
-apply), all cards with status other than `merged`, `learnings.md`, handoffs newer than the
-last `tower:` commit. After that the session is the orchestrator, regardless of which session
+apply), all cards with status other than `merged`, `learnings.md`, and every handoff listed
+by `tower-handoffs`, plus blocked handoffs. After that the session is the orchestrator, regardless of which session
 it is or which vendor runs it — the registration is the one step that names a specific
 session, which is why retiring the role deletes it.
 
@@ -326,3 +359,10 @@ trail, which is worse than a warning a human acts on. On a mismatch, re-read
 Only a project scaffolded by a `tower-init` that already had this file has `.tower/version`
 at all, so the mismatch warning cannot fire for a project that predates it, and there is no
 migration to backfill one.
+
+Protocol 2 adds `ingested_handoff` and replaces commit-time ingestion discovery with content
+receipts. When upgrading a protocol 1 project, stop its old role sessions and watcher,
+review and update its embedded protocol and card template, then record `protocol 2` in
+`.tower/version`. Existing cards need no automatic rewrite: an absent receipt means
+unprocessed. Reconcile already-ingested historical handoffs before recording their hashes;
+never mark them processed merely because their cards say `merged`.

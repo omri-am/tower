@@ -9,7 +9,12 @@ You are being retired. After this session closes, the only you that exists is wh
 written in `.tower/` — the test of a complete flush is that a fresh session reading only
 those files loses nothing by replacing you.
 
-Go through these, writing only what is NOT already in the files:
+An implementor writes its own card and handoff only: put design discoveries, candidate
+learnings and suggested tasks in the handoff for the orchestrator to ingest. Do not edit
+`design.md`, curated learnings, other cards, or ingestion receipts. Commit only your card
+and handoff with an explicit path list.
+
+An orchestrator goes through these, writing only what is NOT already in the files:
 
 1. **Design knowledge.** Decisions made or discussed this session, with rationale, into
    `design.md` — including decisions that were considered and rejected, and open questions
@@ -26,6 +31,6 @@ Go through these, writing only what is NOT already in the files:
    `tower-whoami`), delete the file — your name dies with you, and a stale one silently
    swallows escalations.
 
-Commit everything inside `.tower/` (sidecar mode) or the project repo with a `tower:`
-message. Then state in your final message, in one paragraph, what you flushed and what —
+Commit the files you changed inside `.tower/` (sidecar mode) or the project repo with a
+`tower:` message and `git commit --only -- <explicit paths>`. Then state in your final message, in one paragraph, what you flushed and what —
 if anything — could not be captured in files.

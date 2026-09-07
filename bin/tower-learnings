@@ -18,6 +18,7 @@ done
 [ -n "$MODE" ] || usage
 
 LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+. "$(dirname "$LOCATE")/../lib/tower-paths.sh"
 if [ -n "$TASK_ID" ]; then
   LOCATED="$("$LOCATE" --task "$TASK_ID")" || LOCATED=""
 else
@@ -33,10 +34,6 @@ LEARNINGS="$PROJECT_DIR/.tower/learnings.md"
 ARCHIVE="$PROJECT_DIR/.tower/learnings-archive.md"
 [ -f "$LEARNINGS" ] || { echo "tower-learnings: no $LEARNINGS" >&2; exit 1; }
 BUDGET="${TOWER_LEARNINGS_BUDGET:-60}"
-
-glob_prefix() {
-  printf '%s' "$1" | sed 's/[*?[].*//'
-}
 
 IDX=0
 while IFS= read -r LINE; do
@@ -102,11 +99,7 @@ case "$MODE" in
     CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
     [ -n "$CARD" ] || { echo "tower-learnings: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
 
-    OWNED="$(awk '/^## File ownership/{f=1;next} /^## /{f=0} f' "$CARD" \
-      | tr -c 'A-Za-z0-9_./*-' '\n' \
-      | grep -E '/|\*|\.[A-Za-z0-9]+$' \
-      | sed -e 's|^\./||' -e 's/\.$//' \
-      | sort -u || true)"
+    OWNED="$(tower_owned_paths "$CARD")"
 
     echo "<!-- learnings selected for $TASK_ID from $(basename "$LEARNINGS") -->"
     for ((i = 0; i < SECTIONS; i++)); do
@@ -116,13 +109,8 @@ case "$MODE" in
         SELECT=1
       else
         for G in $GLOBS; do
-          GP="$(glob_prefix "$G")"
           for P in $OWNED; do
-            PP="$(glob_prefix "$P")"
-            if [ -n "$GP" ] && [ -n "$PP" ]; then
-              case "$PP" in "$GP"*) SELECT=1 ;; esac
-              case "$GP" in "$PP"*) SELECT=1 ;; esac
-            fi
+            tower_paths_overlap "$G" "$P" && SELECT=1
           done
         done
       fi
