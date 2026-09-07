@@ -1,7 +1,7 @@
 # tower
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![protocol](https://img.shields.io/badge/protocol-v1-informational)
+![protocol](https://img.shields.io/badge/protocol-v2-informational)
 ![platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 
 tower lets you run several coding agents in parallel on one repository while you keep
@@ -96,7 +96,7 @@ codex CLI is optional, for implementors.
 
 ```
 cd ~/code/my-project
-tower-init                        # scaffolds .tower/ and commits it
+tower-init --sidecar              # shared state for per-task worktrees
 tower-orchestrate                 # opens the orchestrator session
 ```
 
@@ -115,6 +115,11 @@ knows into `.tower/` so the next session loses nothing.
 
 For repos that must stay clean, `tower-init --sidecar` makes `.tower/` its own nested git
 repo, hidden via `.git/info/exclude`. Sidecar mode is required for per-task worktrees.
+
+After an implementor session stops unexpectedly, `tower-dispatch T001 --resume` launches
+it again in the recorded branch's existing worktree, preserving uncommitted work. Confirm
+the previous session has stopped first. `tower-handoffs` lists finalized handoffs that the
+orchestrator still needs to ingest, independently of other commits.
 
 ## Learn more
 

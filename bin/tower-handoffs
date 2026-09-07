@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[ $# = 0 ] || { echo 'usage: tower-handoffs' >&2; exit 1; }
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATED="$("$BIN_DIR/tower-locate")"
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+
+field() {
+  awk -v key="$2" '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && index($0,key ":")==1 {
+      value=substr($0,length(key)+2)
+      gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", value)
+      print value
+      exit
+    }
+  ' "$1"
+}
+
+pending_handoff() {
+  local card="$1" id handoff hash receipt
+  [ "$(field "$card" status)" = merged ] || return 0
+  id="$(field "$card" id)"
+  handoff="$PROJECT_DIR/.tower/handoffs/$id-handoff.md"
+  if [ ! -s "$handoff" ]; then
+    echo "tower-handoffs: $id is merged but has no non-empty handoff; recover it before ingesting" >&2
+    return 1
+  fi
+  hash="$(git hash-object "$handoff")"
+  receipt="$(field "$card" ingested_handoff)"
+  [ "$hash" = "$receipt" ] || echo "$id"
+}
+
+RESULT=0
+for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
+  [ -f "$CARD" ] || continue
+  pending_handoff "$CARD" || RESULT=1
+done
+exit "$RESULT"

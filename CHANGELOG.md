@@ -5,6 +5,21 @@ what the version gives them.
 
 ## Unreleased
 
+- Dispatch validates repository identity, canonical shared state and task markers before
+  adopting a worktree. In-place dispatch checks out its recorded branch, and default
+  worktree and branch names include the project path to avoid monorepo task-ID collisions.
+- Ownership overlap checks now run under a dispatch lock and reserve paths through review
+  and blocking. Learning selection uses the same path parser, including extensionless files.
+- `tower-dispatch --resume` recovers an interrupted in-flight task in its original worktree,
+  preserving uncommitted work. Launch arguments support quoted paths without shell evaluation.
+- Initialization and dispatch commits preserve unrelated staged changes. The watcher only
+  reports merges; agents finalize handoffs before marking cards merged.
+- Protocol 2 adds content-based ingestion receipts and `tower-handoffs`, so unrelated commits
+  cannot hide unprocessed handoffs and corrected handoffs become pending again. Existing
+  projects need the protocol upgrade described in `PROTOCOL.md`; no automatic migration runs.
+- The quickstart now initializes sidecar state for worktree dispatch. Regression tests cover
+  isolation, concurrent claims, interrupted launches, commit safety, merge handling and recovery.
+
 - Pull requests now run CI: `tests/run.sh` and a new `scripts/tower-changelog-check`, which
   fails a PR that touches `bin/`, `lib/`, `hooks/`, `scripts/`, `skills/`, `templates/`,
   `commands/`, `.claude-plugin/` or `PROTOCOL_VERSION` without also touching `CHANGELOG.md`.

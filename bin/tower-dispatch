@@ -2,11 +2,11 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume]" >&2
   exit 1
 }
 
-TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG=""
+TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG="" RESUME=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
@@ -16,27 +16,36 @@ while [ $# -gt 0 ]; do
     --print-only) PRINT_ONLY=1; shift ;;
     --in-place) IN_PLACE=1; shift ;;
     --worktree) [ $# -ge 2 ] || usage; WT_FLAG="$2"; shift 2 ;;
+    --resume) RESUME=1; shift ;;
     -*) usage ;;
     *) [ -n "$TASK_ID" ] && usage; TASK_ID="$1"; shift ;;
   esac
 done
 [ -n "$TASK_ID" ] || usage
+[ "$IN_PLACE" = 0 ] || [ -z "$WT_FLAG" ] || usage
+[ "$RESUME" = 0 ] || [ -z "$WT_FLAG" ] || usage
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BIN_DIR/../lib/tower-dispatch.sh"
+. "$BIN_DIR/../lib/tower-paths.sh"
 LOCATE="$BIN_DIR/tower-locate"
 if ! LOCATED="$("$LOCATE" --task "$TASK_ID")"; then
   echo "tower-dispatch: no single .tower/ project holds $TASK_ID - cd into the project dir, or run tower-init there first" >&2
   exit 1
 fi
 PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
+if [ -L "$PROJECT_DIR/.tower" ]; then
+  PROJECT_DIR="$(dirname "$(cd "$PROJECT_DIR/.tower" && pwd -P)")"
+fi
 RESOLVED_BY="$(printf '%s\n' "$LOCATED" | sed -n 2p)"
 
 CUR_TOP="$(git rev-parse --show-toplevel)"
 ADOPT_WT=""
 case "$RESOLVED_BY" in
-  worktree|search)
+  worktree|search|ancestor|env)
     case "$PROJECT_DIR/" in "$CUR_TOP/"*) ;; *) ADOPT_WT="$CUR_TOP" ;; esac ;;
 esac
 
@@ -47,9 +56,12 @@ frontmatter_field() {
   sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
 }
 
+[ "$PRINT_ONLY" = 1 ] || take_dispatch_lock
+EXPECTED_STATUS=ready
+[ "$RESUME" = 0 ] || EXPECTED_STATUS=in-flight
 STATUS="$(frontmatter_field "$CARD" status)"
-if [ "$STATUS" != "ready" ]; then
-  echo "tower-dispatch: card $TASK_ID has status '$STATUS', expected 'ready'" >&2
+if [ "$STATUS" != "$EXPECTED_STATUS" ]; then
+  echo "tower-dispatch: card $TASK_ID has status '$STATUS', expected '$EXPECTED_STATUS' (use --resume only after its previous session has stopped)" >&2
   exit 1
 fi
 
@@ -63,6 +75,7 @@ for DEP in $DEPS; do
     exit 1
   fi
 done
+validate_ownership
 
 PROMPT_FILE="$PROJECT_DIR/.tower/prompts/$TASK_ID-prompt.md"
 [ -s "$PROMPT_FILE" ] || { echo "tower-dispatch: missing prompt file $PROMPT_FILE (orchestrator finalizes prompts at dispatch)" >&2; exit 1; }
@@ -76,54 +89,52 @@ case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VEN
 SESSION_NAME="$("$BIN_DIR/tower-session-name" --task "$TASK_ID" --from "$PROJECT_DIR")"
 
 TOPLEVEL="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel)"
+PROJECT_KEY="projects/${PROJECT_DIR#"$TOPLEVEL"/}"
+[ "$PROJECT_DIR" != "$TOPLEVEL" ] || PROJECT_KEY=root
+BRANCH="$(frontmatter_field "$CARD" branch | tr -d '"')"
+RECORDED_BRANCH="$BRANCH"
+BRANCH="${BRANCH:-tower/$PROJECT_KEY/$(basename "$CARD" .md)}"
 CREATE_WT=0
 if [ "$IN_PLACE" = 1 ]; then
   WORK_DIR="$PROJECT_DIR"
-  BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
 else
   if [ ! -d "$PROJECT_DIR/.tower/.git" ]; then
-    echo "tower-dispatch: worktree dispatch requires sidecar mode (.tower must be its own repo, shared across worktrees via symlink); re-init with --sidecar or dispatch with --in-place" >&2
+    echo "tower-dispatch: worktree dispatch requires sidecar mode; use --in-place for this existing project (tower-init --sidecar is for new projects)" >&2
     exit 1
   fi
-  if [ -n "$WT_FLAG" ]; then
+  if [ "$RESUME" = 1 ]; then
+    resume_worktree
+  elif [ -n "$WT_FLAG" ]; then
     WT="$(cd "$WT_FLAG" && git rev-parse --show-toplevel)"
   elif [ -n "$ADOPT_WT" ]; then
     WT="$ADOPT_WT"
   else
-    WT="$(dirname "$TOPLEVEL")/$(basename "$TOPLEVEL")-tower-worktrees/$TASK_ID"
+    WT="$(dirname "$TOPLEVEL")/$(basename "$TOPLEVEL")-tower-worktrees/$PROJECT_KEY/$TASK_ID"
     CREATE_WT=1
   fi
   WORK_DIR="$WT${PROJECT_DIR#"$TOPLEVEL"}"
-  if [ "$CREATE_WT" = 1 ]; then
-    BRANCH="tower/$(basename "$PROJECT_DIR")/$(basename "$CARD" .md)"
-  else
-    BRANCH="$(git -C "$WT" rev-parse --abbrev-ref HEAD)"
+  if [ "$CREATE_WT" = 0 ]; then
+    WT="$(cd "$WT" && pwd -P)"
+    WORK_DIR="$WT${PROJECT_DIR#"$TOPLEVEL"}"
+    validate_worktree
   fi
 fi
 
-case "$VENDOR" in
-  claude)
-    if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -n '$SESSION_NAME' -p \"\$(cat '$PROMPT_FILE')\""
-    else
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID claude -n '$SESSION_NAME' \"\$(cat '$PROMPT_FILE')\""
-    fi
-    ;;
-  codex)
-    if [ "$MODE" = "headless" ]; then
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID codex exec \"\$(cat '$PROMPT_FILE')\""
-    else
-      LAUNCH="cd '$WORK_DIR' && TOWER_TASK=$TASK_ID codex \"\$(cat '$PROMPT_FILE')\""
-    fi
-    ;;
-esac
+prepare_launch "$SESSION_NAME"
+LAUNCH="$(launch_command)"
 
 if [ "$PRINT_ONLY" = 1 ]; then
   echo "$LAUNCH"
   exit 0
 fi
 
-if [ "$IN_PLACE" = 0 ]; then
+if [ "$IN_PLACE" = 1 ]; then
+  if [ "$RESUME" = 1 ]; then
+    [ "$(git -C "$TOPLEVEL" branch --show-current)" = "$RECORDED_BRANCH" ] || dispatch_die 'checkout is no longer on the recorded task branch'
+  else
+    prepare_in_place
+  fi
+else
   if [ "$CREATE_WT" = 1 ]; then
     git -C "$TOPLEVEL" worktree add -q -b "$BRANCH" "$WT"
   fi
@@ -132,21 +143,17 @@ if [ "$IN_PLACE" = 0 ]; then
   echo "$TASK_ID" > "$WORK_DIR/.tower-task"
 fi
 
-sed -i '' "s|^status: ready|status: in-flight|" "$CARD"
-sed -i '' "s|^branch: \"\"|branch: \"$BRANCH\"|" "$CARD"
-if [ -d "$PROJECT_DIR/.tower/.git" ]; then
-  git -C "$PROJECT_DIR/.tower" add "tasks/$(basename "$CARD")"
-  git -C "$PROJECT_DIR/.tower" commit -q -m "tower: dispatch $TASK_ID"
-else
-  git -C "$PROJECT_DIR" add "$CARD"
-  git -C "$PROJECT_DIR" commit -q -m "tower: dispatch $TASK_ID"
+if [ "$RESUME" = 0 ]; then
+  write_dispatch_card
 fi
+commit_dispatch_card
+release_dispatch_lock
 
 if [ "$MODE" = "prep" ]; then
   echo "tower-dispatch: prepared $TASK_ID in $WORK_DIR (branch $BRANCH, card in-flight)"
   echo "start your agent there and tell it: read .tower/prompts/$TASK_ID-prompt.md and execute it as your task"
 elif [ "$MODE" = "headless" ] || [ "$MODE" = "here" ]; then
-  eval "$LAUNCH"
+  launch_here || { RESULT=$?; echo "tower-dispatch: session exited $RESULT; after confirming it has stopped, use --resume to reuse its worktree" >&2; exit "$RESULT"; }
 else
   ESCAPED="${LAUNCH//\\/\\\\}"
   ESCAPED="${ESCAPED//\"/\\\"}"

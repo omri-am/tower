@@ -57,9 +57,11 @@ project.
 3. Every card in `.tower/tasks/` with status other than `merged`
 4. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
    only ever see the slice their card selects
-5. Handoffs in `.tower/handoffs/` newer than the last commit whose message starts with
-   `tower:` (`git log --oneline -1 --grep '^tower:'` gives the anchor; when in doubt, read
-   the newest three)
+5. Run `tower-handoffs` and read every listed task’s card and handoff, plus all blocked
+   handoffs. The command compares handoff content against `ingested_handoff` receipts;
+   unrelated commits cannot hide outstanding work. If the command is unavailable, compare
+   `git hash-object .tower/handoffs/T###-handoff.md` with each merged card’s receipt manually.
+   An absent receipt means unprocessed. Never use the latest `tower:` commit as a cursor.
 
 If `.tower/.git` exists the project runs in sidecar mode: all `tower:` commits and the git
 commands above run inside `.tower/`, never in the parent repo.
@@ -68,7 +70,7 @@ Do not answer questions or take actions before completing the ritual.
 
 ## Duties
 
-**Ingest handoffs.** Ingest a task's handoff only after its PR is merged — a handoff
+**Ingest handoffs.** Ingest a task's handoff only after its card is `merged` — a handoff
 written at PR-open is a draft the implementor finalizes at merge. The exception is a
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
@@ -77,9 +79,20 @@ suggested follow-ups when they are real; curate the handoff's candidate learning
 on its *Learnings that were wrong or violated* section in the same pass; mark the task's
 card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
-below). Commit with a `tower:` message. Remove the task's worktree if dispatch created one
-(`git worktree remove <repo>-tower-worktrees/T###`; check with `git worktree list`). Then notify the owner with `tower-notify` if the
-design doc changed.
+below). Set the card’s `ingested_handoff` to the hash from `git hash-object` of the handoff
+you just processed. If the content changed during ingest, read the new revision first.
+Commit the receipt and all resulting state changes together with a `tower:` message,
+using `git commit --only -- <explicit paths>` to preserve unrelated staged work.
+Remove the task’s worktree if dispatch created one: find the exact path by the card’s
+branch in `git worktree list --porcelain`, then use `git worktree remove <path>` without
+force. Default paths include the project-relative path; never derive one from T### alone.
+Then notify the owner with `tower-notify` if the design doc changed.
+
+**Recover merged PRs with unfinished handoffs.** `tower-watch` only reports a PR merge;
+it never marks the card `merged`. A live implementor finalizes its own handoff. If its
+session has stopped, recover from the draft, merged diff and review threads, finalize
+the handoff, and only then set the card `merged` and ingest it. When you cannot establish
+that the implementor stopped, leave `in-review` and avoid racing its finalization.
 
 **Confirm card sizing once.** If `.tower/card-sizing.md` has `confirmed: no`, settle it
 before writing any draft card. First look for an existing size instruction in the project's
@@ -182,9 +195,10 @@ progress — notifications must stay rare enough to mean something.
 
 Assuming the role means running continuously: after the rehydration ritual, invoke the
 `loop` skill (self-paced) unless the owner said this is a one-shot consultation. Each tick:
-check cards for newly `merged` or `blocked` status (tower-watch flips merged cards; if it
-is not running, poll the in-review cards' PRs with `gh pr view --json state`); run the
-ingest duty for merged cards; read blocked cards' handoffs immediately; extend the draft
+run `tower-handoffs` for outstanding merged handoffs and check blocked cards. Poll the
+in-review cards’ PRs with `gh pr view --json state` if no watcher is reporting them;
+recover unfinished handoffs only after their implementors stop. Run the ingest duty for
+every pending handoff; read blocked cards’ handoffs immediately; extend the draft
 frontier if it is thinner than 2-3 decision-complete cards per branch; finalize prompts
 for owner-approved ready cards; notify only at HITL gates; otherwise report nothing
 changed. A `FileChanged` hook on `.tower/handoffs/` (see the tower repo's hooks/README.md)

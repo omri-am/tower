@@ -13,7 +13,8 @@ in [PROTOCOL.md](../PROTOCOL.md).
 | `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
 | `tower-learnings --for\|--check\|--scopes` | orchestrator | Selects, audits, or lists scoped learnings |
 | `tower-pr-wait [id]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>` |
-| `tower-watch` | you, optionally | Fallback poller that flips merged cards whose session is gone |
+| `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
+| `tower-handoffs` | orchestrator | Lists finalized handoffs whose content has not been ingested |
 | `tower-locate [--from\|--task]` | tooling | Resolves the project directory |
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
 | `tower-whoami` | tooling | Prints this session's own addressable name |
@@ -31,10 +32,18 @@ in [PROTOCOL.md](../PROTOCOL.md).
 | `--in-place` | Skips worktree creation |
 | `--worktree <path>` | Adopts an existing worktree instead of creating one |
 | `--prep` | Does all the bookkeeping, launches nothing |
+| `--resume` | Restarts an in-flight task in its recorded branch’s existing worktree |
 
-By default dispatch creates a per-task worktree at `<repo>-tower-worktrees/T###` on the
-card's branch and symlinks the shared `.tower/` into it, so orchestrator and implementors
-read and write the same state.
+By default dispatch creates a per-task worktree at `<repo>-tower-worktrees/<project>/T###`
+on the card’s branch and symlinks the shared `.tower/` into it. `<project>` is `root` for
+a root project and `projects/<project-relative-path>` otherwise. Ownership validation
+and claiming are serialized; overlapping in-flight, in-review or blocked cards prevent
+dispatch. `--in-place` requires a clean checkout and creates or checks out the task branch.
+
+Use `--resume` only after confirming the previous session stopped. It retains uncommitted
+work and does not create a new branch. For an in-place task, also pass `--in-place`; the
+checkout must still be on the recorded branch. Old worktree locations remain resumable
+because discovery uses the card’s branch, not the new default path.
 
 `--prep` is the hook for worktree-management platforms that start the agent themselves: it
 validates, adopts and symlinks, marks the card in-flight, and writes a `.tower-task` marker
@@ -45,9 +54,17 @@ it. So `tower-dispatch T### --prep` works from anywhere in the repo or any workt
 and the worktree's existing branch is recorded on the card.
 
 `tower-watch [--interval s] [--on-merge '<cmd>']` polls in-review cards' PRs via `gh`; on a
-merge it flips the card to `merged`, commits, notifies, and runs the optional command with
+merge it notifies and runs the optional command with
 `TOWER_TASK` and `TOWER_PR` set — e.g. to prompt a non-Claude orchestrator via
 `codex exec resume`. A Claude orchestrator on `/loop` does not need it.
+
+## `tower-handoffs`
+
+Prints one task ID per finalized, unprocessed handoff. A handoff is pending when its card
+is `merged` and `git hash-object` of its contents differs from `ingested_handoff` on the
+card. Missing receipts on old cards mean unprocessed; missing handoff files produce an
+error. The orchestrator commits the receipt together with the resulting state updates.
+The watcher never writes receipts or finalizes cards.
 
 ## `tower-card`
 

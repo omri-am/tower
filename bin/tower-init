@@ -50,6 +50,6 @@ if [ "$SIDECAR" = 1 ]; then
   echo "tower-init: initialized $TARGET/.tower as a sidecar repo (excluded from the parent via .git/info/exclude)"
 else
   git -C "$TARGET" add "$TARGET/.tower"
-  git -C "$TARGET" commit -q -m "tower: init state dir"
+  git -C "$TARGET" commit -q --only -m "tower: init state dir" -- "$TARGET/.tower"
   echo "tower-init: initialized $TARGET/.tower"
 fi
