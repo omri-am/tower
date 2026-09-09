@@ -13,11 +13,12 @@ R="$TMP/repo"
 new_repo() {
   rm -rf "$R"
   mkdir -p "$R/bin" "$R/lib" "$R/hooks" "$R/scripts" "$R/skills/thing" \
-    "$R/templates" "$R/commands" "$R/.claude-plugin" "$R/tests" "$R/docs"
+    "$R/web" "$R/templates" "$R/commands" "$R/.claude-plugin" "$R/tests" "$R/docs"
   cp "$SCRIPT" "$R/scripts/tower-changelog-check"
   chmod +x "$R/scripts/tower-changelog-check"
   printf 'code\n' > "$R/bin/tower-thing"
   printf 'code\n' > "$R/lib/tower-thing.sh"
+  printf 'style\n' > "$R/web/tower.css"
   printf 'code\n' > "$R/hooks/tower-thing.sh"
   printf 'code\n' > "$R/scripts/other-thing"
   printf 'code\n' > "$R/skills/thing/SKILL.md"
@@ -43,7 +44,7 @@ run_check() {
   "$R/scripts/tower-changelog-check" "$@"
 }
 
-TRIGGER_PATHS="bin/tower-thing lib/tower-thing.sh hooks/tower-thing.sh scripts/other-thing skills/thing/SKILL.md templates/thing.md commands/thing.md .claude-plugin/plugin.json PROTOCOL_VERSION"
+TRIGGER_PATHS="web/tower.css bin/tower-thing lib/tower-thing.sh hooks/tower-thing.sh scripts/other-thing skills/thing/SKILL.md templates/thing.md commands/thing.md .claude-plugin/plugin.json PROTOCOL_VERSION"
 
 for p in $TRIGGER_PATHS; do
   new_repo

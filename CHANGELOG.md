@@ -5,6 +5,24 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.4.0 — 2026-09-09
+
+- The browser workspace now includes a Kanban view with collapsible workflow columns,
+  card detail dialogs, and comment counts. In flight uses purple and In review uses teal;
+  column headings and card badges share these colors in both views.
+
+- Browser cards now have persistent comment threads with retained drafts, retry-safe saves,
+  and scoped Git commits. The orchestrator reads owner feedback from `.tower/comments/`.
+  Colored group headings and badges distinguish approval, dispatchable, waiting, active,
+  merged, and invalid states; dependency-blocked ready cards are explicitly labeled Waiting.
+
+- `tower-ui` adds an optional local browser workspace for daily card review: a searchable
+  queue with full titles, approval/dispatch/waiting groups, complete card details, keyboard
+  navigation, and separate approval and dispatch actions. It preserves selection during
+  refresh and explains incomplete prerequisites. Actions reject changed cards or prompts;
+  approvals commit only the reviewed card, and dispatch reuses the CLI checks and lock.
+  Requires Python 3.9+ for the local server, with no third-party packages or build step.
+
 - `tower-doctor` diagnoses local recovery issues in cards, dispatch locks, worktrees and
   handoffs, with actionable next steps and an exit status for automation. It is read-only
   and offline, including through the bootstrap shim; it never guesses session liveness
