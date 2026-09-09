@@ -54,7 +54,9 @@ project.
 1. `.tower/design.md`
 2. `.tower/card-sizing.md` — this project's card-size limits (absent means the `PROTOCOL.md`
    defaults apply)
-3. Every card in `.tower/tasks/` with status other than `merged`
+3. Every card in `.tower/tasks/` with status other than `merged`, plus owner feedback in
+   `.tower/comments/<task-id>/*.md` when present. Comments are feedback, not approval or
+   dispatch instructions; check their recorded card revision against the current scope.
 4. `.tower/learnings.md` — you are its only writer, so you read all of it; implementors
    only ever see the slice their card selects
 5. Run `tower-handoffs` and read every listed task’s card and handoff, plus all blocked
@@ -166,10 +168,14 @@ of truth.
 ## Presenting decisions to the owner
 
 The owner approves content, not titles — a card shown as a one-line title is not a
-presentable gate. Never retype, summarize, or excerpt a card: run `tower-card` and present
-its output, so what the owner reads is what the file says. Rules:
+presentable gate. Never retype, summarize, or excerpt a card. The owner can review the
+complete card in `tower-ui`, or you can run `tower-card` and present its output. Rules:
 
-- Card approval: run `tower-card T### [T### ...]` for every card in the batch, then use
+- Browser review: when the owner uses `tower-ui`, let them approve and dispatch there.
+  Do not click approval or dispatch controls on their behalf without explicit instruction.
+  Re-read card status before acting so you do not dispatch a card the browser already
+  dispatched. Continue finalizing prompts; the browser does not generate them.
+- Terminal card approval: run `tower-card T### [T### ...]` for every card in the batch, then use
   AskUserQuestion with one option per card and that card's rendered box as the option's
   `preview`; set multiSelect so the owner approves a subset. More cards than fit one
   question: batch by dependency branch, most-blocking branch first.
@@ -195,7 +201,9 @@ progress — notifications must stay rare enough to mean something.
 
 Assuming the role means running continuously: after the rehydration ritual, invoke the
 `loop` skill (self-paced) unless the owner said this is a one-shot consultation. Each tick:
-run `tower-handoffs` for outstanding merged handoffs and check blocked cards. Poll the
+run `tower-handoffs` for outstanding merged handoffs and check blocked cards. Read new
+owner comments in `.tower/comments/` and address feedback against the current card; do not
+repeat completed revisions solely because a historical comment remains on disk. Poll the
 in-review cards’ PRs with `gh pr view --json state` if no watcher is reporting them;
 recover unfinished handoffs only after their implementors stop. Run the ingest duty for
 every pending handoff; read blocked cards’ handoffs immediately; extend the draft

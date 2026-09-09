@@ -2,6 +2,16 @@
 
 dispatch_die() { echo "tower-dispatch: $*" >&2; exit 1; }
 
+dispatch_revision() {
+  {
+    cat "$CARD"
+    printf '\0'
+    if [ -f "$PROJECT_DIR/.tower/prompts/$TASK_ID-prompt.md" ]; then
+      cat "$PROJECT_DIR/.tower/prompts/$TASK_ID-prompt.md"
+    fi
+  } | git hash-object --stdin
+}
+
 release_dispatch_lock() {
   [ -n "${DISPATCH_LOCK:-}" ] || return 0
   rmdir "$DISPATCH_LOCK"
@@ -42,17 +52,26 @@ check_owned_overlap() {
   done <<< "$OWNED"
 }
 
+active_ownership_cards() {
+  awk '
+    FNR==1 {delimiters=0; seen=0}
+    /^---$/ {delimiters++}
+    delimiters==1 && /^status:/ && !seen {
+      seen=1
+      sub(/^status: */, "")
+      if ($0 ~ /^(in-flight|in-review|blocked)$/) print FILENAME
+    }
+  ' "$PROJECT_DIR"/.tower/tasks/*.md
+}
+
 validate_ownership() {
-  local other other_status
+  local other
   OWNED="$(tower_owned_paths "$CARD")"
   validate_ownership_paths "$OWNED"
-  for other in "$PROJECT_DIR"/.tower/tasks/*.md; do
+  while IFS= read -r other; do
     [ "$other" != "$CARD" ] || continue
-    other_status="$(frontmatter_field "$other" status)"
-    case "$other_status" in
-      in-flight|in-review|blocked) check_owned_overlap "$other" ;;
-    esac
-  done
+    check_owned_overlap "$other"
+  done < <(active_ownership_cards)
 }
 
 resume_worktree() {

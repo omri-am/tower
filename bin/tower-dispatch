@@ -2,11 +2,11 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
   exit 1
 }
 
-TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG="" RESUME=0
+TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG="" RESUME=0 EXPECT_REVISION=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do
     --in-place) IN_PLACE=1; shift ;;
     --worktree) [ $# -ge 2 ] || usage; WT_FLAG="$2"; shift 2 ;;
     --resume) RESUME=1; shift ;;
+    --expect-revision) [ $# -ge 2 ] || usage; EXPECT_REVISION="$2"; shift 2 ;;
     -*) usage ;;
     *) [ -n "$TASK_ID" ] && usage; TASK_ID="$1"; shift ;;
   esac
@@ -57,6 +58,9 @@ frontmatter_field() {
 }
 
 [ "$PRINT_ONLY" = 1 ] || take_dispatch_lock
+if [ -n "$EXPECT_REVISION" ]; then
+  [ "$(dispatch_revision)" = "$EXPECT_REVISION" ] || dispatch_die 'card or prompt changed; refresh and review before dispatching'
+fi
 EXPECTED_STATUS=ready
 [ "$RESUME" = 0 ] || EXPECTED_STATUS=in-flight
 STATUS="$(frontmatter_field "$CARD" status)"

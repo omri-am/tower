@@ -17,7 +17,7 @@ if printf '%s\n' "$CHANGED" | grep -q '^CHANGELOG\.md$'; then
   exit 0
 fi
 
-TRIGGER_RE='^(bin/|lib/|hooks/|scripts/|skills/|templates/|commands/|\.claude-plugin/|PROTOCOL_VERSION$)'
+TRIGGER_RE='^(bin/|lib/|web/|hooks/|scripts/|skills/|templates/|commands/|\.claude-plugin/|PROTOCOL_VERSION$)'
 TRIGGERED="$(printf '%s\n' "$CHANGED" | grep -E "$TRIGGER_RE" || true)"
 
 [ -n "$TRIGGERED" ] || exit 0

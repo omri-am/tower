@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tower · Task queue</title>
+  <link rel="stylesheet" href="/tower.css">
+  <script src="/tower.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <a class="wordmark" href="/">Tower</a>
+    <span id="project">Task queue</span>
+    <div class="view-switch" role="group" aria-label="View">
+      <button id="view-queue" type="button" aria-pressed="true">Queue</button>
+      <button id="view-kanban" type="button" aria-pressed="false">Kanban</button>
+    </div>
+    <span id="connection" role="status">Connecting…</span>
+    <button id="refresh" class="quiet">Refresh</button>
+  </header>
+  <main class="workspace">
+    <aside class="queue-pane" aria-label="Task queue">
+      <div class="queue-heading"><h1>Task queue</h1><span id="total"></span></div>
+      <label class="search-label" for="search">Find a card <kbd>/</kbd></label>
+      <input id="search" type="search" placeholder="Search title, ID, or content" autocomplete="off">
+      <div class="filter-row"><label for="filter">Show</label><select id="filter"><option value="queue">Approval & dispatch</option><option value="all">All cards</option></select></div>
+      <nav id="queue" aria-label="Cards"><p class="empty">Loading cards…</p></nav>
+      <p class="keyboard-hint"><kbd>j</kbd> <kbd>k</kbd> Move between cards</p>
+    </aside>
+    <section id="detail-panel" class="detail-pane" aria-label="Selected card">
+      <div id="notice" role="status" hidden></div>
+      <div id="detail"><div class="welcome"><h2>Your next decision starts here.</h2><p>Select a card to read its full scope and acceptance criteria.</p></div></div>
+      <footer id="actions" hidden></footer>
+    </section>
+  </main>
+  <dialog id="card-dialog" aria-label="Card details">
+    <div class="dialog-heading"><span>Card details</span><button id="close-card" type="button">Back to board <kbd>Esc</kbd></button></div>
+  </dialog>
+</body>
+</html>

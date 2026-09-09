@@ -34,6 +34,7 @@ in [PROTOCOL.md](../PROTOCOL.md).
 | `--worktree <path>` | Adopts an existing worktree instead of creating one |
 | `--prep` | Does all the bookkeeping, launches nothing |
 | `--resume` | Restarts an in-flight task in its recorded branch’s existing worktree |
+| `--expect-revision <hash>` | Rejects a card or prompt changed since browser review; checked under the dispatch lock |
 
 By default dispatch creates a per-task worktree at `<repo>-tower-worktrees/<project>/T###`
 on the card’s branch and symlinks the shared `.tower/` into it. `<project>` is `root` for
@@ -111,6 +112,63 @@ to `t073a`.
 `--plain` drops the box, the glyphs and the colour, for piping and for orchestrators that
 are not Claude Code: its output is pure ASCII, it never truncates a title or a dependency
 list, and the card body it prints is byte-identical to the file.
+
+## `tower-ui`
+
+```
+tower-ui                              # open this project's browser workspace
+tower-ui --from ~/code/project         # explicit project, including monorepo subprojects
+tower-ui --no-open --port 8765          # print the session URL on a fixed local port
+```
+
+Requires Python 3.9+ only for this optional command. No Python packages, JavaScript
+packages, web fonts, or build step are required. The server binds to `127.0.0.1`; the
+printed URL contains a session token. Keep the command running and use Ctrl-C to stop.
+Discovery uses `tower-locate`, including canonical state linked from implementor worktrees.
+
+The default view groups drafts under Needs approval, dispatchable ready cards under Ready
+to dispatch, and blocked cards or incomplete prerequisites under Waiting. All cards also
+shows active and merged work. Search matches ID, title, and complete card content. `/`
+focuses search, `j` and `k` select adjacent visible cards, and buttons support standard
+Tab/Enter navigation. Automatic refresh preserves the selected card and reading position
+when its content is unchanged. Changed cards are shown with a review notice.
+The page polls every five seconds while `tower-ui` is running. Each request rescans
+`.tower/tasks/*.md`, so new cards and external edits appear without restarting the server.
+Refresh requests an immediate update; actions refresh on completion.
+
+Switch between Queue and Kanban in the header. Kanban starts with all cards in separate
+Needs approval, Ready to dispatch, Waiting, In flight, In review, and Merged columns.
+Click a column heading to fold or expand it; folded columns retain their title and count.
+The browser tab remembers folded columns and the selected view across reloads.
+Click a card to open its details and comments; Escape returns to the board.
+Approval and dispatch remain explicit actions. Each view retains its own filter while switching.
+
+Group headings and status badges use consistent colors: blue for Needs approval, green
+for Ready to dispatch, amber for Waiting, purple for In flight, teal for In review, gray for Merged, and red for
+Needs attention. Text labels remain present; a ready card with an unmet prerequisite is
+labeled Waiting in the browser.
+
+Use the Comments button on a selected card to jump to its thread, enter feedback, and
+choose Post comment. Unsent text survives refreshes and switching cards within the page.
+Comments persist as individually committed Markdown files in
+`.tower/comments/<task-id>/<comment-id>.md`, with a UTC timestamp and the reviewed card
+revision. They do not change card content or status and do not notify or launch an agent.
+The orchestrator reads them during rehydration and its regular loop. A stopped orchestrator
+must be resumed before it can act on feedback. Existing projects need no migration.
+
+The detail pane renders card sections and offers the exact source. Approve card changes a
+committed draft to ready and commits only that card. Dispatch card runs `tower-dispatch`
+with the card's vendor, using the normal sidecar worktree and Terminal workflow. It does
+not finalize prompts: ask the orchestrator to prepare missing prompts. Tracked-state
+projects can read and approve in the browser; use explicit CLI `--in-place` for dispatch.
+Resume and worktree adoption remain CLI operations.
+
+Both actions reject a changed card or prompt. A revision is `git hash-object --stdin`
+over the card bytes, one NUL byte, then the prompt bytes (empty when absent). Dispatch
+checks that revision and eligibility under its existing lock; approval takes the same
+lock. A present lock is reported without assuming it is stale. Failed launches may leave
+an in-flight card: inspect it with `tower-doctor` and confirm the session has stopped
+before using `tower-dispatch --resume`.
 
 ## `tower-learnings`
 

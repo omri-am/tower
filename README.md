@@ -10,7 +10,7 @@ each take one card and open one PR. You approve plans, review design diffs, and 
 and you are interrupted only at those three points.
 
 Everything the system knows is markdown files in a git-committed `.tower/` directory.
-There is no daemon, no queue, no database: kill any session at any time and the next one
+There is no required daemon or database: kill any session at any time and the next one
 continues from the files.
 
 The name is from air traffic control: *handoff* is the ATC term for passing an aircraft
@@ -90,7 +90,8 @@ From a clone (the route for non-Claude agents): `git clone git@github.com:omri-a
 && cd tower && ./install.sh`.
 
 Requires macOS (osascript, BSD sed), git, jq, and Claude Code for the orchestrator. The
-codex CLI is optional, for implementors.
+codex CLI is optional, for implementors. The optional `tower-ui` browser workspace also
+requires Python 3.9 or newer; it uses only the standard library and bundled browser assets.
 
 ## Quickstart
 
@@ -112,6 +113,16 @@ tower-orchestrate                 # opens the orchestrator session
 
 To retire any tower session, invoke `tower-flush` in it first: it writes everything it
 knows into `.tower/` so the next session loses nothing.
+
+For daily card review, run `tower-ui` in the project. It opens a local browser workspace
+with Needs approval, Ready to dispatch, and Waiting groups beside the complete selected
+card. Approve and dispatch separately; search with `/` and navigate with `j` / `k`.
+Switch to Kanban for workflow columns; click a heading to fold it or a card to open its details.
+Use Comments on a card to leave feedback for the orchestrator. Colored headings and badges
+distinguish dispatchable cards from waiting work; comments leave the card status unchanged.
+The orchestrator still finalizes prompts; missing prompts and other prerequisites appear
+as waiting reasons. Keep the command running while using the page, and press Ctrl-C to
+stop. Use `tower-ui --from <project-dir> --no-open` to print a session URL instead.
 
 For repos that must stay clean, `tower-init --sidecar` makes `.tower/` its own nested git
 repo, hidden via `.git/info/exclude`. Sidecar mode is required for per-task worktrees.
