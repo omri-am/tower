@@ -3,6 +3,14 @@
 Command-level detail that does not belong in the README. The protocol contract itself is
 in [PROTOCOL.md](../PROTOCOL.md).
 
+## `tower <command>`
+
+Every `tower-<command>` executable also supports `tower <command>` with the same
+arguments and exit status: `tower ui`, `tower bootstrap`, `tower dispatch T001`,
+and `tower version-check`. Run `tower --help` to list commands in the resolved install.
+Existing hyphenated names remain supported. Bootstrap once after upgrading to link
+`tower` into your PATH; subsequent new subcommands need no individual links.
+
 ## Command reference
 
 | Command | Run by | What it does |

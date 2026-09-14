@@ -5,6 +5,10 @@ what the version gives them.
 
 ## Unreleased
 
+- Added `tower <command>` for every public CLI command, including `tower ui` and
+  `tower bootstrap`. The existing hyphenated commands remain compatible; once the
+  unified entry point is linked, new subcommands need no additional PATH links.
+
 ## v0.4.0 — 2026-09-09
 
 - The browser workspace now includes a Kanban view with collapsible workflow columns,

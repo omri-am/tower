@@ -68,9 +68,11 @@ As a Claude Code plugin (recommended):
 /tower:tower-bootstrap
 ```
 
-`/tower:tower-bootstrap` links the `tower-*` shell commands into `~/.local/bin` through a
-resolver shim, so plugin updates need no relinking. If that command does not resolve, run
-the script directly from the plugin cache — list the cached versions, then invoke the one
+`/tower:tower-bootstrap` links `tower` and the compatible `tower-*` shell commands into
+`~/.local/bin` through a resolver shim. Use `tower ui`, `tower bootstrap`, or
+`tower --help` to list subcommands. Once `tower` is linked, new subcommands from plugin
+updates need no relinking. Existing installations should run bootstrap once to add `tower`.
+If the bootstrap command does not resolve, run the script directly from the plugin cache — list the cached versions, then invoke the one
 you have:
 
 ```
