@@ -56,6 +56,32 @@ if [ -z "$ROOT" ]; then
   exit 127
 fi
 
+tower_usage() {
+  echo 'usage: tower <command> [args...]'
+  echo ''
+  echo 'Commands:'
+  local path command
+  for path in "$ROOT"/bin/tower-*; do
+    [ -x "$path" ] || continue
+    command="${path##*/tower-}"
+    [ "$command" != shim ] || continue
+    printf '  %s\n' "$command"
+  done
+  echo ''
+  echo 'Existing tower-<command> names remain supported.'
+}
+
+if [ "$CMD" = tower ]; then
+  case "${1:-}" in
+    ''|help|--help|-h) tower_usage; exit 0 ;;
+    -*|*[!a-z0-9-]*|shim)
+      echo "tower: unknown command '$1'; run tower --help" >&2
+      exit 127 ;;
+  esac
+  CMD="tower-$1"
+  shift
+fi
+
 TARGET="$ROOT/bin/$CMD"
 if [ ! -x "$TARGET" ]; then
   echo "tower: $CMD is not a command in $ROOT/bin" >&2

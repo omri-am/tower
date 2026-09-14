@@ -224,4 +224,35 @@ assert_status 'doctor runs through resolver shim' "$?" 0
 assert_true 'shim doctor reaches real diagnostic command' grep -q 'no issues found' "$TMP/doctor.out"
 assert_false 'doctor does not trigger background update side effects' test -e "$TMP/notice-invoked"
 
+assert_true 'tower entry point linked by bootstrap' test -L "$BINDIR/tower"
+OUT="$(env HOME="$FAKE_HOME" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$NEW" "$BINDIR/tower" init --sidecar 2>&1)"
+assert_status 'tower subcommand runs through the installed resolver' "$?" 0
+assert_eq 'tower subcommand forwards flags' "$OUT" 'init 0.10.0 args:--sidecar'
+OUT="$(env HOME="$FAKE_HOME" TOWER_NO_VERSION_CHECK=1 "$BINDIR/tower" locate 2>&1)"
+assert_eq 'tower subcommands resolve the newest plugin without relinking' "$OUT" 'locate from 0.10.0'
+env HOME="$FAKE_HOME" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$NEW" "$BINDIR/tower" watch >/dev/null 2>&1
+assert_status 'tower subcommand preserves failure status' "$?" 42
+printf '#!/usr/bin/env bash\nprintf "<%%s>\\n" "$@"\n' > "$NEW/bin/tower-future"
+chmod +x "$NEW/bin/tower-future"
+OUT="$(env HOME="$FAKE_HOME" TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$NEW" "$BINDIR/tower" future 'two words' '' '*')"
+assert_eq 'new commands work without bootstrap and preserve argument boundaries' "$OUT" "<two words>
+<>
+<*>"
+OUT="$(env HOME="$FAKE_HOME" TOWER_ROOT="$NEW" "$BINDIR/tower" --help 2>&1)"
+assert_status 'tower help succeeds' "$?" 0
+assert_true 'tower help lists available subcommands' grep -q 'future' <<< "$OUT"
+for INVALID in missing ../init shim; do
+  env HOME="$FAKE_HOME" TOWER_ROOT="$NEW" "$BINDIR/tower" "$INVALID" >/dev/null 2>&1
+  assert_status "tower rejects $INVALID" "$?" 127
+done
+env HOME="$FAKE_HOME" TOWER_ROOT="$DEV" "$BINDIR/tower" doctor --from "$TMP/doctor-project" > "$TMP/doctor.out" 2>&1
+assert_status 'tower doctor runs through resolver' "$?" 0
+assert_false 'tower doctor skips version notice side effects' test -e "$TMP/notice-invoked"
+env HOME="$TMP/empty" TOWER_NO_VERSION_CHECK=1 "$ROOT/bin/tower" ui --help > "$TMP/ui-help.out" 2>&1
+assert_status 'checkout tower entry point supports ui' "$?" 0
+assert_true 'tower ui forwards help to the dashboard command' grep -q 'Review, approve, and dispatch' "$TMP/ui-help.out"
+env HOME="$FAKE_HOME" TOWER_ROOT="$DEV" TOWER_BIN_DIR="$TMP/nested-bin" TOWER_LIBEXEC_DIR="$TMP/nested-libexec" "$BINDIR/tower" bootstrap >/dev/null 2>&1
+assert_status 'tower bootstrap registers commands' "$?" 0
+assert_true 'tower bootstrap includes the unified entry point' test -L "$TMP/nested-bin/tower"
+
 summary
