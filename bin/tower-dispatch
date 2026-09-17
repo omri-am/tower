@@ -50,8 +50,7 @@ case "$RESOLVED_BY" in
     case "$PROJECT_DIR/" in "$CUR_TOP/"*) ;; *) ADOPT_WT="$CUR_TOP" ;; esac ;;
 esac
 
-CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
-[ -n "$CARD" ] || { echo "tower-dispatch: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
+CARD="$(resolve_card "$PROJECT_DIR/.tower/tasks" "$TASK_ID")" || exit 1
 
 frontmatter_field() {
   sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
@@ -71,8 +70,7 @@ fi
 
 DEPS="$(frontmatter_field "$CARD" depends_on | tr -d '[]' | tr ',' ' ')"
 for DEP in $DEPS; do
-  DEP_CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$DEP-*.md" -o -name "$DEP.md" | head -1)"
-  [ -n "$DEP_CARD" ] || { echo "tower-dispatch: dependency $DEP has no card" >&2; exit 1; }
+  DEP_CARD="$(resolve_card "$PROJECT_DIR/.tower/tasks" "$DEP")" || exit 1
   DEP_STATUS="$(frontmatter_field "$DEP_CARD" status)"
   if [ "$DEP_STATUS" != "merged" ]; then
     echo "tower-dispatch: dependency $DEP is '$DEP_STATUS', not 'merged' - refusing to dispatch" >&2

@@ -19,7 +19,9 @@ IDS="${IDS# }"
 
 [ "$PLAIN" = 1 ] || export LC_CTYPE="${LC_CTYPE:-UTF-8}"
 
-LOCATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tower-locate"
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BIN_DIR/../lib/tower-paths.sh"
+LOCATE="$BIN_DIR/tower-locate"
 FIRST_ID="${IDS%% *}"
 if [ -n "$FIRST_ID" ]; then
   LOCATED="$("$LOCATE" --task "$FIRST_ID")" || LOCATED=""
@@ -96,10 +98,6 @@ color_for() {
     blocked)   printf '%s' "$C_B$C_RED" ;;
     *)         printf '%s' "" ;;
   esac
-}
-
-card_path() {
-  find "$TASKS" -maxdepth 1 \( -iname "$1-*.md" -o -iname "$1.md" \) 2>/dev/null | sort | head -1
 }
 
 frontmatter() {
@@ -397,9 +395,7 @@ fi
 
 FAILED=0 FIRST=1
 for ID in $IDS; do
-  FILE="$(card_path "$ID")"
-  if [ -z "$FILE" ]; then
-    echo "tower-card: no card $ID in $TASKS" >&2
+  if ! FILE="$(resolve_card "$TASKS" "$ID")"; then
     FAILED=1
     continue
   fi

@@ -96,3 +96,9 @@ hook will not let you finish without it.
   that section is the only staleness signal the protocol gets, because an entry that
   quietly prevents a mistake leaves no trace. Write the handoff even when stopping early or
   blocked — especially then.
+- **Follow-up ids are letters, not numbers.** You hold the sharpest context for a follow-up
+  you just found, so drafting its card yourself (`draft` status, same template) beats only
+  describing it under *Suggested follow-up tasks* — but its id is your card's id plus the
+  next unused lowercase letter (`T327a`, `T327b`, …), never a new flat `T###`. Flat numeric
+  ids are the orchestrator's alone; a second writer of that counter is how two cards end up
+  sharing one id.

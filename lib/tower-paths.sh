@@ -25,6 +25,22 @@ tower_glob_covers() {
   return 1
 }
 
+resolve_card() {
+  local tasks="$1" id="$2" matches n
+  matches="$(find "$tasks" -maxdepth 1 \( -iname "$id-*.md" -o -iname "$id.md" \) 2>/dev/null | sort)"
+  n="$(printf '%s\n' "$matches" | grep -c .)"
+  if [ "$n" -eq 0 ]; then
+    echo "tower: no card for $id in $tasks" >&2
+    return 1
+  elif [ "$n" -gt 1 ]; then
+    echo "tower: card id $id is ambiguous - $n files carry it:" >&2
+    printf '  %s\n' $matches >&2
+    echo "tower: rename all but one, then retry" >&2
+    return 1
+  fi
+  printf '%s\n' "$matches"
+}
+
 tower_paths_overlap() {
   local left right
   left="$(tower_path_prefix "$1")"

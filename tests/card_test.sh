@@ -185,4 +185,15 @@ TOWER_PROJECT_DIR="$EMPTY_PROJECT" "$CARD" >/dev/null 2>&1
 assert_status "a project with no cards fails" "$?" "1"
 rm -rf "$EMPTY_PROJECT"
 
+AMBIGUOUS_PROJECT="$(mktemp -d)"
+mkdir -p "$AMBIGUOUS_PROJECT/.tower/tasks"
+printf -- '---\nid: T900\nstatus: ready\n---\nbody\n' > "$AMBIGUOUS_PROJECT/.tower/tasks/T900-a.md"
+printf -- '---\nid: T900\nstatus: ready\n---\nbody\n' > "$AMBIGUOUS_PROJECT/.tower/tasks/T900-b.md"
+AMBIGUOUS_OUT="$(TOWER_PROJECT_DIR="$AMBIGUOUS_PROJECT" "$CARD" T900 --plain 2>&1)"
+AMBIGUOUS_STATUS=$?
+assert_status "an ambiguous id fails instead of guessing" "$AMBIGUOUS_STATUS" "1"
+assert_eq "ambiguous id names every matching file" \
+  "$(printf '%s\n' "$AMBIGUOUS_OUT" | grep -c 'T900-a.md\|T900-b.md')" "2"
+rm -rf "$AMBIGUOUS_PROJECT"
+
 summary

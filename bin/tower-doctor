@@ -14,6 +14,7 @@ esac
 
 PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
 FINDINGS=0 CARDS=0
+SEEN_IDS=() SEEN_CARDS=()
 if [ "$(printf '%s\n' "$LOCATED" | sed -n 2p)" = copy ]; then
   doctor_report state-copy project 'only a noncanonical worktree copy of .tower is reachable' \
     'Locate the canonical project and run tower-doctor --from <project-dir>; do not initialize replacement state.'

@@ -5,6 +5,16 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-dispatch`, `tower-card`, `tower-learnings` and `tower-pr-wait` now refuse to guess
+  when a task ID matches more than one card, naming every matching file instead of silently
+  taking the first one `find` happens to return. `tower-doctor` also flags duplicate IDs
+  across cards and a card whose filename disagrees with its `id:` field.
+
+- PROTOCOL.md and the `tower-implementor`/`tower-orchestrator` skills now specify how task
+  ids are allocated: flat `T###` numbers are the orchestrator's alone, and a follow-up card
+  an implementor drafts directly takes its parent's id plus the next letter (`T327a`,
+  `T327b`, …) instead of a new flat number, so the two allocators can never collide.
+
 - Added `tower <command>` for every public CLI command, including `tower ui` and
   `tower bootstrap`. The existing hyphenated commands remain compatible; once the
   unified entry point is linked, new subcommands need no additional PATH links.

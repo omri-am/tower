@@ -184,6 +184,19 @@ new_project "$PROJECT/two"
 doctor
 assert_status 'ambiguous discovery retains locator exit code' "$?" 4
 
+fixture duplicate-id
+new_card "$PROJECT" T001
+cp "$PROJECT/.tower/tasks/T001-test.md" "$PROJECT/.tower/tasks/T001-other.md"
+assert_false 'duplicate id requires attention' doctor
+assert_true 'duplicate id is reported' has_finding duplicate-id
+assert_true 'duplicate id recovery names both files' grep -q 'T001-other.md' "$TMP/doctor.out"
+
+fixture id-filename-mismatch
+new_card "$PROJECT" T001
+mv "$PROJECT/.tower/tasks/T001-test.md" "$PROJECT/.tower/tasks/T002-test.md"
+assert_false 'filename not matching its id requires attention' doctor
+assert_true 'id-filename mismatch is reported' has_finding id-filename-mismatch
+
 PROJECT="$TMP/copy"
 new_repo "$PROJECT"
 "$ROOT/bin/tower-init" "$PROJECT" > /dev/null

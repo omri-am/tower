@@ -182,6 +182,32 @@ doctor_status() {
   esac
 }
 
+doctor_duplicate_id() {
+  local i
+  for i in "${!SEEN_IDS[@]}"; do
+    if [ "${SEEN_IDS[$i]}" = "$ID" ]; then
+      doctor_report duplicate-id "$ID" "id $ID is carried by more than one card" \
+        "Rename all but one card so the id is unique; a resolver cannot guess which one is meant." \
+        "$(doctor_command ls -la "${SEEN_CARDS[$i]}" "$CARD")"
+      return 0
+    fi
+  done
+  SEEN_IDS+=("$ID")
+  SEEN_CARDS+=("$CARD")
+}
+
+doctor_filename_id() {
+  local base base_lc id_lc
+  base="$(basename "$CARD")"
+  base_lc="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
+  id_lc="$(printf '%s' "$ID" | tr '[:upper:]' '[:lower:]')"
+  case "$base_lc" in
+    "$id_lc".md|"$id_lc"-*) return 0 ;;
+  esac
+  doctor_report id-filename-mismatch "$ID" "filename $base does not start with its id $ID" \
+    "Rename the file to match its id, or correct the id field, so the two cannot disagree."
+}
+
 doctor_card() {
   CARD="$1"
   ID="$(doctor_field "$CARD" id)"
@@ -191,6 +217,8 @@ doctor_card() {
       "Correct the id field in $CARD using the project task-card template."
     return 0
   fi
+  doctor_duplicate_id
+  doctor_filename_id
   HANDOFF="$PROJECT_DIR/.tower/handoffs/$ID-handoff.md"
   doctor_status
 }

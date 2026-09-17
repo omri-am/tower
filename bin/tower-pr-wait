@@ -17,14 +17,14 @@ done
 [ -n "$TASK_ID" ] || { echo "tower-pr-wait: no task id - pass one or set TOWER_TASK" >&2; exit 1; }
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BIN_DIR/../lib/tower-paths.sh"
 if ! LOCATED="$("$BIN_DIR/tower-locate" --task "$TASK_ID")"; then
   echo "tower-pr-wait: no single .tower/ project holds $TASK_ID - cd into the project dir first" >&2
   exit 1
 fi
 PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
 
-CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
-[ -n "$CARD" ] || { echo "tower-pr-wait: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
+CARD="$(resolve_card "$PROJECT_DIR/.tower/tasks" "$TASK_ID")" || exit 1
 
 frontmatter_field() {
   sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1

@@ -96,8 +96,7 @@ case "$MODE" in
 
   for)
     set -f
-    CARD="$(find "$PROJECT_DIR/.tower/tasks" -name "$TASK_ID-*.md" -o -name "$TASK_ID.md" | head -1)"
-    [ -n "$CARD" ] || { echo "tower-learnings: no card for $TASK_ID in .tower/tasks/" >&2; exit 1; }
+    CARD="$(resolve_card "$PROJECT_DIR/.tower/tasks" "$TASK_ID")" || exit 1
 
     OWNED="$(tower_owned_paths "$CARD")"
 

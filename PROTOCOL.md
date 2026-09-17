@@ -116,6 +116,15 @@ ingested_handoff: "" # git hash-object of the handoff last processed by the orch
 ---
 ```
 
+**ID allocation.** Flat numeric ids (`T###`) are allocated by the orchestrator only — it is
+the single writer of that counter, so two sessions can never claim the same number. A
+follow-up an implementor drafts directly (see Handoffs below) takes its **parent's id plus
+the next unused lowercase letter** — `T327a`, `T327b`, … — never a new flat number: that
+keyspace cannot collide because it never competes with the orchestrator's counter. Two
+allocators writing the same flat space is exactly how one id ends up on two cards.
+`tower-doctor` flags any id shared by more than one card and any card whose filename
+disagrees with its `id:` field, whichever allocator produced it.
+
 Body sections, all required:
 
 - `## Goal` — what exists when this task is done, one paragraph.
@@ -173,6 +182,12 @@ close the window early; in both, the draft plus the PR's final diff are what rem
 is gone, the orchestrator reconstructs and finalizes the handoff from the draft, merged
 diff and review threads before setting `merged`. It must not race a live implementor's
 finalization; when session liveness is uncertain, leave the card `in-review`.
+
+When a follow-up is sharp enough to card directly rather than only describe, the implementor
+may draft `tasks/<parent-id><letter>-slug.md` itself — `draft` status, same template — instead
+of, or in addition to, prose under *Suggested follow-up tasks*. Its id is the parent id plus
+the next unused lowercase letter (see ID allocation above), never a new flat `T###`; the
+owner still approves it into `ready` like any other draft.
 
 The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
 escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
