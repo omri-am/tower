@@ -83,6 +83,31 @@ assert_false 'review still reserves owned paths' dispatch "$PROJECT" T002 --prep
 sed -i '' 's/status: in-review/status: merged/' "$PROJECT/.tower/tasks/T001-test.md"
 assert_true 'merged owner releases its paths' dispatch "$PROJECT" T002 --prep
 
+PROJECT="$TMP/parent-relative"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001 '../AGENTS.md'
+new_card "$PROJECT" T002 '../../docs/guide.md'
+new_card "$PROJECT" T003 '..'
+new_card "$PROJECT" T004 'src/../escaped.sh'
+new_card "$PROJECT" T005 '/etc/passwd'
+new_card "$PROJECT" T006 '../'
+assert_true 'a project in a subdirectory may own a repo-root file' dispatch "$PROJECT" T001 --prep
+assert_true 'several leading ../ segments are allowed' dispatch "$PROJECT" T002 --prep
+assert_false 'a bare .. names no file and is rejected' dispatch "$PROJECT" T003 --prep
+assert_false 'traversal after a real segment is still rejected' dispatch "$PROJECT" T004 --prep
+assert_false 'an absolute path is still rejected' dispatch "$PROJECT" T005 --prep
+assert_false 'a trailing ../ names nothing and is rejected' dispatch "$PROJECT" T006 --prep
+
+PROJECT="$TMP/unfilled-ownership"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001 'src/a.sh'
+new_card "$PROJECT" T002 'src/b.sh'
+sed -i '' 's/^- `src\/b.sh`$/To be filled in at promotion./' "$PROJECT/.tower/tasks/T002-test.md"
+sed -i '' 's/status: ready/status: blocked/' "$PROJECT/.tower/tasks/T002-test.md"
+assert_true "a blocked card's unfilled ownership does not block another dispatch" dispatch "$PROJECT" T001 --prep
+
 PROJECT="$TMP/concurrent"
 new_repo "$PROJECT"
 new_project "$PROJECT"

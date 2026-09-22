@@ -5,6 +5,15 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-dispatch` no longer refuses a card that owns a file above the project directory. A project
+  living in a monorepo subdirectory can legitimately own the repo-root `AGENTS.md` or its `.agents/`
+  docs, and those have no spelling without a leading `../`. Absolute paths, `//`, `/./`, a bare `..`
+  and real traversal after a path segment are all still rejected.
+
+- Dispatch no longer demands an ownership list from a card other than the one being dispatched. A
+  blocked card whose File ownership still reads "to be filled in at promotion" claims nothing, so it
+  no longer blocks every other card from dispatching.
+
 - Added `tower <command>` for every public CLI command, including `tower ui` and
   `tower bootstrap`. The existing hyphenated commands remain compatible; once the
   unified entry point is linked, new subcommands need no additional PATH links.
