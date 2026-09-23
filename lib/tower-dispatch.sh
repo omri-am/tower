@@ -29,11 +29,25 @@ take_dispatch_lock() {
 }
 
 validate_ownership_paths() {
-  local owned="$1" path
+  local owned="$1" path rest
   [ -n "$owned" ] || dispatch_die 'File ownership must list paths as - path or - `path`'
   while IFS= read -r path; do
     case "$path" in
-      /*|..|../*|*/../*|*/..|*//*|*'/./'*) dispatch_die "ownership path must be normalized and project-relative: $path" ;;
+      /*|*//*|*'/./'*|..) dispatch_die "ownership path must be normalized and project-relative: $path" ;;
+    esac
+    # A project can be a monorepo subdirectory, so a card may legitimately own a file above it --
+    # the repo-root AGENTS.md, or .agents/ docs -- and those have no spelling without a leading
+    # ../. Allow a run of leading ../ segments; a .. segment after that run is real traversal.
+    rest="$path"
+    while :; do
+      case "$rest" in
+        ../*) rest="${rest#../}" ;;
+        *) break ;;
+      esac
+    done
+    [ -n "$rest" ] || dispatch_die "ownership path must name something: $path"
+    case "/$rest/" in
+      */../*) dispatch_die "ownership path must be normalized and project-relative: $path" ;;
     esac
   done <<< "$owned"
 }
@@ -41,6 +55,10 @@ validate_ownership_paths() {
 check_owned_overlap() {
   local other="$1" path other_path other_owned
   other_owned="$(tower_owned_paths "$other")"
+  # A blocked or not-yet-promoted card may legitimately carry no ownership list ("to be filled in
+  # at promotion"). It claims nothing, so there is nothing to overlap -- and demanding a list from
+  # ANOTHER card would block dispatching this one. The dispatched card's own list is still required.
+  [ -n "$other_owned" ] || return 0
   validate_ownership_paths "$other_owned"
   while IFS= read -r path; do
     while IFS= read -r other_path; do
