@@ -192,4 +192,12 @@ chmod +x "$TMP/fakebin/codex"
 assert_false 'overridden vendor launch fails as configured' dispatch "$PROJECT" T001 --vendor codex --headless
 assert_eq 'card remembers dispatched vendor for resume' "$(card_field "$PROJECT" T001 vendor)" codex
 
+PROJECT="$TMP/ambiguous-id"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+cp "$PROJECT/.tower/tasks/T001-test.md" "$PROJECT/.tower/tasks/T001-other.md"
+assert_false 'ambiguous card id refuses to guess' dispatch "$PROJECT" T001 --prep
+assert_eq 'ambiguous dispatch leaves status untouched' "$(card_field "$PROJECT" T001 status)" ready
+
 summary

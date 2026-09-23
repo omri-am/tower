@@ -5,6 +5,16 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-dispatch`, `tower-card`, `tower-learnings` and `tower-pr-wait` now refuse to guess
+  when a task ID matches more than one card, naming every matching file instead of silently
+  taking the first one `find` happens to return. `tower-doctor` also flags duplicate IDs
+  across cards and a card whose filename disagrees with its `id:` field.
+
+- PROTOCOL.md and the `tower-implementor`/`tower-orchestrator` skills now specify how task
+  ids are allocated: flat `T###` numbers are the orchestrator's alone, and a follow-up card
+  an implementor drafts directly takes its parent's id plus the next letter (`T327a`,
+  `T327b`, …) instead of a new flat number, so the two allocators can never collide.
+
 - `tower-dispatch` no longer refuses a card that owns a file above the project directory. A project
   living in a monorepo subdirectory can legitimately own the repo-root `AGENTS.md` or its `.agents/`
   docs, and those have no spelling without a leading `../`. Absolute paths, `//`, `/./`, a bare `..`

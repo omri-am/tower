@@ -22,4 +22,11 @@ assert_true 'always lessons remain selected' grep -q 'Run verification' <<< "$OU
 new_card "$TMP/project" T002 'src/shared-other/file.sh'
 OUT="$(cd "$TMP/project" && "$ROOT/bin/tower-learnings" --for T002)"
 assert_false 'sibling directory does not select scoped lesson' grep -q 'Shared code' <<< "$OUT"
+
+cp "$TMP/project/.tower/tasks/T001-test.md" "$TMP/project/.tower/tasks/T001-other.md"
+(cd "$TMP/project" && "$ROOT/bin/tower-learnings" --for T001) > "$TMP/ambiguous.out" 2>&1
+assert_status 'ambiguous card id refuses to guess which lessons apply' "$?" 1
+assert_true 'ambiguous learnings names every matching file' grep -q 'T001-other.md' "$TMP/ambiguous.out"
+rm "$TMP/project/.tower/tasks/T001-other.md"
+
 summary
