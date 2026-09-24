@@ -5,6 +5,12 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-init --sidecar` now excludes `.tower` without a trailing slash, so the `.tower`
+  symlink that `tower-dispatch` drops into each worktree is ignored too. Before, a dispatched
+  implementor saw `?? .tower` and could commit a symlink to an absolute path on the
+  orchestrator's machine. Projects initialized earlier keep their `.tower/` line and stay
+  exposed until they change it to `.tower` in `.git/info/exclude`.
+
 - `tower-learnings --check` no longer reports missing `(T###)` provenance for an entry
   that wraps onto a continuation line with its `(T###)` there, which is the format
   PROTOCOL.md documents. An entry with no `(T###)` anywhere is still reported, at the
