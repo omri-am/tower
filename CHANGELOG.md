@@ -5,6 +5,11 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-learnings --check` no longer reports missing `(T###)` provenance for an entry
+  that wraps onto a continuation line with its `(T###)` there, which is the format
+  PROTOCOL.md documents. An entry with no `(T###)` anywhere is still reported, at the
+  number of its first line.
+
 - `tower-dispatch`, `tower-card`, `tower-learnings` and `tower-pr-wait` now refuse to guess
   when a task ID matches more than one card, naming every matching file instead of silently
   taking the first one `find` happens to return. `tower-doctor` also flags duplicate IDs

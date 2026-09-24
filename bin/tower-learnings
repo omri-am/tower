@@ -67,18 +67,32 @@ count_entries() {
   grep -c '^- ' "$1" 2>/dev/null || true
 }
 
+entries_missing_provenance() {
+  awk '
+    function flush() {
+      if (entry != "" && entry !~ /\(T[0-9]/) print first
+      entry = ""
+    }
+    /^- / { flush(); first = NR ":" $0; entry = $0; next }
+    /^  / && entry != "" { entry = entry " " $0; next }
+    { flush() }
+    END { flush() }
+  ' "$1"
+}
+
 case "$MODE" in
   check)
     TOTAL="$(count_entries "$LEARNINGS")"
     TOTAL="${TOTAL:-0}"
     ARCHIVED=0
     [ -f "$ARCHIVE" ] && ARCHIVED="$(count_entries "$ARCHIVE")"
-    NO_PROV="$(grep '^- ' "$LEARNINGS" | grep -cv '(T[0-9]' || true)"
+    NO_PROV_LIST="$(entries_missing_provenance "$LEARNINGS")"
+    NO_PROV="$(printf '%s' "$NO_PROV_LIST" | awk 'END{print NR}')"
     echo "entries: $TOTAL / budget $BUDGET"
     echo "retired: ${ARCHIVED:-0} in learnings-archive.md"
     if [ "${NO_PROV:-0}" -gt 0 ]; then
       echo "no (T###) provenance: ${NO_PROV} - the pruner cannot trace these to a handoff"
-      grep -n '^- ' "$LEARNINGS" | grep -v '(T[0-9]' || true
+      printf '%s\n' "$NO_PROV_LIST"
     fi
     if [ "$TOTAL" -gt "$BUDGET" ]; then
       echo "tower-learnings: over budget by $((TOTAL - BUDGET)) - retire an entry to learnings-archive.md before adding another" >&2
