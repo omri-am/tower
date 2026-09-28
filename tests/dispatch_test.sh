@@ -192,6 +192,41 @@ chmod +x "$TMP/fakebin/codex"
 assert_false 'overridden vendor launch fails as configured' dispatch "$PROJECT" T001 --vendor codex --headless
 assert_eq 'card remembers dispatched vendor for resume' "$(card_field "$PROJECT" T001 vendor)" codex
 
+PROJECT="$TMP/model"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+assert_true 'dispatch without model or effort prints its command' dispatch "$PROJECT" T001 --print-only
+assert_false 'command without the flags names no model' grep -q -e '--model' -e '--effort' "$TMP/dispatch.out"
+assert_true 'model is accepted' dispatch "$PROJECT" T001 --model opus --print-only
+assert_true 'claude command carries the requested model' grep -q 'claude -n [^ ]* --model opus ' "$TMP/dispatch.out"
+assert_true 'effort is accepted' dispatch "$PROJECT" T001 --effort high --print-only
+assert_true 'claude command carries the requested effort' grep -q -- '--effort high ' "$TMP/dispatch.out"
+assert_true 'codex dispatch with a model still succeeds' dispatch "$PROJECT" T001 --vendor codex --model opus --effort high --print-only
+assert_true 'codex dispatch warns that the model is ignored' grep -q "warning: codex does not take --model from tower; ignoring 'opus'" "$TMP/dispatch.out"
+assert_true 'codex dispatch warns that the effort is ignored' grep -q "warning: codex does not take --effort from tower; ignoring 'high'" "$TMP/dispatch.out"
+grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
+assert_false 'codex command omits the model and effort' grep -q -e '--model' -e '--effort' "$TMP/codex-command"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "$TOWER_TEST_ARGS"\nexit 1\n' > "$TMP/fakebin/claude"
+export TOWER_TEST_ARGS="$TMP/claude-args"
+assert_false 'dispatch with model and effort launches the agent' dispatch "$PROJECT" T001 --model opus --effort high --headless
+assert_eq 'card records the dispatched model' "$(card_field "$PROJECT" T001 model)" opus
+assert_eq 'card records the dispatched effort' "$(card_field "$PROJECT" T001 effort)" high
+rm "$TOWER_TEST_ARGS"
+assert_false 'resumed agent launches again' dispatch "$PROJECT" T001 --resume --headless
+assert_true 'resume reuses the recorded model' grep -qx opus "$TOWER_TEST_ARGS"
+assert_true 'resume reuses the recorded effort' grep -qx high "$TOWER_TEST_ARGS"
+assert_false 'resume with a new model launches again' dispatch "$PROJECT" T001 --resume --model sonnet --headless
+assert_true 'a model flag on resume overrides the recorded model' grep -qx sonnet "$TOWER_TEST_ARGS"
+assert_true 'overriding the model on resume keeps the recorded effort' grep -qx high "$TOWER_TEST_ARGS"
+new_card "$PROJECT" T002
+sed -i '' 's/^vendor: claude$/vendor: claude\nmodel: ""\neffort: ""/' "$PROJECT/.tower/tasks/T002-test.md"
+git -C "$PROJECT/.tower" commit -q -am 'tower: add model fields to T002'
+assert_true 'card with empty model fields dispatches' dispatch "$PROJECT" T002 --model opus --prep
+assert_eq 'empty model field is filled in place' "$(grep -c '^model:' "$PROJECT/.tower/tasks/T002-test.md")" 1
+assert_eq 'filled model field holds the model' "$(card_field "$PROJECT" T002 model)" opus
+assert_eq 'unset effort field stays empty' "$(card_field "$PROJECT" T002 effort)" ""
+
 PROJECT="$TMP/ambiguous-id"
 new_repo "$PROJECT"
 new_project "$PROJECT"

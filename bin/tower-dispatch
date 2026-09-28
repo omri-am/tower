@@ -2,14 +2,16 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--model <name>] [--effort <level>] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
   exit 1
 }
 
-TASK_ID="" VENDOR_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG="" RESUME=0 EXPECT_REVISION=""
+TASK_ID="" VENDOR_FLAG="" MODEL_FLAG="" EFFORT_FLAG="" MODE="terminal" PRINT_ONLY=0 IN_PLACE=0 WT_FLAG="" RESUME=0 EXPECT_REVISION=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --vendor) [ $# -ge 2 ] || usage; VENDOR_FLAG="$2"; shift 2 ;;
+    --model) [ $# -ge 2 ] || usage; MODEL_FLAG="$2"; shift 2 ;;
+    --effort) [ $# -ge 2 ] || usage; EFFORT_FLAG="$2"; shift 2 ;;
     --headless) MODE="headless"; shift ;;
     --here) MODE="here"; shift ;;
     --prep) MODE="prep"; shift ;;
@@ -87,6 +89,8 @@ if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
   VENDOR="claude"
 fi
 case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1 ;; esac
+MODEL="${MODEL_FLAG:-$(frontmatter_field "$CARD" model | tr -d '"')}"
+EFFORT="${EFFORT_FLAG:-$(frontmatter_field "$CARD" effort | tr -d '"')}"
 
 SESSION_NAME="$("$BIN_DIR/tower-session-name" --task "$TASK_ID" --from "$PROJECT_DIR")"
 
