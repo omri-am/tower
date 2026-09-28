@@ -5,6 +5,10 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-learnings --for` now includes entries before the first `##` heading in every
+  selection, including flat files, preserving wrapped lines and excluding format notes.
+  `--check` reports their count without changing its exit status.
+
 ## v0.5.0 — 2026-09-28
 
 - `tower-dispatch` accepts `--model <name>` and `--effort <level>` and passes them to a
