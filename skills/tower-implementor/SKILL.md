@@ -1,6 +1,6 @@
 ---
 name: tower-implementor
-description: Execute one tower task card as an implementor session - read learnings first, stay inside the card's file ownership and decisions, escalate missing decisions instead of making them, open the PR, then hold on the PR watch and finalize the handoff when it merges. Use when a dispatch prompt references this skill or the session was launched by tower-dispatch (TOWER_TASK is set).
+description: Execute one tower task card as an implementor session - follow the session's agent instructions, then learnings, stay inside the card's file ownership and decisions, escalate missing decisions instead of making them, open the PR, then hold on the PR watch and finalize the handoff when it merges. Use when a dispatch prompt references this skill or the session was launched by tower-dispatch (TOWER_TASK is set).
 ---
 
 # tower implementor
@@ -27,32 +27,47 @@ hook will not let you finish without it.
    `.tower/` available is a per-branch copy inside a linked worktree: stop there, tell the
    owner the project has no canonical state reachable from here, and do not implement — a
    handoff written into a copy is a handoff the orchestrator never reads.
-2. Read the learnings selected for your card — before the card, before any code. They are
+2. Read the agent instructions in effect for this session before other tower inputs:
+   user-level instructions (for example, a home-directory instruction file) and
+   repository-level instructions in the project directory and at the repository root,
+   under whatever names this agent uses (for example, `AGENTS.md` or `CLAUDE.md`). Read
+   any skills or workflows they name that apply to this task. Those instructions govern
+   how you work, including process, review, commit and PR rules. The card governs what
+   you build: its interfaces, decisions and file ownership. Do not re-decide an interface
+   based on a guideline; escalate instead. Learnings are advisory. If a learning conflicts
+   with the agent instructions, follow the instructions and quote the learning under
+   *Learnings that were wrong or violated* in the handoff.
+3. Read the learnings selected for your card — before the card, before any code. They are
    already in your dispatch prompt; regenerate them with `tower-learnings --for $TOWER_TASK`
    if you were started without one. The selection is scoped to the paths you own, so it is
    short on purpose; read `.tower/learnings.md` whole only when you need context the
-   selection lacks. Previous agents paid for these lessons.
-3. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
+   selection lacks. They record this project's known failure modes; they do not override your
+   agent instructions.
+4. Read your card in `.tower/tasks/` (your task id is in the prompt, in `$TOWER_TASK`, or
    in the `.tower-task` file at the project root).
    Re-read `## Corrections` if present — corrections supersede the original card body.
-4. Implement on the card's branch, touching only paths listed under `## File ownership`.
+5. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a
    symlink to the shared state, so whatever you write in it is immediately visible to the
    orchestrator and other sessions.
-5. Run every command under `## Verification`; check acceptance criteria boxes in the card
+6. Run every command under `## Verification`; check acceptance criteria boxes in the card
    as they become true.
-6. Open the PR (fill the card's `pr:` field), set card status `in-review`.
-7. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
+7. If your agent instructions define a completion or review workflow, run it exactly as
+   defined before opening the PR. In the handoff under *What was done*, record which
+   workflow ran, how many rounds it took, and every finding you rejected with the reason.
+   If no workflow is defined, say so there in one line.
+8. Open the PR (fill the card's `pr:` field), set card status `in-review`.
+9. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
    a draft at this point. The merged state, not the opened PR, is what the orchestrator
    ingests, so the draft is a record, not yet the deliverable.
-8. Arm the merge watch, then hold. Run `tower-pr-wait` as a background command (in Claude
+10. Arm the merge watch, then hold. Run `tower-pr-wait` as a background command (in Claude
    Code, the Bash tool's `run_in_background`): it polls your card's PR and exits the moment
    the PR leaves OPEN, which re-invokes your session with `MERGED <pr>` or `CLOSED <pr>`.
    End the turn saying the session is holding for the merge and its window must stay open.
    Never poll in the foreground, and never ask the owner to tell you when the PR lands —
    that is the job this watch exists to remove. A session dispatched `--headless` exits when
    its turn ends, so nothing is left to wake: there, skip the hold and finish on the draft.
-9. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
+11. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
    since you opened the PR (the PR's diff and its review threads), and finalize the handoff
    with it. Only then flip the card `in-review` -> `merged` and commit the card and handoff
    together using `git commit --only -- <card path> <handoff path>` — `merged` is
