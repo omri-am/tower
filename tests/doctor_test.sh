@@ -56,6 +56,20 @@ assert_true 'exclude fix names the one-line edit' grep -q 'replace .tower/ with 
 assert_eq 'doctor leaves the exclude file unchanged' "$(git hash-object "$EXCLUDE")" "$BEFORE"
 assert_eq 'doctor removes its empty work tree' "$(ls -A "$TMP/doctor-tmp")" ''
 
+fixture failing-exclude-check
+mkdir "$TMP/failing-git"
+cat > "$TMP/failing-git/git" <<EOF
+#!/usr/bin/env bash
+case " \$* " in *' check-ignore '*) exit 128 ;; esac
+exec "$(command -v git)" "\$@"
+EOF
+chmod +x "$TMP/failing-git/git"
+PATH="$TMP/failing-git:$PATH" TMPDIR="$TMP/doctor-tmp" doctor
+assert_status 'unrunnable exclude check requires attention' "$?" 1
+assert_true 'unrunnable exclude check is reported' grep -q 'could not check whether .git/info/exclude ignores the .tower dispatch symlink (git check-ignore exited 128)' "$TMP/doctor.out"
+assert_true 'unrunnable exclude check names the diagnostic command' grep -q 'check-ignore -v .tower to see the error' "$TMP/doctor.out"
+assert_eq 'failed check still removes its empty work tree' "$(ls -A "$TMP/doctor-tmp")" ''
+
 fixture blocked
 new_card "$PROJECT" T001
 set_field status blocked

@@ -13,8 +13,9 @@ what the version gives them.
 
 - `tower-doctor` now reports `exclude-pattern` for a sidecar project whose
   `.git/info/exclude` still ignores only `.tower/`, naming the exclude file and the one-line
-  edit (replace `.tower/` with `.tower`). It never edits the file. Projects that track
-  `.tower` in git are not checked.
+  edit (replace `.tower/` with `.tower`). If `git check-ignore` itself fails, it reports
+  that the check could not run instead of passing. It never edits the file. Projects that
+  track `.tower` in git are not checked.
 
 - `tower-learnings --check` no longer reports missing `(T###)` provenance for an entry
   that wraps onto a continuation line with its `(T###)` there, which is the format
