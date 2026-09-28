@@ -28,6 +28,7 @@ doctor_prepare_repository "$TOPLEVEL"
 
 printf 'tower-doctor: %s\n' "$PROJECT_DIR"
 doctor_lock
+doctor_exclude_pattern
 for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
   [ -f "$CARD" ] || continue
   CARDS=$((CARDS + 1))

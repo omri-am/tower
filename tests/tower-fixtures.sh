@@ -14,7 +14,7 @@ new_repo() {
 new_project() {
   mkdir -p "$1/.tower/tasks" "$1/.tower/prompts" "$1/.tower/handoffs"
   git init -q "$1/.tower"
-  printf '.tower/\n.tower-task\n' >> "$(git -C "$1" rev-parse --path-format=absolute --git-path info/exclude)"
+  printf '.tower\n.tower-task\n' >> "$(git -C "$1" rev-parse --path-format=absolute --git-path info/exclude)"
   git -C "$1/.tower" commit -q --allow-empty -m 'tower: init'
 }
 

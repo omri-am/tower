@@ -54,6 +54,24 @@ doctor_lock() {
     "$(doctor_command rmdir "$lock")"
 }
 
+doctor_exclude_pattern() {
+  [ -d "$PROJECT_DIR/.tower/.git" ] || return 0
+  local empty_tree ignored=0 exclude
+  empty_tree="$(mktemp -d)"
+  git -C "$PROJECT_DIR" --work-tree="$empty_tree" check-ignore -q .tower || ignored=$?
+  rmdir "$empty_tree"
+  [ "$ignored" != 0 ] || return 0
+  exclude="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-path info/exclude)"
+  if [ "$ignored" != 1 ]; then
+    doctor_report exclude-pattern project \
+      "could not check whether .git/info/exclude ignores the .tower dispatch symlink (git check-ignore exited $ignored)" \
+      "Run $(doctor_command git -C "$PROJECT_DIR" check-ignore -v .tower) to see the error." "$exclude"
+    return 0
+  fi
+  doctor_report exclude-pattern project '.git/info/exclude does not ignore the .tower dispatch symlink' \
+    "In the exclude file, replace .tower/ with .tower so dispatched worktrees ignore the symlink." "$exclude"
+}
+
 doctor_handoff() {
   [ -s "$HANDOFF" ] && return 0
   doctor_report missing-handoff "$ID" "no non-empty handoff at $HANDOFF" \
