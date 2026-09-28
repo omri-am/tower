@@ -11,6 +11,11 @@ what the version gives them.
   orchestrator's machine. Projects initialized earlier keep their `.tower/` line and stay
   exposed until they change it to `.tower` in `.git/info/exclude`.
 
+- `tower-doctor` now reports `exclude-pattern` for a sidecar project whose
+  `.git/info/exclude` still ignores only `.tower/`, naming the exclude file and the one-line
+  edit (replace `.tower/` with `.tower`). It never edits the file. Projects that track
+  `.tower` in git are not checked.
+
 - `tower-learnings --check` no longer reports missing `(T###)` provenance for an entry
   that wraps onto a continuation line with its `(T###)` there, which is the format
   PROTOCOL.md documents. An entry with no `(T###)` anywhere is still reported, at the
