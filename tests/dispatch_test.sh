@@ -242,4 +242,47 @@ cp "$PROJECT/.tower/tasks/T001-test.md" "$PROJECT/.tower/tasks/T001-other.md"
 assert_false 'ambiguous card id refuses to guess' dispatch "$PROJECT" T001 --prep
 assert_eq 'ambiguous dispatch leaves status untouched' "$(card_field "$PROJECT" T001 status)" ready
 
+for MODE in --print-only --prep --resume --headless; do
+  set -- "$MODE"
+  [ "$MODE" != --resume ] || set -- --resume --prep
+  PROJECT="$TMP/duplicates-${MODE#--}"
+  new_repo "$PROJECT"
+  new_project "$PROJECT"
+  new_card "$PROJECT" T001
+  if [ "$MODE" = --resume ]; then
+    dispatch "$PROJECT" T001 --prep
+  fi
+  new_card "$PROJECT" T002
+  new_card "$PROJECT" T003
+  cp "$PROJECT/.tower/tasks/T002-test.md" "$PROJECT/.tower/tasks/Z002-other.md"
+  cp "$PROJECT/.tower/tasks/T003-test.md" "$PROJECT/.tower/tasks/A003-other.md"
+  printf 'id: T999\n' >> "$PROJECT/.tower/tasks/T002-test.md"
+  sed -i '' '/^id: T002$/a\
+id: T999
+' "$PROJECT/.tower/tasks/Z002-other.md"
+  printf '%s\n' '---' 'title: No id' '---' 'id: T002' > "$PROJECT/.tower/tasks/no-id.md"
+  mkdir "$PROJECT/.tower/tasks/nested"
+  cp "$PROJECT/.tower/tasks/T002-test.md" "$PROJECT/.tower/tasks/nested/ignored.md"
+  cp -R "$PROJECT/.tower/tasks" "$TMP/cards-${MODE#--}"
+  BEFORE_BRANCHES="$(git -C "$PROJECT" for-each-ref refs/heads)"
+  BEFORE_WORKTREES="$(git -C "$PROJECT" worktree list --porcelain)"
+  cat > "$TMP/expected-duplicates" <<EOF
+tower-dispatch: refusing to dispatch - duplicate task ids on the board:
+  T002: T002-test.md Z002-other.md
+  T003: A003-other.md T003-test.md
+tower-dispatch: rename all but one card per id, then retry
+EOF
+  (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 "$@") > "$TMP/duplicate.stdout" 2> "$TMP/duplicate.stderr"
+  assert_status "$MODE refuses an unrelated duplicated id" "$?" 1
+  assert_true "$MODE names every duplicate in sorted order on stderr" cmp -s "$TMP/expected-duplicates" "$TMP/duplicate.stderr"
+  assert_empty "$MODE refusal has no stdout" "$(cat "$TMP/duplicate.stdout")"
+  assert_true "$MODE preserves all card bytes" diff -r "$TMP/cards-${MODE#--}" "$PROJECT/.tower/tasks"
+  assert_eq "$MODE creates no branch" "$(git -C "$PROJECT" for-each-ref refs/heads)" "$BEFORE_BRANCHES"
+  assert_eq "$MODE creates no worktree" "$(git -C "$PROJECT" worktree list --porcelain)" "$BEFORE_WORKTREES"
+  assert_false "$MODE leaves no dispatch lock" test -e "$PROJECT/.tower/.git/tower-dispatch.lock"
+  mkdir "$PROJECT/.tower/.git/tower-dispatch.lock"
+  dispatch "$PROJECT" T001 "$@"
+  assert_true "$MODE detects duplicates before attempting the existing lock" cmp -s "$TMP/expected-duplicates" "$TMP/dispatch.out"
+done
+
 summary

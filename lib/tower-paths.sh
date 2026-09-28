@@ -41,6 +41,25 @@ resolve_card() {
   printf '%s\n' "$matches"
 }
 
+duplicate_card_ids() {
+  local tasks="$1" card id
+  for card in "$tasks"/*.md; do
+    [ -f "$card" ] || continue
+    id="$(awk '
+      NR == 1 {if ($0 != "---") exit; next}
+      /^---$/ {exit}
+      /^id:/ {sub(/^id: */, ""); print; exit}
+    ' "$card")"
+    [ -n "$id" ] || continue
+    printf '%s\t%s\n' "$id" "${card##*/}"
+  done | LC_ALL=C sort | awk -F '\t' '
+    function emit() {if (count > 1) print id ": " files}
+    $1 != id {emit(); id=$1; files=$2; count=1; next}
+    {files=files " " $2; count++}
+    END {emit()}
+  '
+}
+
 tower_paths_overlap() {
   local left right
   left="$(tower_path_prefix "$1")"
