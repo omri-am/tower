@@ -5,9 +5,26 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.6.0 — 2026-09-28
+
 - `tower-learnings --for` now includes entries before the first `##` heading in every
   selection, including flat files, preserving wrapped lines and excluding format notes.
   `--check` reports their count without changing its exit status.
+
+- `tower-dispatch` now refuses to dispatch any card while multiple cards share a task id,
+  listing the duplicate ids and their files so they can be resolved before dispatch.
+
+- `tower-ui` identifies the project in the browser tab title and keeps its header label
+  visible at narrow widths, truncating long labels with an ellipsis. Nested projects use
+  the repository name and relative project path.
+
+- `tower-doctor` now checks the project's own `.tower` path when diagnosing stale excludes,
+  so a subdirectory project with a correct anchored entry is no longer reported stale.
+  Recovery instructions name the matching project-relative pattern.
+
+- Added `tower new "<title>"` to create a draft card from the project's template with an
+  atomically claimed flat id, preventing concurrent callers from receiving the same id.
+  The command prints the created path without committing the card.
 
 ## v0.5.0 — 2026-09-28
 
