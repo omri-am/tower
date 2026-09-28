@@ -56,9 +56,14 @@ doctor_lock() {
 
 doctor_exclude_pattern() {
   [ -d "$PROJECT_DIR/.tower/.git" ] || return 0
-  local empty_tree ignored=0 exclude
+  local empty_tree ignored=0 exclude rel path=.tower pattern=.tower
+  rel="${PROJECT_DIR#"$TOPLEVEL"}"
+  if [ -n "$rel" ]; then
+    path="${rel#/}/.tower"
+    pattern="/$path"
+  fi
   empty_tree="$(mktemp -d)"
-  git -C "$PROJECT_DIR" --work-tree="$empty_tree" check-ignore -q .tower || ignored=$?
+  git -C "$TOPLEVEL" --work-tree="$empty_tree" check-ignore -q "$path" || ignored=$?
   rmdir "$empty_tree"
   [ "$ignored" != 0 ] || return 0
   exclude="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-path info/exclude)"
@@ -69,7 +74,7 @@ doctor_exclude_pattern() {
     return 0
   fi
   doctor_report exclude-pattern project '.git/info/exclude does not ignore the .tower dispatch symlink' \
-    "In the exclude file, replace .tower/ with .tower so dispatched worktrees ignore the symlink." "$exclude"
+    "In the exclude file, replace $pattern/ with $pattern so dispatched worktrees ignore the symlink." "$exclude"
 }
 
 doctor_handoff() {
