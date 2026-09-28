@@ -44,4 +44,66 @@ assert_true 'missing provenance is reported at the entry first line' grep -qx '5
 assert_false 'provenance on a continuation line is read' grep -q '^2:' <<< "$OUT"
 assert_false 'unwrapped entry with provenance is not reported' grep -q '^4:' <<< "$OUT"
 
+cat > "$TMP/project/.tower/learnings.md" <<'EOF'
+# Learnings
+> Format notes
+  orphan indentation
+
+- [process] First flat lesson (T001)
+- [testing] Wrapped lesson
+  with provenance (T002)
+  and another continuation
+
+  detached indentation
+> Trailing notes
+EOF
+cat > "$TMP/flat.expected" <<'EOF'
+<!-- learnings selected for T001 from learnings.md -->
+## Unsectioned (before the first heading)
+- [process] First flat lesson (T001)
+- [testing] Wrapped lesson
+  with provenance (T002)
+  and another continuation
+EOF
+(cd "$TMP/project" && "$ROOT/bin/tower-learnings" --for T001) > "$TMP/flat.out"
+assert_true 'flat file selects complete entries without preamble or detached lines' cmp -s "$TMP/flat.expected" "$TMP/flat.out"
+
+cat >> "$TMP/project/.tower/learnings.md" <<'EOF'
+## scope: Makefile
+- [tooling] Preserve tabs (T001)
+## Always
+- [process] Run verification (T001)
+EOF
+cp "$TMP/flat.expected" "$TMP/mixed.expected"
+cat >> "$TMP/mixed.expected" <<'EOF'
+## scope: Makefile
+- [tooling] Preserve tabs (T001)
+## Always
+- [process] Run verification (T001)
+EOF
+(cd "$TMP/project" && "$ROOT/bin/tower-learnings" --for T001) > "$TMP/mixed.out"
+assert_true 'unsectioned entries precede matching and unscoped sections' cmp -s "$TMP/mixed.expected" "$TMP/mixed.out"
+sed 's/selected for T001/selected for T002/' "$TMP/flat.expected" > "$TMP/other.expected"
+cat >> "$TMP/other.expected" <<'EOF'
+## Always
+- [process] Run verification (T001)
+EOF
+(cd "$TMP/project" && "$ROOT/bin/tower-learnings" --for T002) > "$TMP/other.out"
+assert_true 'unsectioned entries are selected for unrelated ownership too' cmp -s "$TMP/other.expected" "$TMP/other.out"
+
+cat > "$TMP/check.expected" <<'EOF'
+entries: 4 / budget 60
+retired: 0 in learnings-archive.md
+unsectioned: 2 entries before the first ## heading - included in every prompt
+EOF
+(cd "$TMP/project" && TOWER_LEARNINGS_BUDGET=60 "$ROOT/bin/tower-learnings" --check) > "$TMP/check.out"
+CHECK_STATUS=$?
+assert_eq 'check reports unsectioned count without changing total or success status' \
+  "$CHECK_STATUS:$(cat "$TMP/check.out")" "0:$(cat "$TMP/check.expected")"
+sed 's/budget 60/budget 3/' "$TMP/check.expected" > "$TMP/over-budget.expected"
+(cd "$TMP/project" && TOWER_LEARNINGS_BUDGET=3 "$ROOT/bin/tower-learnings" --check) > "$TMP/over-budget.out" 2> "$TMP/over-budget.err"
+CHECK_STATUS=$?
+assert_eq 'unsectioned count remains informational when already over budget' \
+  "$CHECK_STATUS:$(cat "$TMP/over-budget.out")" "1:$(cat "$TMP/over-budget.expected")"
+
 summary

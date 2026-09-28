@@ -67,6 +67,15 @@ count_entries() {
   grep -c '^- ' "$1" 2>/dev/null || true
 }
 
+unsectioned_entries() {
+  awk '
+    /^## / { exit }
+    /^- / { entry = 1; print; next }
+    /^  / && entry { print; next }
+    { entry = 0 }
+  ' "$1"
+}
+
 entries_missing_provenance() {
   awk '
     function flush() {
@@ -90,6 +99,10 @@ case "$MODE" in
     NO_PROV="$(printf '%s' "$NO_PROV_LIST" | awk 'END{print NR}')"
     echo "entries: $TOTAL / budget $BUDGET"
     echo "retired: ${ARCHIVED:-0} in learnings-archive.md"
+    UNSECTIONED="$(unsectioned_entries "$LEARNINGS" | grep -c '^- ' || true)"
+    if [ "$UNSECTIONED" -gt 0 ]; then
+      echo "unsectioned: $UNSECTIONED entries before the first ## heading - included in every prompt"
+    fi
     if [ "${NO_PROV:-0}" -gt 0 ]; then
       echo "no (T###) provenance: ${NO_PROV} - the pruner cannot trace these to a handoff"
       printf '%s\n' "$NO_PROV_LIST"
@@ -115,6 +128,11 @@ case "$MODE" in
     OWNED="$(tower_owned_paths "$CARD")"
 
     echo "<!-- learnings selected for $TASK_ID from $(basename "$LEARNINGS") -->"
+    UNSECTIONED="$(unsectioned_entries "$LEARNINGS")"
+    if [ -n "$UNSECTIONED" ]; then
+      echo "## Unsectioned (before the first heading)"
+      printf '%s\n' "$UNSECTIONED"
+    fi
     for ((i = 0; i < SECTIONS; i++)); do
       GLOBS="$(section_globs "${HEAD_TX[$i]}")"
       SELECT=0
