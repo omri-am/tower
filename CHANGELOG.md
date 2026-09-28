@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.5.0 — 2026-09-28
+
 - `tower-dispatch` accepts `--model <name>` and `--effort <level>` and passes them to a
   claude implementor as `--model` and `--effort`, so a card can run on a chosen model
   without launching the vendor CLI by hand. The values are not checked against a list. The
