@@ -22,7 +22,7 @@ button:disabled { cursor: default; opacity: .55; }
 :focus-visible { outline: 3px solid #447bd0; outline-offset: 3px; }
 .app-header { height: 64px; display: flex; align-items: center; gap: 1.4rem; padding: 0 1.6rem; border-bottom: 1px solid var(--line); background: var(--paper); }
 .wordmark { color: var(--ink); font-weight: 760; font-size: 1.35rem; text-decoration: none; letter-spacing: -.04em; }
-#project { border-left: 1px solid var(--line); padding-left: 1.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#project { min-width: 0; border-left: 1px solid var(--line); padding-left: 1.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #connection { margin-left: auto; color: var(--muted); font-size: .85rem; white-space: nowrap; }
 .workspace { display: grid; grid-template-columns: 24rem minmax(0, 1fr); height: calc(100dvh - 64px); }
 .queue-pane { padding: 1.5rem 1rem 0; overflow: auto; border-right: 1px solid var(--line); }
@@ -132,7 +132,6 @@ select { border: 0; background: transparent; color: var(--ink); padding: .3rem; 
 #card-dialog #detail { padding: 1.5rem 2rem; }
 #card-dialog #actions { padding: 1rem 2rem; }
 @media (max-width: 760px) {
-  .app-header #project { display: none; }
   .kanban-view { height: calc(100dvh - 64px); }
   .kanban-view .queue-pane { padding: 1rem 1rem 0; }
   .kanban-view .group { flex-basis: min(18rem, 83vw); }
