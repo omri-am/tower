@@ -54,6 +54,14 @@ esac
 
 CARD="$(resolve_card "$PROJECT_DIR/.tower/tasks" "$TASK_ID")" || exit 1
 
+DUPLICATE_IDS="$(duplicate_card_ids "$PROJECT_DIR/.tower/tasks")"
+if [ -n "$DUPLICATE_IDS" ]; then
+  echo "tower-dispatch: refusing to dispatch - duplicate task ids on the board:" >&2
+  printf '%s\n' "$DUPLICATE_IDS" | sed 's/^/  /' >&2
+  echo "tower-dispatch: rename all but one card per id, then retry" >&2
+  exit 1
+fi
+
 frontmatter_field() {
   sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
 }

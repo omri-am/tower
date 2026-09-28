@@ -119,6 +119,7 @@ ingested_handoff: "" # git hash-object of the handoff last processed by the orch
 **ID allocation.** Flat numeric ids (`T###`) are allocated by the orchestrator alone,
 which is the only role that creates cards. `tower-doctor` flags any id shared by more
 than one card and any card whose filename disagrees with its `id:` field.
+`tower-dispatch` refuses to dispatch any card while a duplicate id exists.
 
 Body sections, all required:
 
