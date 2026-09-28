@@ -159,7 +159,10 @@ class Queue:
         if key != self.cached_key:
             with ThreadPoolExecutor(max_workers=4) as checks:
                 classified = list(checks.map(self.classify, cards))
-            self.cached_snapshot = {'project': self.project.name, 'path': str(self.project),
+            result = run(['git', 'rev-parse', '--show-toplevel'], self.project, self.env)
+            root = Path(result.stdout.decode().strip())
+            label = str(Path(root.name) / self.project.relative_to(root))
+            self.cached_snapshot = {'project': label, 'path': str(self.project),
                                     'cards': classified}
             self.cached_key = key
         return dict(self.cached_snapshot, cards=[dict(card, comments=self.read_comments(card['id']))

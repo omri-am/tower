@@ -400,6 +400,7 @@ async function refresh() {
     connected = true;
     if (connectionError) { $('notice').hidden = true; connectionError = false; }
     $('project').textContent = result.project;
+    document.title = `${result.project} · Tower`;
     $('project').title = result.path;
     $('connection').textContent = 'Connected';
     renderQueue();

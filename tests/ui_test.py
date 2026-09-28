@@ -61,6 +61,19 @@ new_card "$2" T002
 
 
 class QueueTest(QueueFixture):
+    def test_root_project_label_is_repository_name(self):
+        snapshot = self.queue.snapshot()
+        self.assertEqual(snapshot['project'], 'project')
+        self.assertEqual(snapshot['path'], str(self.project.resolve()))
+
+    def test_subdirectory_project_label_includes_repository_and_relative_path(self):
+        subproject = self.project / 'services/api'
+        script = 'source "$1/tests/tower-fixtures.sh"; new_project "$2"'
+        subprocess.run(['bash', '-c', script, '_', str(ROOT), str(subproject)], check=True)
+        snapshot = self.module.Queue(subproject, env=self.env).snapshot()
+        self.assertEqual(snapshot['project'], 'project/services/api')
+        self.assertEqual(snapshot['path'], str(subproject.resolve()))
+
     def test_read_preserves_full_card_and_git_state(self):
         before = git(self.project / '.tower', 'status', '--porcelain')
         card = self.card()
