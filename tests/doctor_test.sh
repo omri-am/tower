@@ -56,6 +56,22 @@ assert_true 'exclude fix names the one-line edit' grep -q 'replace .tower/ with 
 assert_eq 'doctor leaves the exclude file unchanged' "$(git hash-object "$EXCLUDE")" "$BEFORE"
 assert_eq 'doctor removes its empty work tree' "$(ls -A "$TMP/doctor-tmp")" ''
 
+PROJECT="$TMP/subdirectory-exclude"
+new_repo "$PROJECT"
+PROJECT="$PROJECT/services/api"
+new_project "$PROJECT"
+EXCLUDE="$(git -C "$PROJECT" rev-parse --path-format=absolute --git-path info/exclude)"
+printf '/services/api/.tower\n' > "$EXCLUDE"
+assert_true 'anchored subdirectory exclude ignores the dispatch symlink' doctor
+assert_false 'correct subdirectory exclude has no finding' has_finding exclude-pattern
+printf '/services/api/.tower/\n' > "$EXCLUDE"
+assert_false 'directory-only subdirectory exclude requires attention' doctor
+assert_eq 'stale subdirectory exclude is reported once' "$(grep -c '\[exclude-pattern\]' "$TMP/doctor.out")" 1
+assert_true 'subdirectory exclude fix names its anchored pattern' grep -Fq 'replace /services/api/.tower/ with /services/api/.tower' "$TMP/doctor.out"
+printf '.tower\n' > "$EXCLUDE"
+assert_true 'unanchored exclude ignores the subdirectory dispatch symlink' doctor
+assert_false 'unanchored subdirectory exclude has no finding' has_finding exclude-pattern
+
 fixture failing-exclude-check
 mkdir "$TMP/failing-git"
 cat > "$TMP/failing-git/git" <<EOF
