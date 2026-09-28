@@ -104,6 +104,7 @@ tower-orchestrate                 # opens the orchestrator session
 ```
 
 1. **Design** with the orchestrator; it writes draft cards into `.tower/tasks/`.
+   The orchestrator creates a card with `tower new "<title>"`, which claims the id atomically.
 2. **Approve drafts** — read them with `tower-card`, flip `status: draft` -> `ready`
    (gate 1).
 3. **Dispatch** — `tower-dispatch T001` opens an implementor in its own worktree.
