@@ -5,6 +5,14 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-dispatch` accepts `--model <name>` and `--effort <level>` and passes them to a
+  claude implementor as `--model` and `--effort`, so a card can run on a chosen model
+  without launching the vendor CLI by hand. The values are not checked against a list. The
+  card records them as `model:` and `effort:`. A later dispatch, including `--resume`,
+  reuses a recorded value unless the flag is passed again. The codex vendor accepts both
+  flags, warns on stderr that it ignores them, and still dispatches. Without either flag
+  or a recorded value, the launch command is unchanged.
+
 - `tower-init --sidecar` now excludes `.tower` without a trailing slash, so the `.tower`
   symlink that `tower-dispatch` drops into each worktree is ignored too. Before, a dispatched
   implementor saw `?? .tower` and could commit a symlink to an absolute path on the

@@ -104,11 +104,20 @@ resume_worktree() {
 write_dispatch_card() {
   local tmp
   tmp="$(mktemp "$CARD.XXXXXX")"
-  awk -v branch="$BRANCH" -v vendor="$VENDOR" '
-    /^---$/ {delimiters++}
+  MODEL="$MODEL" EFFORT="$EFFORT" awk -v branch="$BRANCH" -v vendor="$VENDOR" '
+    BEGIN {model=ENVIRON["MODEL"]; effort=ENVIRON["EFFORT"]}
+    /^---$/ {
+      delimiters++
+      if (delimiters == 2) {
+        if (model != "" && !model_written) print "model: \"" model "\""
+        if (effort != "" && !effort_written) print "effort: \"" effort "\""
+      }
+    }
     delimiters==1 && /^status:/ {$0="status: in-flight"}
     delimiters==1 && /^branch:/ {$0="branch: \"" branch "\""}
     delimiters==1 && /^vendor:/ {$0="vendor: " vendor}
+    delimiters==1 && /^model:/ && model != "" {$0="model: \"" model "\""; model_written=1}
+    delimiters==1 && /^effort:/ && effort != "" {$0="effort: \"" effort "\""; effort_written=1}
     {print}
   ' "$CARD" > "$tmp"
   mv "$tmp" "$CARD"
@@ -127,9 +136,13 @@ prepare_launch() {
   if [ "$VENDOR" = claude ]; then
     AGENT_ARGS=(-n "$1")
     [ "$MODE" != headless ] || AGENT_ARGS+=(-p)
-  elif [ "$MODE" = headless ]; then
-    AGENT_ARGS=(exec)
+    [ -z "$MODEL" ] || AGENT_ARGS+=(--model "$MODEL")
+    [ -z "$EFFORT" ] || AGENT_ARGS+=(--effort "$EFFORT")
+    return 0
   fi
+  [ "$MODE" != headless ] || AGENT_ARGS=(exec)
+  [ -z "$MODEL" ] || echo "tower-dispatch: warning: codex does not take --model from tower; ignoring '$MODEL'" >&2
+  [ -z "$EFFORT" ] || echo "tower-dispatch: warning: codex does not take --effort from tower; ignoring '$EFFORT'" >&2
 }
 
 launch_command() {
