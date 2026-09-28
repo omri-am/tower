@@ -1,0 +1,43 @@
+# M0 shared-terminal compatibility
+
+Measured on macOS, 2026-09-28. Both versions are **no-go for automatic shared-terminal typing** on these probes. Codex demonstrated a draft collision; Claude's quota blocked normal turn completion. This is not proof that no alternative adapter can exist. Go requires items 1, 2, 3, 5 and 6 all to pass.
+
+## Method and reproducibility
+
+`terminal_probe.py` is an operator-controlled, throwaway PTY instrument, not a safe delivery adapter. It records monotonic timestamps, decoded terminal chunks, exact input actions, Claude hooks and Codex notify callbacks. It uses Python 3.9+ standard library only. Final runs were under `mktemp -d` root `/tmp/tower-T014-runtime.Twis86`, in `claude-final` and `codex-resolved`; both child processes were reaped. Retained [Claude evidence C](probes/evidence/claude.json) and [Codex evidence X](probes/evidence/codex.json) contain the complete event/action logs; X also retains the matching native rollout's turn-start and payload records.
+
+The card correction explicitly allowed workspace trust for these scratch paths. The probe waited for the rendered directory-specific trust prompt, then used Down/Enter for Claude and Enter for Codex. This may persist trust entries for those temporary paths in vendor user configuration. It never approved a tool, permission or choice dialog. Claude retained `--setting-sources ''`; its initial hook reported `auto`, then the UI switched to `manual` before any tool request. Codex retained `--no-daemon` and default sandboxing; `approvals_reviewer="user"` disabled the machine's automatic approval reviewer. Final review found that excluding settings alone does not force manual mode; the checked-in probe now also pins Claude `--permission-mode manual`, verified in a separate 10.237-second scratch launch: `UserPromptSubmit.permission_mode: default` (manual), no tool request, child reaped; see C's `manual_mode_check`. This safety adjustment postdates the seven-item measurement. No bypass flags were used. Models were Haiku 4.5 and GPT-6-Luna; Claude attempted three quota-blocked requests, Codex completed four probe turns and waited at the fifth turn's approval, plus an automatic title-generation turn.
+
+The first Codex launch failed because its sandbox helper could not execute the `~/.local/bin/codex` symlink. Resolving the same installed binary's real path fixed bootstrap without changing sandbox permissions. An early immediate trust-key attempt was lost during startup redraw; the final probe waits two seconds and separates Claude's selection and confirmation. Startup-only results are superseded by these runtime runs.
+
+To repeat: from the repository save `probe="$PWD/docs/agent-messaging/probes/terminal_probe.py"`; create `scratch=$(mktemp -d)`, change into it, and run `python3 "$probe" claude` (or `codex`) in one terminal. In another, inspect `events.jsonl` and append one JSON action at a time to `actions.jsonl`, using the labeled `actions` from the retained evidence as the checklist. Never replay the whole list unattended: inspect the current composer before each input, wait for events, and send only `{"label":"quit"}` after a tool/choice dialog opens. Each recorded `input.text` preserves exact bytes when UTF-8 encoded. For Codex receipt, inspect the native rollout matching the first notify callback's thread id; the retained payload record and `task_started` share turn id `01a0e763-d8ef-7fb0-805d-f6eed75a0b4a`. `--help` describes controls; the default observation deadline is 600 seconds.
+
+## Claude Code 2.1.283
+
+| Item | Verdict | Probe C: evidence and limit |
+| --- | --- | --- |
+| 1. Readiness | cannot determine | `You've hit your session limit`, later `individual spend limit`; subscribed `Stop` never fired. A normal end-of-turn signal could not be measured. |
+| 2. Dialog detection | cannot determine | `open-model-choice` produced `Select model`; no `PermissionRequest`, `Notification` or `Elicitation` callback followed during 66.394 seconds, and zero input followed. Tool-dialog request was quota-blocked. Rendering is observable, but hook-based coverage is unverified. |
+| 3. Validity until submission | cannot determine | `human-draft` and `reset-ctrl-a-ctrl-k` exercised editing, but quota failures produced no `Stop`; no valid readiness/check-to-use window existed to test. |
+| 4. Composer at readiness | cannot determine | `HUMAN_DRAFT_é` was displayed, but no normal readiness event occurred; cannot establish composer state at that event. |
+| 5. Submission and turn start | pass | `paste-1024`: `ESC[200~` + payload + `ESC[201~`; later `submit-1024`: CR (`0d`). `UserPromptSubmit` recorded the exact payload 112 ms after CR. This proves CLI turn entry, not successful model execution or work completion. |
+| 6. Reset and reopening | cannot determine | Ctrl-A/Ctrl-K (`01 0b`) removed `HUMAN_DRAFT_é`; no hook followed in the 35.341 seconds before the next action. This candidate did not reopen readiness; absence of every possible reset is not established. |
+| 7. 1024-byte payload | pass | `UserPromptSubmit.prompt` equals the pasted envelope/body byte-for-byte: 1024 UTF-8 bytes, accented padding, final marker `END_1024`. API quota rejection happened afterwards. |
+
+Overall: **no-go**: required items 1, 2, 3 and 6 remain unproven. A native input channel is documented: installed `claude --help` advertises `--input-format stream-json` and `--replay-user-messages` with `--print`; [programmatic hosting](https://code.claude.com/docs/en/headless) documents CLI/SDK use. This was not probed and does not establish attachment to the same shared TUI. [Hooks reference](https://code.claude.com/docs/en/hooks) documents the subscribed events.
+
+## Codex CLI 0.156.1
+
+| Item | Verdict | Probe X: evidence and limit |
+| --- | --- | --- |
+| 1. Readiness | pass | `notify` delivered `type: agent-turn-complete`, main thread `01a0e762-3ff5-7770-b788-ae9aa4304c73`, after `READY`. A separate title-generation thread also notified: filter by thread id, not just cwd. This is a turn-end event, not an input-safety guarantee. |
+| 2. Dialog detection | pass | The harmless escalated `printf T014` request emitted `ESC]9;Approval requested: /bin/zsh -lc 'printf T014' BEL`, then `Would you like to run the following command?`. Zero input followed for 35.497 seconds before termination. Pass is scoped to the observed approval path; other choice dialogs were not certified. |
+| 3. Validity until submission | fail | Child output was observed 34.895 ms after initial completion, invalidating readiness. Later, a draft typed during a counting turn survived its completion; the next paste/CR was received as `HUMAN_DRAFT_é This is a text-only probe...`. Fresh completion alone permits a half-typed-line collision; no atomic check-to-use guarantee was established. |
+| 4. Composer at readiness | fail | `draft-during-turn` at +150.085 s preceded completion at +157.027 s; `HUMAN_DRAFT_é` remained in the composer. Turn completion does not imply an empty input box. |
+| 5. Submission and turn start | pass | Bracketed paste, then separate CR, produced native rollout `task_started` at `09:41:15.653Z`, and a user message with the matching turn id at `09:41:15.825Z`. Subsequent notify carried the exact payload and `RECEIVED`. Turn-start receipt was inspected on disk, not certified as a stable public streaming API. |
+| 6. Reset and reopening | cannot determine | Ctrl-A/Ctrl-K removed the draft and restored `Ask Codex to do anything`; no notify followed in 35.336 seconds before the next action. No reset producing a fresh readiness event was verified. |
+| 7. 1024-byte payload | pass | The native user message and main-thread notify's last `input-messages` entry both equal the 1024-byte payload, including `END_1024`. Earlier inputs remain in that array; compare the correct entry. |
+
+Overall: **no-go**: item 3 failed and item 6 is unproven. Installed `codex queue --help` documents `--thread` and `--message` for an existing session; `codex app-server --help` documents transports, and official [App Server documentation](https://developers.openai.com/codex/app-server) describes `turn/start` and `turn/steer`. These native input alternatives were not probed, per the correction. [Notify documentation](https://developers.openai.com/codex/config-advanced#notifications) describes the measured turn-end callback.
+
+The collision probe deliberately used a synthetic draft and a harmless text-only request. It tests the proposed turn-end/keystroke window, not a completed adapter with additional composer checks. No production wake capability is certified; M1 remains gated. Native-channel feasibility belongs to a separate card.
