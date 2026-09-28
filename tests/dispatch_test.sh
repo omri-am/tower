@@ -216,8 +216,11 @@ rm "$TOWER_TEST_ARGS"
 assert_false 'resumed agent launches again' dispatch "$PROJECT" T001 --resume --headless
 assert_true 'resume reuses the recorded model' grep -qx opus "$TOWER_TEST_ARGS"
 assert_true 'resume reuses the recorded effort' grep -qx high "$TOWER_TEST_ARGS"
+rm "$TOWER_TEST_ARGS"
 assert_false 'resume with a new model launches again' dispatch "$PROJECT" T001 --resume --model sonnet --headless
 assert_true 'a model flag on resume overrides the recorded model' grep -qx sonnet "$TOWER_TEST_ARGS"
+assert_false 'an overridden model is not also passed' grep -qx opus "$TOWER_TEST_ARGS"
+assert_eq 'resume with a new model leaves the recorded model' "$(card_field "$PROJECT" T001 model)" opus
 assert_true 'overriding the model on resume keeps the recorded effort' grep -qx high "$TOWER_TEST_ARGS"
 new_card "$PROJECT" T002
 sed -i '' 's/^vendor: claude$/vendor: claude\nmodel: ""\neffort: ""/' "$PROJECT/.tower/tasks/T002-test.md"
@@ -226,6 +229,10 @@ assert_true 'card with empty model fields dispatches' dispatch "$PROJECT" T002 -
 assert_eq 'empty model field is filled in place' "$(grep -c '^model:' "$PROJECT/.tower/tasks/T002-test.md")" 1
 assert_eq 'filled model field holds the model' "$(card_field "$PROJECT" T002 model)" opus
 assert_eq 'unset effort field stays empty' "$(card_field "$PROJECT" T002 effort)" ""
+assert_eq 'unset effort field is kept' "$(grep -c '^effort:' "$PROJECT/.tower/tasks/T002-test.md")" 1
+new_card "$PROJECT" T003
+assert_true 'model with a backslash dispatches' dispatch "$PROJECT" T003 --model 'a\tb' --prep
+assert_eq 'card keeps a backslash in the model literally' "$(card_field "$PROJECT" T003 model)" 'a\tb'
 
 PROJECT="$TMP/ambiguous-id"
 new_repo "$PROJECT"

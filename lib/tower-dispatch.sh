@@ -106,11 +106,12 @@ write_dispatch_card() {
   tmp="$(mktemp "$CARD.XXXXXX")"
   MODEL="$MODEL" EFFORT="$EFFORT" awk -v branch="$BRANCH" -v vendor="$VENDOR" '
     BEGIN {model=ENVIRON["MODEL"]; effort=ENVIRON["EFFORT"]}
-    /^---$/ {delimiters++}
-    delimiters==2 && !closed {
-      closed=1
-      if (model != "" && !model_written) print "model: \"" model "\""
-      if (effort != "" && !effort_written) print "effort: \"" effort "\""
+    /^---$/ {
+      delimiters++
+      if (delimiters == 2) {
+        if (model != "" && !model_written) print "model: \"" model "\""
+        if (effort != "" && !effort_written) print "effort: \"" effort "\""
+      }
     }
     delimiters==1 && /^status:/ {$0="status: in-flight"}
     delimiters==1 && /^branch:/ {$0="branch: \"" branch "\""}
