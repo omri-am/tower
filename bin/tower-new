@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -ne 1 ] || [ -z "$1" ]; then
+  echo 'usage: tower-new <title> (one nonempty, quoted argument)' >&2
+  exit 1
+fi
+TITLE="$1"
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATED="$("$BIN_DIR/tower-locate")" || exit $?
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+TASKS="$PROJECT_DIR/.tower/tasks"
+TEMPLATE="$PROJECT_DIR/.tower/templates/task-card.md"
+[ -r "$TEMPLATE" ] || { echo "tower-new: cannot read $TEMPLATE" >&2; exit 1; }
+mkdir -p "$TASKS/.claims"
+
+shopt -s nullglob
+MAX="$(
+  for CARD in "$TASKS"/*.md; do
+    basename "$CARD" | sed -nE 's/^T([0-9]+)(-.*)?\.md$/\1/p'
+    awk '
+      NR == 1 { if ($0 != "---") exit; next }
+      /^---$/ { exit }
+      /^id: T[0-9]+[[:space:]]*$/ { sub(/^id: T/, ""); print }
+    ' "$CARD" || exit 1
+  done
+  for CLAIM in "$TASKS/.claims"/*; do
+    basename "$CLAIM" | sed -nE 's/^T([0-9]+)$/\1/p'
+  done
+)"
+NEXT="$(printf '%s\n' "$MAX" | awk '$1 + 0 > max { max = $1 + 0 } END { printf "%.0f", max + 1 }')"
+while true; do
+  ID="$(printf 'T%03d' "$NEXT")"
+  if mkdir "$TASKS/.claims/$ID" 2>/dev/null; then break; fi
+  if [ ! -e "$TASKS/.claims/$ID" ]; then
+    echo "tower-new: cannot claim $ID in $TASKS/.claims" >&2
+    exit 1
+  fi
+  NEXT=$((NEXT + 1))
+done
+
+SLUG="$(printf '%s' "$TITLE" | LC_ALL=C tr '[:upper:]' '[:lower:]' |
+  LC_ALL=C tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//' | cut -c 1-50 | sed 's/-$//')"
+CARD="$TASKS/$ID-$SLUG.md"
+while IFS= read -r LINE || [ -n "$LINE" ]; do
+  case "$LINE" in
+    'id: T000') printf 'id: %s\n' "$ID" ;;
+    title:*) printf 'title: %s\n' "$TITLE" ;;
+    *) printf '%s\n' "$LINE" ;;
+  esac
+done < "$TEMPLATE" > "$CARD"
+printf '%s\n' "$CARD"

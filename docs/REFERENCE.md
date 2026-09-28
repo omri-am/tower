@@ -16,6 +16,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | Command | Run by | What it does |
 | --- | --- | --- |
 | `tower-init [--sidecar] [dir]` | you, once | Scaffolds `.tower/` and commits it |
+| `tower new "<title>"` | orchestrator | Atomically claims the next flat ID and creates a draft card without committing |
 | `tower-orchestrate` | you | Opens the named orchestrator session and assumes the role |
 | `tower-dispatch <id>` | orchestrator | Creates the worktree, marks the card in-flight, launches the implementor |
 | `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
@@ -29,6 +30,14 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-whoami` | tooling | Prints this session's own addressable name |
 | `tower-version-check [--notice]` | you | Checks for a newer tagged version now |
 | `tower-notify <title> <message>` | tooling | macOS notification |
+
+## `tower new`
+
+`tower new "Fix the thing"` (also `tower-new`) copies the project's task-card template to
+`tasks/T012-fix-the-thing.md` when the highest flat ID is T011. The title must be one
+nonempty argument. Allocation considers card filenames, frontmatter IDs, and persistent
+`.claims/` directories; letter-suffixed IDs are ignored. Atomic claims prevent concurrent
+callers from receiving the same ID. The command prints the created path and does not commit.
 
 ## `tower-dispatch` flags
 
