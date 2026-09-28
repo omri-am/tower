@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.6.0 — 2026-09-28
+
 - `tower-learnings --for` now includes entries before the first `##` heading in every
   selection, including flat files, preserving wrapped lines and excluding format notes.
   `--check` reports their count without changing its exit status.
