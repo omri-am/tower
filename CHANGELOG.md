@@ -35,10 +35,14 @@ what the version gives them.
   taking the first one `find` happens to return. `tower-doctor` also flags duplicate IDs
   across cards and a card whose filename disagrees with its `id:` field.
 
-- PROTOCOL.md and the `tower-implementor`/`tower-orchestrator` skills now specify how task
-  ids are allocated: flat `T###` numbers are the orchestrator's alone, and a follow-up card
-  an implementor drafts directly takes its parent's id plus the next letter (`T327a`,
-  `T327b`, …) instead of a new flat number, so the two allocators can never collide.
+- PROTOCOL.md and the `tower-implementor`/`tower-orchestrator` skills specify that flat
+  `T###` ids are allocated by the orchestrator, which is the only role that creates cards.
+  Implementors describe follow-ups in their handoff for the orchestrator to consider.
+
+- `tower-implementor` reads the session's user-level and repository-level agent instructions,
+  under whatever names the running agent uses, before tower's own inputs. Those instructions
+  govern process, the card governs task decisions, and learnings are advisory. Before opening
+  the PR, the implementor runs whatever completion or review workflow the instructions define.
 
 - `tower-dispatch` no longer refuses a card that owns a file above the project directory. A project
   living in a monorepo subdirectory can legitimately own the repo-root `AGENTS.md` or its `.agents/`
