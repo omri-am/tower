@@ -78,9 +78,7 @@ written at PR-open is a draft the implementor finalizes at merge. The exception 
 handoff: update `design.md` if decisions made during work
 change it (never silently — note superseded decisions explicitly); create draft cards from
 suggested follow-ups when they are real, allocating the next flat `T###` yourself — that
-counter is yours alone, never a letter suffix — unless the implementor already drafted the
-follow-up as `<parent-id><letter>`, in which case just review it, not duplicate it; curate
-the handoff's candidate learnings and act
+counter is yours alone; curate the handoff's candidate learnings and act
 on its *Learnings that were wrong or violated* section in the same pass; mark the task's
 card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
