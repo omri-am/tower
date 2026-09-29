@@ -5,6 +5,9 @@ what the version gives them.
 
 ## Unreleased
 
+- Added a durable mailbox shared across worktrees: `tower send` stores messages and
+  `tower inbox` lists, reads, acknowledges, or waits for them without a vendor CLI.
+
 ## v0.6.0 — 2026-09-28
 
 - `tower-learnings --for` now includes entries before the first `##` heading in every
