@@ -134,6 +134,17 @@ with tempfile.TemporaryDirectory() as scratch:
                 if code == 4:
                     assert f'queued; {role} cannot be woken automatically' in result.stderr
                     assert (box / 'queued' / message).is_file() and not argv_file.exists()
+                    if vendor == 'claude':
+                        record.update(wake='native', vendor='future-vendor')
+                        entry = project / '.git/tower/root/agents' / (role + '.json')
+                        entry.write_text(json.dumps(record))
+                        result = subprocess.run([str(root / 'bin/tower'), 'send', role, 'unknown adapter'],
+                                                cwd=project, env=env, text=True, capture_output=True)
+                        assert result.returncode == 4, ('missing adapter exit', result.returncode)
+                        assert f'queued; {role} cannot be woken automatically' in result.stderr
+                        assert 'Traceback' not in result.stderr
+                        assert (box / 'queued' / result.stdout.strip()).is_file()
+                        assert not list((box / 'claimed').iterdir()) and not argv_file.exists()
                 else:
                     argv = argv_file.read_bytes().decode().split('\0')[:-1]
                     assert argv[:4] == ['queue', '--thread', thread, '--message'] and len(argv) == 5

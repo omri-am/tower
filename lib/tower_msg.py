@@ -233,6 +233,12 @@ def is_delivered(directory, message_id):
     return any((directory / state / message_id).is_file() for state in ('submitted', 'acknowledged'))
 
 
+def adapter_for(record):
+    if record is None or record['wake'] != 'native':
+        return None
+    return ADAPTERS.get(record['vendor'])
+
+
 def deliver(directory, role, message_id):
     with (directory / 'delivery.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -240,7 +246,7 @@ def deliver(directory, role, message_id):
             return 0
         record = live_record(role)
         outcomes = {}
-        if record is not None and record['wake'] == 'native':
+        if adapter_for(record) is not None:
             outcomes, record = deliver_queued(directory, role, record)
         delivered = is_delivered(directory, message_id)
         if message_id in outcomes or delivered:
@@ -248,7 +254,7 @@ def deliver(directory, role, message_id):
         if record is None:
             print(f'queued; {role} has no live owner', file=sys.stderr)
             return 3
-        if record['wake'] != 'native':
+        if adapter_for(record) is None:
             print(f'queued; {role} cannot be woken automatically', file=sys.stderr)
             return 4
         return 1
@@ -258,9 +264,9 @@ def deliver_queued(directory, role, record):
     outcomes = {}
     for message_id in message_ids(directory, ('queued',)):
         record = live_record(role)
-        if record is None or record['wake'] != 'native':
+        adapter = adapter_for(record)
+        if adapter is None:
             break
-        adapter = ADAPTERS[record['vendor']]
         claimed = directory / 'claimed' / message_id
         claim = claimed.with_suffix('.claim')
         submitted = directory / 'submitted' / message_id
