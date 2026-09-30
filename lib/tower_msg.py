@@ -18,6 +18,13 @@ BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
 _OWNED = {}
 MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
+ADAPTERS = {
+    'codex': {
+        'qualifies': lambda record: bool(record['thread']),
+        'command': lambda record, text: ['codex', 'queue', '--thread', record['thread'], '--message', text],
+        'name': 'Codex',
+    },
+}
 
 
 def git(project, *args):
@@ -106,8 +113,11 @@ def register(role, vendor, vendor_version='', thread=''):
         stream.flush()
         record = dict(role=role, vendor=vendor, vendor_version=vendor_version,
                       session=session, pid=os.getpid(), thread=thread,
-                      wake='native' if vendor == 'codex' and thread else 'none',
+                      wake='none',
                       started=datetime.now(timezone.utc).isoformat())
+        adapter = ADAPTERS.get(vendor)
+        if adapter is not None and adapter['qualifies'](record):
+            record['wake'] = 'native'
         entry = directory / (role + '.json')
         fd, temporary = tempfile.mkstemp(dir=directory)
         try:
@@ -250,6 +260,7 @@ def deliver_queued(directory, role, record):
         record = live_record(role)
         if record is None or record['wake'] != 'native':
             break
+        adapter = ADAPTERS[record['vendor']]
         claimed = directory / 'claimed' / message_id
         claim = claimed.with_suffix('.claim')
         submitted = directory / 'submitted' / message_id
@@ -261,7 +272,7 @@ def deliver_queued(directory, role, record):
         interrupted = None
         try:
             claim.write_text(f"claimant={record['session']}\nat={datetime.now(timezone.utc).isoformat()}\n")
-            result = subprocess.run(['codex', 'queue', '--thread', record['thread'], '--message', text],
+            result = subprocess.run(adapter['command'](record, text),
                                     capture_output=True, text=True, errors='replace', timeout=30)
             code, error = result.returncode, result.stderr
             if code == 0:
@@ -269,12 +280,12 @@ def deliver_queued(directory, role, record):
                 claimed.rename(submitted)
         except KeyboardInterrupt as failure:
             interrupted = failure
-            code, error = 130, 'codex queue interrupted'
+            code, error = 130, f"{adapter['name']} delivery interrupted"
         except subprocess.TimeoutExpired as failure:
             stderr = failure.stderr or b''
             if isinstance(stderr, bytes):
                 stderr = stderr.decode('utf-8', errors='replace')
-            code, error = 124, f'codex queue timed out after 30 seconds: {stderr}'
+            code, error = 124, f"{adapter['name']} delivery timed out after 30 seconds: {stderr}"
         except (OSError, ValueError) as failure:
             code, error = 127, str(failure)
         outcomes[message_id] = code == 0

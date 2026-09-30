@@ -215,7 +215,7 @@ with tempfile.TemporaryDirectory() as scratch:
                             stored = (box / 'queued' / interrupted).read_text()
                             assert 'redelivery: 1' in stored and '; possibly a duplicate]' in stored
                             assert not list((box / 'claimed').iterdir())
-                            assert f'{interrupted} exit=130 codex queue interrupted' in (box / 'delivery.log').read_text()
+                            assert f'{interrupted} exit=130 Codex delivery interrupted' in (box / 'delivery.log').read_text()
                         finally:
                             if sender.poll() is None:
                                 sender.kill()

@@ -6,7 +6,8 @@ what the version gives them.
 ## Unreleased
 
 - Codex roles registered with `tower-register --thread <session uuid or name>` report
-  `wake: native`; `tower send` delivers through `codex queue` into submitted, not acknowledged.
+  `wake: native`; `tower send` delivers through `codex queue` into submitted, not acknowledged;
+  Codex is the only entry in the per-vendor adapter table.
   Only `tower inbox ack` acknowledges, and it now accepts submitted messages;
   `inbox list`/`--wait` include submitted, and `tower agents` counts claimed and submitted
   messages as unacknowledged. Messages are stored first: exit 0 means delivered; exit 1 means
