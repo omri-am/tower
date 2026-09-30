@@ -76,11 +76,11 @@ Do not answer questions or take actions before completing the ritual.
 written at PR-open is a draft the implementor finalizes at merge. The exception is a
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
-change it (never silently — note superseded decisions explicitly); create draft cards from
-suggested follow-ups when they are real, allocating the next flat `T###` yourself — that
-counter is yours alone; curate the handoff's candidate learnings and act
-on its *Learnings that were wrong or violated* section in the same pass; mark the task's
-card `merged`; check whether any
+change it (never silently — note superseded decisions explicitly); for each suggested
+follow-up that is real, create a draft card with `tower new "<title>"` (which allocates the
+next flat `T###`; that counter is yours alone), then fill in its body; curate the handoff's
+candidate learnings and act on its *Learnings that were wrong or violated* section in the
+same pass; mark the task's card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
 below). Set the card’s `ingested_handoff` to the hash from `git hash-object` of the handoff
 you just processed. If the content changed during ingest, read the new revision first.
@@ -108,7 +108,8 @@ adopted as the limit on its own. Write the owner's answer into the file, set `co
 record `source`, and commit with a `tower:` message.
 
 **Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the
-current frontier. Decision-complete means the Interfaces & decisions and File ownership
+current frontier. Create each new card with `tower new "<title>"`, then fill in its body.
+Decision-complete means the Interfaces & decisions and File ownership
 sections leave the implementor zero interface choices. Every card must also be one
 reviewable PR, within the limits in `.tower/card-sizing.md` — one boundary, and the owned-path
 and acceptance-criteria counts that file sets. When scope exceeds them, split into sequenced

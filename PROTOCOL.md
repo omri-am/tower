@@ -56,8 +56,8 @@ task's marker. A short directory lock inside the state repo's Git directory seri
 dispatch validation and claiming. An uncatchable termination can leave that lock behind;
 remove it only after confirming the dispatch process has stopped. `--resume` accepts an
 `in-flight` card and reuses the worktree on its recorded branch, including uncommitted
-implementation. Dispatch records the selected vendor on the card so resuming retains a
-vendor override. Never resume while the previous session is still running.
+implementation. Dispatch records the selected vendor, and any model or effort, on the card
+so resuming retains those overrides. Never resume while the previous session is still running.
 
 Tower commits must name their intended paths with `git commit --only -- <paths>` so they
 do not consume unrelated staged work. Agents committing several state files name all of
@@ -110,6 +110,8 @@ title: Short imperative title
 status: draft        # draft | ready | in-flight | in-review | merged | blocked
 depends_on: []       # list of task ids, e.g. [T001, T002]
 vendor: any          # claude | codex | any
+model: ""            # filled at dispatch when --model is passed
+effort: ""           # filled at dispatch when --effort is passed
 branch: ""           # filled at dispatch
 pr: ""               # filled when the PR is opened
 ingested_handoff: "" # git hash-object of the handoff last processed by the orchestrator
@@ -117,7 +119,8 @@ ingested_handoff: "" # git hash-object of the handoff last processed by the orch
 ```
 
 **ID allocation.** Flat numeric ids (`T###`) are allocated by the orchestrator alone,
-which is the only role that creates cards. `tower-doctor` flags any id shared by more
+which is the only role that creates cards. The orchestrator creates cards with
+`tower new "<title>"`, which claims ids atomically. `tower-doctor` flags any id shared by more
 than one card and any card whose filename disagrees with its `id:` field.
 `tower-dispatch` refuses to dispatch any card while a duplicate id exists.
 

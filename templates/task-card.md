@@ -4,6 +4,8 @@ title:
 status: draft
 depends_on: []
 vendor: any
+model: ""
+effort: ""
 branch: ""
 pr: ""
 ingested_handoff: ""
