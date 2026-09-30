@@ -17,6 +17,7 @@ import time
 BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
 _OWNED = {}
+MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
 
 
 def git(project, *args):
@@ -54,26 +55,32 @@ def agents_directory():
     return directory
 
 
-def owner_status(role):
+def live_record(role):
     validate_role(role)
     directory = agents_directory()
     entry = directory / (role + '.json')
-    if not entry.is_file():
-        return False, 'none'
-    record = json.loads(entry.read_text(encoding='utf-8'))
+    try:
+        record = json.loads(entry.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return None
     lock_file = directory / (role + '.lock') / 'session'
     try:
         with lock_file.open('r+') as stream:
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                return stream.read().strip() == record['session'], record['wake']
+                return record if stream.read().strip() == record['session'] else None
     except FileNotFoundError:
         pass
-    return False, record['wake']
+    return None
 
 
-def register(role, vendor, vendor_version=''):
+def owner_status(role):
+    record = live_record(role)
+    return (True, record['wake']) if record else (False, 'none')
+
+
+def register(role, vendor, vendor_version='', thread=''):
     validate_role(role)
     if not vendor:
         raise ValueError('vendor must be nonempty')
@@ -98,7 +105,8 @@ def register(role, vendor, vendor_version=''):
         stream.write(session)
         stream.flush()
         record = dict(role=role, vendor=vendor, vendor_version=vendor_version,
-                      session=session, pid=os.getpid(), wake='none',
+                      session=session, pid=os.getpid(), thread=thread,
+                      wake='native' if vendor == 'codex' and thread else 'none',
                       started=datetime.now(timezone.utc).isoformat())
         entry = directory / (role + '.json')
         fd, temporary = tempfile.mkstemp(dir=directory)
@@ -131,7 +139,7 @@ def release(role, session):
 
 
 def unacknowledged_count(role):
-    return sum(1 for path in (mailbox(role) / 'queued').iterdir() if path.is_file())
+    return len(message_ids(mailbox(role), ('queued', 'claimed', 'submitted')))
 
 
 def list_agents():
@@ -165,14 +173,19 @@ def publish(directory, role, body, reply_to):
     return message_id
 
 
+def message_ids(directory, states):
+    return sorted(path.name for state in states for path in (directory / state).iterdir()
+                  if MESSAGE_ID.fullmatch(path.name) and path.is_file())
+
+
 def validate_id(message_id):
-    if not re.fullmatch(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}', message_id):
+    if not MESSAGE_ID.fullmatch(message_id):
         raise ValueError('invalid message id')
 
 
 def read(directory, message_id):
     validate_id(message_id)
-    for state in ('queued', 'acknowledged'):
+    for state in ('queued', 'submitted', 'acknowledged'):
         try:
             return (directory / state / message_id).read_text(encoding='utf-8')
         except FileNotFoundError:
@@ -182,25 +195,127 @@ def read(directory, message_id):
 
 def acknowledge(directory, message_id):
     validate_id(message_id)
-    try:
-        (directory / 'queued' / message_id).rename(directory / 'acknowledged' / message_id)
-    except FileNotFoundError:
-        if (directory / 'acknowledged' / message_id).is_file():
-            return f'already-acknowledged: {message_id}'
-        raise ValueError(f'not-found: {message_id}')
-    return f'acknowledged: {message_id}'
+    for state in ('queued', 'submitted'):
+        try:
+            (directory / state / message_id).rename(directory / 'acknowledged' / message_id)
+        except FileNotFoundError:
+            continue
+        (directory / 'submitted' / (message_id + '.submitted')).unlink(missing_ok=True)
+        return f'acknowledged: {message_id}'
+    if (directory / 'acknowledged' / message_id).is_file():
+        return f'already-acknowledged: {message_id}'
+    raise ValueError(f'not-found: {message_id}')
 
 
 def list_messages(directory, timeout):
     deadline = None if timeout is None else time.monotonic() + timeout
     while True:
-        messages = sorted(path.name for path in (directory / 'queued').iterdir())
+        messages = message_ids(directory, ('queued', 'submitted'))
         if messages or timeout is None:
             return '\n'.join(messages)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError('timeout waiting for a message')
         time.sleep(min(2, remaining))
+
+
+def is_delivered(directory, message_id):
+    return any((directory / state / message_id).is_file() for state in ('submitted', 'acknowledged'))
+
+
+def deliver(directory, role, message_id):
+    with (directory / 'delivery.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if is_delivered(directory, message_id):
+            return 0
+        record = live_record(role)
+        outcomes = {}
+        if record is not None and record['wake'] == 'native':
+            outcomes, record = deliver_queued(directory, role, record)
+        delivered = is_delivered(directory, message_id)
+        if message_id in outcomes or delivered:
+            return 0 if outcomes.get(message_id, delivered) else 1
+        if record is None:
+            print(f'queued; {role} has no live owner', file=sys.stderr)
+            return 3
+        if record['wake'] != 'native':
+            print(f'queued; {role} cannot be woken automatically', file=sys.stderr)
+            return 4
+        return 1
+
+
+def deliver_queued(directory, role, record):
+    outcomes = {}
+    for message_id in message_ids(directory, ('queued',)):
+        record = live_record(role)
+        if record is None or record['wake'] != 'native':
+            break
+        claimed = directory / 'claimed' / message_id
+        claim = claimed.with_suffix('.claim')
+        submitted = directory / 'submitted' / message_id
+        try:
+            header, text = (directory / 'queued' / message_id).read_text(encoding='utf-8').split('\n---\n', 1)
+            (directory / 'queued' / message_id).rename(claimed)
+        except FileNotFoundError:
+            continue
+        interrupted = None
+        try:
+            claim.write_text(f"claimant={record['session']}\nat={datetime.now(timezone.utc).isoformat()}\n")
+            result = subprocess.run(['codex', 'queue', '--thread', record['thread'], '--message', text],
+                                    capture_output=True, text=True, errors='replace', timeout=30)
+            code, error = result.returncode, result.stderr
+            if code == 0:
+                submitted.with_suffix('.submitted').write_text(f'at={datetime.now(timezone.utc).isoformat()}\n')
+                claimed.rename(submitted)
+        except KeyboardInterrupt as failure:
+            interrupted = failure
+            code, error = 130, 'codex queue interrupted'
+        except subprocess.TimeoutExpired as failure:
+            stderr = failure.stderr or b''
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode('utf-8', errors='replace')
+            code, error = 124, f'codex queue timed out after 30 seconds: {stderr}'
+        except (OSError, ValueError) as failure:
+            code, error = 127, str(failure)
+        outcomes[message_id] = code == 0
+        if code != 0:
+            submitted.with_suffix('.submitted').unlink(missing_ok=True)
+            requeue_for_redelivery(directory, message_id, header, text)
+            record_delivery_failure(directory, message_id, code, error)
+        claim.unlink(missing_ok=True)
+        if interrupted is not None:
+            raise interrupted
+    return outcomes, record
+
+
+def requeue_for_redelivery(directory, message_id, header, text):
+    claimed = directory / 'claimed' / message_id
+    header = re.sub(r'(?m)^redelivery: (\d+)$',
+                    lambda match: f'redelivery: {int(match[1]) + 1}', header)
+    envelope, body = text.split('\n', 1)
+    if not envelope.endswith('; possibly a duplicate]'):
+        envelope = envelope[:-1] + '; possibly a duplicate]'
+    fd, temporary = tempfile.mkstemp(dir=directory / 'tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            stream.write(header + '\n---\n' + envelope + '\n' + body)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, claimed)
+        claimed.rename(directory / 'queued' / message_id)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def record_delivery_failure(directory, message_id, code, error):
+    at = datetime.now(timezone.utc).isoformat()
+    log = os.open(directory / 'delivery.log', os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.write(log, f"{at} {message_id} exit={code} {' '.join(error.split())}\n".encode('utf-8'))
+    finally:
+        os.close(log)
+    print(error, file=sys.stderr, end='' if error.endswith('\n') else '\n')
 
 
 def main():
@@ -220,8 +335,9 @@ def main():
         if args.reply_to is not None:
             validate_id(args.reply_to)
         directory = mailbox(args.role)
-        print(publish(directory, args.role, sys.stdin.read() if args.text == '-' else args.text, args.reply_to))
-        return
+        message_id = publish(directory, args.role, sys.stdin.read() if args.text == '-' else args.text, args.reply_to)
+        print(message_id, flush=True)
+        return deliver(directory, args.role, message_id)
     if (args.operation == 'list') != (args.id is None):
         parser.error('read and ack require an id; list does not take one')
     if args.wait is not None and (args.operation != 'list' or math.isnan(args.wait) or args.wait < 0):
@@ -239,7 +355,7 @@ def main():
 
 if __name__ == '__main__':
     try:
-        main()
+        sys.exit(main())
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f'tower-{sys.argv[1]}: {error}', file=sys.stderr)
         sys.exit(1)

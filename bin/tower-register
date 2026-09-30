@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(prog='tower-register')
 parser.add_argument('role')
 parser.add_argument('--vendor', required=True)
 parser.add_argument('--vendor-version', default='')
+parser.add_argument('--thread', default='')
 args = parser.parse_args(sys.argv[2:])
 
 
@@ -23,7 +24,7 @@ def release_on_signal(signum, frame):
 
 
 try:
-    session = tower_msg.register(args.role, args.vendor, args.vendor_version)
+    session = tower_msg.register(args.role, args.vendor, args.vendor_version, args.thread)
     try:
         for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
             signal.signal(signum, release_on_signal)
