@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+exec python3 - "$LIB_DIR" "$@" <<'PY'
+import argparse
+import subprocess
+import sys
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+import tower_msg
+
+parser = argparse.ArgumentParser(prog='tower-agents', description='List registered tower agents.')
+parser.parse_args(sys.argv[2:])
+
+try:
+    for agent in tower_msg.list_agents():
+        vendor = agent['vendor']
+        if agent['vendor_version']:
+            vendor += ' ' + agent['vendor_version']
+        status = 'live' if agent['live'] else 'stale'
+        print(f"{agent['role']}\t{vendor}\t{status}\twake:{agent['wake']}"
+              f"\tunacknowledged:{agent['unacknowledged']}")
+except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    print(f'tower-agents: {error}', file=sys.stderr)
+    sys.exit(1)
+PY

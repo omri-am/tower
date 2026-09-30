@@ -5,6 +5,11 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower-register` claims a role for the running session and prints its session id, refusing
+  while another live session owns the role. `tower-agents` lists each registered role with
+  vendor, liveness, wake capability and unacknowledged message count. `tower-bootstrap` now
+  links `tower-send`, `tower-inbox`, `tower-register` and `tower-agents` onto PATH.
+
 - Added a shared agent registry with exclusive role ownership, stale-owner detection,
   declared wake capability, and queued-message counts for the upcoming `tower agents` command.
 
