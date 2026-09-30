@@ -44,8 +44,8 @@ callers from receiving the same ID. The command prints the created path and does
 | Flag | Effect |
 | --- | --- |
 | `--vendor claude\|codex` | Overrides the card's vendor |
-| `--model <name>` | Passes `--model` to Claude and records it on the card, where `--resume` reuses it; codex ignores it with a warning |
-| `--effort <level>` | Passes `--effort` to Claude and records it on the card, where `--resume` reuses it; codex ignores it with a warning |
+| `--model <name>` | Passes `--model` to Claude and records it on the card, where `--resume` reuses it; for codex it is recorded but not passed, with a warning |
+| `--effort <level>` | Passes `--effort` to Claude and records it on the card, where `--resume` reuses it; for codex it is recorded but not passed, with a warning |
 | `--headless` | Runs `claude -p` / `codex exec` instead of opening a Terminal window |
 | `--here` | Launches the implementor in the current terminal (tmux, Superset panes) |
 | `--print-only` | Prints the launch command and changes nothing |
