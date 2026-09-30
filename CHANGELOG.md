@@ -5,6 +5,9 @@ what the version gives them.
 
 ## Unreleased
 
+- Added a shared agent registry with exclusive role ownership, stale-owner detection,
+  declared wake capability, and queued-message counts for the upcoming `tower agents` command.
+
 - Added a durable mailbox shared across worktrees: `tower send` stores messages and
   `tower inbox` lists, reads, acknowledges, or waits for them without a vendor CLI.
 

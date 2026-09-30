@@ -1,6 +1,7 @@
 """Git-internal mailbox shared by every worktree of a tower project."""
 import argparse
 from datetime import datetime, timezone
+import fcntl
 import json
 import math
 import os
@@ -15,15 +16,19 @@ import time
 
 BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
+_OWNED = {}
 
 
 def git(project, *args):
     return subprocess.check_output(['git', '-C', str(project), *args], text=True).strip()
 
 
-def mailbox(role):
+def validate_role(role):
     if not role or role in ('.', '..') or '/' in role or '\\' in role:
         raise ValueError('role must be a nonempty directory name, without path separators')
+
+
+def runtime_root():
     located = subprocess.check_output([str(BIN / 'tower-locate')], text=True).splitlines()
     if located[1] == 'copy':
         raise ValueError('refusing per-branch copy: no canonical tower project')
@@ -32,10 +37,112 @@ def mailbox(role):
     relative = project.relative_to(top)
     key = Path('root') if relative == Path('.') else Path('projects') / relative
     common = Path(git(project, 'rev-parse', '--path-format=absolute', '--git-common-dir'))
-    directory = common / 'tower' / key / 'mailbox' / role
+    return common / 'tower' / key
+
+
+def mailbox(role):
+    validate_role(role)
+    directory = runtime_root() / 'mailbox' / role
     for state in STATES:
         (directory / state).mkdir(parents=True, exist_ok=True)
     return directory
+
+
+def agents_directory():
+    directory = runtime_root() / 'agents'
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def owner_status(role):
+    validate_role(role)
+    directory = agents_directory()
+    entry = directory / (role + '.json')
+    if not entry.is_file():
+        return False, 'none'
+    record = json.loads(entry.read_text(encoding='utf-8'))
+    lock_file = directory / (role + '.lock') / 'session'
+    try:
+        with lock_file.open('r+') as stream:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return stream.read().strip() == record['session'], record['wake']
+    except FileNotFoundError:
+        pass
+    return False, record['wake']
+
+
+def register(role, vendor, vendor_version=''):
+    validate_role(role)
+    if not vendor:
+        raise ValueError('vendor must be nonempty')
+    directory = agents_directory()
+    lock = directory / (role + '.lock')
+    try:
+        lock.mkdir()
+    except FileExistsError:
+        pass
+    stream = (lock / 'session').open('a+')
+    try:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            entry = directory / (role + '.json')
+            owner = json.loads(entry.read_text(encoding='utf-8')) if entry.is_file() else {}
+            raise ValueError(f"role {role} already owned by {owner.get('vendor', 'unknown')} "
+                             f"pid {owner.get('pid', 'unknown')}")
+        session = secrets.token_hex(16)
+        stream.seek(0)
+        stream.truncate()
+        stream.write(session)
+        stream.flush()
+        record = dict(role=role, vendor=vendor, vendor_version=vendor_version,
+                      session=session, pid=os.getpid(), wake='none',
+                      started=datetime.now(timezone.utc).isoformat())
+        entry = directory / (role + '.json')
+        fd, temporary = tempfile.mkstemp(dir=directory)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as output:
+                json.dump(record, output)
+            os.replace(temporary, entry)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        _OWNED[role] = (session, stream)
+        return session
+    except BaseException:
+        stream.close()
+        raise
+
+
+def release(role, session):
+    validate_role(role)
+    owned = _OWNED.get(role)
+    if owned is None or owned[0] != session:
+        return
+    entry = agents_directory() / (role + '.json')
+    try:
+        if entry.is_file() and json.loads(entry.read_text(encoding='utf-8'))['session'] == session:
+            entry.unlink()
+    finally:
+        owned[1].close()
+        del _OWNED[role]
+
+
+def unacknowledged_count(role):
+    return sum(1 for path in (mailbox(role) / 'queued').iterdir() if path.is_file())
+
+
+def list_agents():
+    result = []
+    for entry in sorted(agents_directory().glob('*.json')):
+        record = json.loads(entry.read_text(encoding='utf-8'))
+        role = record['role']
+        live, wake = owner_status(role)
+        result.append(dict(record, live=live, wake=wake,
+                           unacknowledged=unacknowledged_count(role)))
+    return result
 
 
 def publish(directory, role, body, reply_to):
