@@ -76,12 +76,11 @@ Do not answer questions or take actions before completing the ritual.
 written at PR-open is a draft the implementor finalizes at merge. The exception is a
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
-change it (never silently — note superseded decisions explicitly); create draft cards from
-suggested follow-ups when they are real with `tower new "<title>"` (which allocates the next
-flat `T###`; that counter is yours alone), then fill in the body; curate the handoff's
-candidate learnings and act
-on its *Learnings that were wrong or violated* section in the same pass; mark the task's
-card `merged`; check whether any
+change it (never silently — note superseded decisions explicitly); for each suggested
+follow-up that is real, create a draft card with `tower new "<title>"` (which allocates the
+next flat `T###`; that counter is yours alone), then fill in its body; curate the handoff's
+candidate learnings and act on its *Learnings that were wrong or violated* section in the
+same pass; mark the task's card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
 below). Set the card’s `ingested_handoff` to the hash from `git hash-object` of the handoff
 you just processed. If the content changed during ingest, read the new revision first.
