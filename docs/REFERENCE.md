@@ -44,6 +44,8 @@ callers from receiving the same ID. The command prints the created path and does
 | Flag | Effect |
 | --- | --- |
 | `--vendor claude\|codex` | Overrides the card's vendor |
+| `--model <name>` | Passes `--model` to Claude and records it for later dispatches and `--resume`; codex ignores it with a warning |
+| `--effort <level>` | Passes `--effort` to Claude and records it for later dispatches and `--resume`; codex ignores it with a warning |
 | `--headless` | Runs `claude -p` / `codex exec` instead of opening a Terminal window |
 | `--here` | Launches the implementor in the current terminal (tmux, Superset panes) |
 | `--print-only` | Prints the launch command and changes nothing |
@@ -52,6 +54,9 @@ callers from receiving the same ID. The command prints the created path and does
 | `--prep` | Does all the bookkeeping, launches nothing |
 | `--resume` | Restarts an in-flight task in its recorded branch’s existing worktree |
 | `--expect-revision <hash>` | Rejects a card or prompt changed since browser review; checked under the dispatch lock |
+
+For model and effort, a non-empty flag overrides the recorded card value. `--resume` reuses
+recorded values without rewriting the card; flags passed again override only that launch.
 
 By default dispatch creates a per-task worktree at `<repo>-tower-worktrees/<project>/T###`
 on the card’s branch and symlinks the shared `.tower/` into it. `<project>` is `root` for

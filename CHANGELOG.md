@@ -5,6 +5,10 @@ what the version gives them.
 
 ## Unreleased
 
+- The task-card template and `PROTOCOL.md` now list the optional `model:` and `effort:` fields
+  that `tower-dispatch` records and reuses. `docs/REFERENCE.md` documents `--model`/`--effort`,
+  and the orchestrator skill and `PROTOCOL.md` direct card creation through `tower new`.
+
 - `tower-register` claims a role for the running session and prints its session id, refusing
   while another live session owns the role. `tower-agents` lists each registered role with
   vendor, liveness, wake capability and unacknowledged message count. `tower-bootstrap` now
