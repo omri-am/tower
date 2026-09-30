@@ -40,9 +40,8 @@ assert_true "tower-init linked" test -L "$BINDIR/tower-init"
 assert_true "tower-locate linked" test -L "$BINDIR/tower-locate"
 assert_true "tower-bootstrap linked" test -L "$BINDIR/tower-bootstrap"
 LISTED="$(sed -n 's/^COMMANDS="\(.*\)"$/\1/p' "$ROOT/bin/tower-bootstrap" | tr ' ' '\n' | sort | tr '\n' ' ')"
-# Standalone messaging links are deferred; tower already routes these subcommands.
-PRESENT="$(ls "$ROOT/bin" | grep -Ev '^tower-(shim|send|inbox)$' | sort | tr '\n' ' ')"
-assert_eq "bootstrap links every command except deferred messaging commands" "$LISTED" "$PRESENT"
+PRESENT="$(ls "$ROOT/bin" | grep -v '^tower-shim$' | sort | tr '\n' ' ')"
+assert_eq "bootstrap links every command in bin/" "$LISTED" "$PRESENT"
 
 assert_eq "links point at the shim copy" "$(readlink "$BINDIR/tower-init")" "$LIBEXEC/tower-shim"
 

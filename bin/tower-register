@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+exec python3 - "$LIB_DIR" "$@" <<'PY'
+import argparse
+import signal
+import subprocess
+import sys
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+import tower_msg
+
+parser = argparse.ArgumentParser(prog='tower-register')
+parser.add_argument('role')
+parser.add_argument('--vendor', required=True)
+parser.add_argument('--vendor-version', default='')
+args = parser.parse_args(sys.argv[2:])
+
+
+def release_on_signal(signum, frame):
+    raise SystemExit(0)
+
+
+try:
+    session = tower_msg.register(args.role, args.vendor, args.vendor_version)
+    try:
+        for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(signum, release_on_signal)
+        print(session, flush=True)
+        while True:
+            signal.pause()
+    finally:
+        for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(signum, signal.SIG_IGN)
+        tower_msg.release(args.role, session)
+except (OSError, ValueError, subprocess.CalledProcessError) as error:
+    print(f'tower-register: {error}', file=sys.stderr)
+    sys.exit(1)
+PY
