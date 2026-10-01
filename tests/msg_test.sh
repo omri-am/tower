@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as scratch:
     for state in module['STATES']:
         (box / state).mkdir(parents=True)
     now = datetime.now(timezone.utc)
-    cases = (('fresh', '0', 0, 'live', now, 'claimed'),
+    cases = (('fresh', '0', 0, 'live', now - timedelta(minutes=9), 'claimed'),
              ('stale', '1', 0, 'live', now - timedelta(minutes=11), 'queued'),
              ('other', '2', 0, 'old', now, 'queued'),
              ('missing', '3', 0, None, None, 'queued'),
