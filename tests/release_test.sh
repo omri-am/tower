@@ -159,6 +159,72 @@ assert_eq "nothing was pushed" "$(git -C "$R" remote | wc -l | tr -d ' ')" "0"
 assert_eq "next step names the publish command" "$(printf '%s' "$OUT" | grep -c 'tower-release --tag 0.2.0')" "1"
 
 new_repo "$R"
+printf '\n## v0.0.9 — 2026-01-01\n\n- Old.\n' >> "$R/CHANGELOG.md"
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- From T031.' '  continued line.' '' > "$R/changelog.d/T031.md"
+printf '%s\n' '- From T030.' > "$R/changelog.d/T030.md"
+: > "$R/changelog.d/.gitkeep"
+git -C "$R" add -A
+git -C "$R" commit -q -m "two fragments and placeholder"
+mkdir -p "$TMP/release-tmp"
+OUT="$(TMPDIR="$TMP/release-tmp" "$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "a release folds tracked fragments in filename order" "$?" "0"
+assert_empty "a release that folds fragments leaves no temp files behind" "$(ls -A "$TMP/release-tmp")"
+SECTION="$(awk '/^## v0.7.0 — /{f=1;next} /^## /{f=0} f' "$R/CHANGELOG.md")"
+EXPECTED="$(printf '\n- Something shipped.\n\n- From T030.\n\n- From T031.\n  continued line.')"
+assert_eq "the version section keeps Unreleased entries before sorted fragments" "$SECTION" "$EXPECTED"
+assert_eq "the old version follows one blank line after fragments" \
+  "$(awk '/continued line\./{getline; if ($0 == "") {getline; print}}' "$R/CHANGELOG.md")" "## v0.0.9 — 2026-01-01"
+assert_eq "folded fragments are absent from the working tree" \
+  "$(find "$R/changelog.d" -name '*.md' -print)" ""
+assert_eq "folded fragments are absent from the release commit" \
+  "$(git -C "$R" ls-tree -r --name-only HEAD -- changelog.d/ | grep '\.md$')" ""
+assert_eq "the placeholder remains tracked" \
+  "$(git -C "$R" ls-files -- changelog.d/.gitkeep)" "changelog.d/.gitkeep"
+assert_eq "the release commit deletes both fragments" \
+  "$(git -C "$R" diff --name-status HEAD~1 HEAD -- changelog.d/ | grep '^D')" \
+  "$(printf 'D\tchangelog.d/T030.md\nD\tchangelog.d/T031.md')"
+assert_eq "the tree is clean after folding fragments" "$(git -C "$R" status --porcelain)" ""
+
+new_repo "$R"
+printf '# Changelog\n\n## Unreleased\n\n' > "$R/CHANGELOG.md"
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Fragment only.' > "$R/changelog.d/T030.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "fragment without Unreleased content"
+"$R/scripts/tower-release" 0.7.0 >/dev/null 2>&1
+assert_status "a fragment alone permits a release" "$?" "0"
+assert_eq "a fragment alone lands under the version heading" \
+  "$(awk '/^## v0.7.0 — /{getline; getline; print}' "$R/CHANGELOG.md")" "- Fragment only."
+
+new_repo "$R"
+printf '# Changelog\n\n## Unreleased\n\n' > "$R/CHANGELOG.md"
+mkdir -p "$R/changelog.d"
+printf '  \n\t\n' > "$R/changelog.d/T030.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "whitespace-only fragment"
+BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
+OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "a whitespace-only fragment cannot permit an empty release" "$?" "1"
+assert_eq "an empty release refusal names both empty sources" \
+  "$(printf '%s' "$OUT" | grep -c "tower-release: CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/ fragment has an entry")" "1"
+assert_eq "a refused empty release makes no commit" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
+assert_eq "a refused empty release keeps the old manifest version" \
+  "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
+
+new_repo "$R"
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Untracked entry.' > "$R/changelog.d/T040.md"
+"$R/scripts/tower-release" 0.7.0 >/dev/null 2>&1
+assert_status "an untracked fragment does not prevent a release" "$?" "0"
+assert_eq "an untracked fragment is not folded" \
+  "$(grep -c 'Untracked entry' "$R/CHANGELOG.md")" "0"
+assert_eq "an untracked fragment stays in the working tree" \
+  "$(cat "$R/changelog.d/T040.md")" "- Untracked entry."
+assert_eq "an untracked fragment stays outside the release commit" \
+  "$(git -C "$R" ls-tree -r --name-only HEAD -- changelog.d/T040.md)" ""
+
+new_repo "$R"
 git -C "$R" branch release-v0.2.0
 BEFORE_LOG="$(git -C "$R" log --format=%H)"
 BEFORE_BRANCH="$(git -C "$R" symbolic-ref --short -q HEAD)"
