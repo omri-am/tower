@@ -1,6 +1,6 @@
 """Git-internal mailbox shared by every worktree of a tower project."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import fcntl
 import json
 import math
@@ -17,6 +17,7 @@ import time
 BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
 DELIVERY_ATTEMPTS = 3
+CLAIM_STALE_AFTER = timedelta(minutes=10)
 _OWNED = {}
 MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
 REDELIVERY = re.compile(r'(?m)^redelivery: (\d+)$')
@@ -252,6 +253,7 @@ def deliver(directory, role, message_id):
         if is_delivered(directory, message_id):
             return 0
         record = live_record(role)
+        recover_abandoned_claims(directory, record)
         outcomes = {}
         if adapter_for(record) is not None:
             outcomes, record = deliver_queued(directory, role, record)
@@ -335,6 +337,27 @@ def return_failed_claim(directory, message_id, header, text):
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+def recover_abandoned_claims(directory, record):
+    for message_id in message_ids(directory, ('claimed',)):
+        claim = directory / 'claimed' / (message_id + '.claim')
+        claimant = at = raw_at = None
+        try:
+            fields = dict(line.split('=', 1) for line in claim.read_text(encoding='utf-8').splitlines())
+            claimant, raw_at = fields['claimant'], fields['at']
+            at = datetime.fromisoformat(raw_at)
+        except (FileNotFoundError, KeyError, ValueError):
+            pass
+        if (record is not None and claimant == record['session'] and at is not None and at.tzinfo is not None
+                and datetime.now(timezone.utc) - at < CLAIM_STALE_AFTER):
+            continue
+        header, text = (directory / 'claimed' / message_id).read_text(encoding='utf-8').split('\n---\n', 1)
+        (directory / 'submitted' / (message_id + '.submitted')).unlink(missing_ok=True)
+        return_failed_claim(directory, message_id, header, text)
+        record_delivery_failure(directory, message_id, 75,
+                                f'abandoned claim recovered (claimant={claimant or "unknown"}, at={raw_at or "unknown"})')
+        claim.unlink(missing_ok=True)
 
 
 def record_delivery_failure(directory, message_id, code, error):

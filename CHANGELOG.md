@@ -5,6 +5,17 @@ what the version gives them.
 
 ## Unreleased
 
+- A message left in `claimed/` by a `tower send` that died mid-delivery is requeued by the
+  next `tower send` to that role. Recovery is immediate when its claimant is no longer the
+  role's live session or the role has no live owner; otherwise it waits until the claim is
+  10 minutes old. A `tower send` that is still delivering is never recovered, because
+  recovery takes the same per-role delivery lock; an adapter command left running by a
+  killed `tower send` can still finish after recovery, which is why the recovered copy says
+  `possibly a duplicate`. Recovery counts as a failed attempt: `redelivery` increases and
+  the same 3-attempt limit applies. It is logged in `mailbox/<role>/delivery.log` as
+  `exit=75 abandoned claim recovered`. There is no daemon, so a role nobody sends to keeps
+  its abandoned claims.
+
 - A message whose delivery fails 3 times now moves to `undeliverable/` instead of being
   retried on every `tower send`. `tower agents` gains an `undeliverable:<n>` field per role.
   `tower inbox list` and `read` deliberately ignore undeliverable messages because they
