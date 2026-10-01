@@ -5,6 +5,17 @@ what the version gives them.
 
 ## Unreleased
 
+- Codex roles registered with `tower-register --thread <session uuid or name>` report
+  `wake: native`; `tower send` delivers through `codex queue` into submitted, not acknowledged;
+  Codex is the only entry in the per-vendor adapter table.
+  Only `tower inbox ack` acknowledges, and it now accepts submitted messages;
+  `inbox list`/`--wait` include submitted, and `tower agents` counts claimed and submitted
+  messages as unacknowledged. Messages are stored first: exit 0 means delivered; exit 1 means
+  stored but not delivered (when attempted, requeued with redelivery incremented and the error
+  appended to `mailbox/<role>/delivery.log`); exit 3 means stored with no live owner; exit 4
+  means stored but the role cannot be woken automatically. Queue calls time out after 30
+  seconds (logged as exit 124). Before storing, usage errors exit 2 and other errors exit 1.
+
 - The task-card template and `PROTOCOL.md` now list the optional `model:` and `effort:` fields
   that `tower-dispatch` records and reuses. `docs/REFERENCE.md` documents `--model`/`--effort`,
   and the orchestrator skill and `PROTOCOL.md` direct card creation through `tower new`.
