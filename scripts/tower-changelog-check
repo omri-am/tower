@@ -17,13 +17,16 @@ if printf '%s\n' "$CHANGED" | grep -q '^CHANGELOG\.md$'; then
   exit 0
 fi
 
+FRAGMENTS="$(git -C "$ROOT" diff --name-only --diff-filter=AM "$BASE...HEAD" -- changelog.d/)" || die "git diff failed for '$BASE...HEAD'"
+[ -z "$FRAGMENTS" ] || exit 0
+
 TRIGGER_RE='^(bin/|lib/|web/|hooks/|scripts/|skills/|templates/|commands/|\.claude-plugin/|PROTOCOL_VERSION$)'
 TRIGGERED="$(printf '%s\n' "$CHANGED" | grep -E "$TRIGGER_RE" || true)"
 
 [ -n "$TRIGGERED" ] || exit 0
 
 {
-  echo "tower-changelog-check: these paths need a CHANGELOG.md entry:"
+  echo "tower-changelog-check: these paths need a CHANGELOG.md entry or a changelog.d/<task-id>.md fragment:"
   printf '%s\n' "$TRIGGERED" | sed 's/^/tower-changelog-check:   /'
 } >&2
 exit 1
