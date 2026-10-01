@@ -64,14 +64,12 @@ with tempfile.TemporaryDirectory() as scratch:
     log = (box / 'delivery.log').read_text().splitlines()
     for name, digit, attempts, claimant, at, destination in cases:
         message_id = 'm-20000101T000000Z-' + digit * 32
-        if name == 'fresh':
-            assert (box / 'claimed' / message_id).is_file(), 'fresh claim was stolen'
-        stored = (box / destination / message_id).read_text()
         claim = box / 'claimed' / (message_id + '.claim')
         lines = [line for line in log if message_id in line]
         if name == 'fresh':
-            assert claim.is_file() and not lines, 'fresh claim was stolen'
+            assert (box / 'claimed' / message_id).is_file() and claim.is_file() and not lines, 'fresh claim was stolen'
         else:
+            stored = (box / destination / message_id).read_text()
             assert f'redelivery: {attempts + 1}' in stored and '; possibly a duplicate]' in stored
             assert not claim.exists() and len(lines) == 1
             assert f'{message_id} exit=75 abandoned claim recovered' in lines[0]
