@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 python3 - "$ROOT" <<'PY'
 import concurrent.futures
+from datetime import datetime, timedelta, timezone
 import fcntl
 import json
 import os
@@ -38,6 +39,52 @@ with tempfile.TemporaryDirectory() as scratch:
     module['return_failed_claim'](box, 'legacy', header, text)
     assert (box / 'queued' / 'legacy').read_text() == header + '\n---\n[tower message legacy; possibly a duplicate]\nbody\n'
     assert not list((box / 'claimed').iterdir()) and not list((box / 'undeliverable').iterdir())
+    box = base / 'claim-recovery'
+    for state in module['STATES']:
+        (box / state).mkdir(parents=True)
+    now = datetime.now(timezone.utc)
+    cases = (('fresh', '0', 0, 'live', now, 'claimed'),
+             ('stale', '1', 0, 'live', now - timedelta(minutes=11), 'queued'),
+             ('other', '2', 0, 'old', now, 'queued'),
+             ('missing', '3', 0, None, None, 'queued'),
+             ('naive', '6', 0, 'live', now.replace(tzinfo=None), 'queued'),
+             ('retired', '4', 2, 'old', now, 'undeliverable'))
+    for name, digit, attempts, claimant, at, destination in cases:
+        message_id = 'm-20000101T000000Z-' + digit * 32
+        assert module['MESSAGE_ID'].fullmatch(message_id)
+        (box / 'claimed' / message_id).write_text(
+            f'---\nid: "{message_id}"\nredelivery: {attempts}\n---\n'
+            f'[tower message {message_id} from x; ack with: tower inbox ack {message_id}]\nbody\n')
+        if claimant is not None:
+            (box / 'claimed' / (message_id + '.claim')).write_text(
+                f'claimant={claimant}\nat={at.isoformat()}\n')
+        if name == 'other':
+            (box / 'submitted' / (message_id + '.submitted')).write_text('orphan')
+    module['recover_abandoned_claims'](box, {'session': 'live'})
+    log = (box / 'delivery.log').read_text().splitlines()
+    for name, digit, attempts, claimant, at, destination in cases:
+        message_id = 'm-20000101T000000Z-' + digit * 32
+        if name == 'fresh':
+            assert (box / 'claimed' / message_id).is_file(), 'fresh claim was stolen'
+        stored = (box / destination / message_id).read_text()
+        claim = box / 'claimed' / (message_id + '.claim')
+        lines = [line for line in log if message_id in line]
+        if name == 'fresh':
+            assert claim.is_file() and not lines, 'fresh claim was stolen'
+        else:
+            assert f'redelivery: {attempts + 1}' in stored and '; possibly a duplicate]' in stored
+            assert not claim.exists() and len(lines) == 1
+            assert f'{message_id} exit=75 abandoned claim recovered' in lines[0]
+    assert not (box / 'submitted' / ('m-20000101T000000Z-' + '2' * 32 + '.submitted')).exists()
+    no_owner = 'm-20000101T000000Z-' + '5' * 32
+    (box / 'claimed' / no_owner).write_text(
+        f'---\nid: "{no_owner}"\nredelivery: 0\n---\n'
+        f'[tower message {no_owner} from x; ack with: tower inbox ack {no_owner}]\nbody\n')
+    (box / 'claimed' / (no_owner + '.claim')).write_text(f'claimant=live\nat={now.isoformat()}\n')
+    module['recover_abandoned_claims'](box, None)
+    assert (box / 'queued' / no_owner).is_file() and not (box / 'claimed' / (no_owner + '.claim')).exists()
+    assert len([line for line in (box / 'delivery.log').read_text().splitlines()
+                if f'{no_owner} exit=75 abandoned claim recovered' in line]) == 1
     for mode in ('tracked', 'sidecar'):
         project, worktree = base / mode, base / (mode + '-worktree')
         project.mkdir()
@@ -277,6 +324,43 @@ with tempfile.TemporaryDirectory() as scratch:
                         assert result.returncode == 0, ('own message delivery exit', result.returncode)
                         assert (box / 'submitted' / result.stdout.strip()).is_file()
                         assert (box / 'queued' / nul).is_file() and not list((box / 'claimed').iterdir())
+                        marker, release = base / (mode + '-killed-running'), base / (mode + '-killed-release')
+                        sender = subprocess.Popen([sys.executable, str(root / 'lib/tower_msg.py'),
+                                                   'send', role, 'killed mid-delivery'], cwd=project,
+                                                  env=dict(env, CODEX_BLOCK=str(marker), CODEX_RELEASE=str(release)),
+                                                  text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        try:
+                            killed = sender.stdout.readline().strip()
+                            deadline = time.monotonic() + 5
+                            while not marker.exists() and sender.poll() is None and time.monotonic() < deadline:
+                                time.sleep(0.01)
+                            assert marker.exists(), 'killed-delivery stub did not start'
+                            sender.kill()
+                            sender.communicate(timeout=5)
+                        finally:
+                            release.touch()
+                            if sender.poll() is None:
+                                sender.kill()
+                                sender.communicate(timeout=5)
+                        assert (box / 'claimed' / killed).is_file()
+                        assert f'claimant={session}' in (box / 'claimed' / (killed + '.claim')).read_text()
+                        tower(project, 'send', role, 'while claimed')
+                        assert (box / 'claimed' / killed).is_file(), 'fresh claim was stolen'
+                        assert (box / 'claimed' / (killed + '.claim')).is_file()
+                        assert not [line for line in (box / 'delivery.log').read_text().splitlines() if killed in line]
+                        owner.terminate()
+                        owner.communicate(timeout=5)
+                        owner = subprocess.Popen([str(root / 'bin/tower-register'), role,
+                                                  '--vendor', 'codex', '--thread', thread], cwd=project,
+                                                 env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        assert len(owner.stdout.readline().strip()) == 32
+                        tower(project, 'send', role, 'after owner change')
+                        assert (box / 'submitted' / killed).is_file(), 'abandoned claim was not redelivered'
+                        stored = (box / 'submitted' / killed).read_text()
+                        assert 'redelivery: 1' in stored and '; possibly a duplicate]' in stored
+                        failures = [line for line in (box / 'delivery.log').read_text().splitlines() if killed in line]
+                        assert len(failures) == 1 and f'{killed} exit=75 abandoned claim recovered' in failures[0]
+                        assert not list((box / 'claimed').iterdir())
                         argv_file.unlink()
                         # Signal the delivery lock attempt so ownership can be swapped deterministically.
                         child = """import fcntl, runpy, sys
