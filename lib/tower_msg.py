@@ -16,8 +16,10 @@ import time
 
 BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
+DELIVERY_ATTEMPTS = 3
 _OWNED = {}
 MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
+REDELIVERY = re.compile(r'(?m)^redelivery: (\d+)$')
 ADAPTERS = {
     'codex': {
         'qualifies': lambda record: bool(record['thread']),
@@ -152,6 +154,10 @@ def unacknowledged_count(role):
     return len(message_ids(mailbox(role), ('queued', 'claimed', 'submitted')))
 
 
+def undeliverable_count(role):
+    return len(message_ids(mailbox(role), ('undeliverable',)))
+
+
 def list_agents():
     result = []
     for entry in sorted(agents_directory().glob('*.json')):
@@ -159,7 +165,8 @@ def list_agents():
         role = record['role']
         live, wake = owner_status(role)
         result.append(dict(record, live=live, wake=wake,
-                           unacknowledged=unacknowledged_count(role)))
+                           unacknowledged=unacknowledged_count(role),
+                           undeliverable=undeliverable_count(role)))
     return result
 
 
@@ -297,7 +304,7 @@ def deliver_queued(directory, role, record):
         outcomes[message_id] = code == 0
         if code != 0:
             submitted.with_suffix('.submitted').unlink(missing_ok=True)
-            requeue_for_redelivery(directory, message_id, header, text)
+            return_failed_claim(directory, message_id, header, text)
             record_delivery_failure(directory, message_id, code, error)
         claim.unlink(missing_ok=True)
         if interrupted is not None:
@@ -305,10 +312,15 @@ def deliver_queued(directory, role, record):
     return outcomes, record
 
 
-def requeue_for_redelivery(directory, message_id, header, text):
+def return_failed_claim(directory, message_id, header, text):
     claimed = directory / 'claimed' / message_id
-    header = re.sub(r'(?m)^redelivery: (\d+)$',
-                    lambda match: f'redelivery: {int(match[1]) + 1}', header)
+    destination = 'queued'
+    match = REDELIVERY.search(header)
+    if match:
+        redelivery = int(match[1]) + 1
+        header = REDELIVERY.sub(f'redelivery: {redelivery}', header)
+        if redelivery >= DELIVERY_ATTEMPTS:
+            destination = 'undeliverable'
     envelope, body = text.split('\n', 1)
     if not envelope.endswith('; possibly a duplicate]'):
         envelope = envelope[:-1] + '; possibly a duplicate]'
@@ -319,7 +331,7 @@ def requeue_for_redelivery(directory, message_id, header, text):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, claimed)
-        claimed.rename(directory / 'queued' / message_id)
+        claimed.rename(directory / destination / message_id)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)

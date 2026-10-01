@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import runpy
 import signal
 import subprocess
 import sys
@@ -28,6 +29,15 @@ def tower(cwd, *args, **kwargs):
 
 with tempfile.TemporaryDirectory() as scratch:
     base = Path(scratch)
+    module = runpy.run_path(str(root / 'lib/tower_msg.py'))
+    box = base / 'missing-redelivery'
+    for state in module['STATES']:
+        (box / state).mkdir(parents=True)
+    header, text = 'from: "reader"', '[tower message legacy]\nbody\n'
+    (box / 'claimed' / 'legacy').write_text(header + '\n---\n' + text)
+    module['return_failed_claim'](box, 'legacy', header, text)
+    assert (box / 'queued' / 'legacy').read_text() == header + '\n---\n[tower message legacy; possibly a duplicate]\nbody\n'
+    assert not list((box / 'claimed').iterdir()) and not list((box / 'undeliverable').iterdir())
     for mode in ('tracked', 'sidecar'):
         project, worktree = base / mode, base / (mode + '-worktree')
         project.mkdir()
@@ -155,18 +165,44 @@ with tempfile.TemporaryDirectory() as scratch:
                         log = (box / 'delivery.log').read_text().splitlines()
                         assert len(log) == 1 and f'{message} exit=9 stub diagnostic' in log[0]
                         assert 'stub diagnostic' in result.stderr
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
-                            retried = list(pool.map(lambda i: tower(project, 'send', role, str(i), code=1), range(5)))
-                        assert set(path.name for path in (box / 'queued').iterdir()) == {message, *retried}
-                        assert not list((box / 'claimed').iterdir()) and not list((box / 'acknowledged').iterdir())
-                        stored = tower(project, 'inbox', '--role', role, 'read', message)
-                        assert 'redelivery: 6' in stored and stored.count('; possibly a duplicate]') == 1
+                        second = tower(project, 'send', role, 'second failure', code=1)
+                        assert 'redelivery: 2' in (box / 'queued' / message).read_text()
+                        result = subprocess.run([str(root / 'bin/tower'), 'send', role, 'third failure'],
+                                                cwd=project, env=env, text=True, capture_output=True)
+                        assert result.returncode == 1 and 'stub diagnostic' in result.stderr
+                        third = result.stdout.strip()
+                        retired = box / 'undeliverable' / message
+                        stored = retired.read_text()
+                        assert 'redelivery: 3' in stored and stored.count('; possibly a duplicate]') == 1
+                        assert not (box / 'queued' / message).exists()
+                        failures = [line for line in (box / 'delivery.log').read_text().splitlines() if message in line]
+                        assert len(failures) == 3 and all(f'{message} exit=9 stub diagnostic' in line for line in failures)
+                        assert f'{role}\t{vendor}\tlive\twake:native\tunacknowledged:2\tundeliverable:1' in tower(project, 'agents').splitlines()
+                        assert set(tower(worktree, 'inbox', '--role', role, 'list').splitlines()) == {second, third}
+                        result = subprocess.run([str(root / 'bin/tower'), 'inbox', '--role', role, 'read', message],
+                                                cwd=project, env=env, text=True, capture_output=True)
+                        assert result.returncode == 1 and f'not-found: {message}' in result.stderr
+                        assert retired.read_text() == stored
+                        assert [line for line in (box / 'delivery.log').read_text().splitlines() if message in line] == failures
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+                            retried = list(pool.map(lambda i: tower(project, 'send', role, str(i), code=1), range(3)))
+                        queued = {path.name for path in (box / 'queued').iterdir()}
+                        undeliverable = {path.name for path in (box / 'undeliverable').iterdir()}
+                        assert queued.isdisjoint(undeliverable) and queued | undeliverable == {message, second, third, *retried}
+                        assert not list((box / 'claimed').iterdir())
+                        assert all(int(re.search(r'(?m)^redelivery: (\d+)$', (box / 'queued' / item).read_text())[1]) < 3 for item in queued)
                         env['CODEX_EXIT'] = '0'
                         recovered = tower(project, 'send', role, 'retry succeeded')
-                        assert all((box / 'submitted' / item).is_file() for item in [message, *retried, recovered])
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+                            fresh = list(pool.map(lambda i: tower(project, 'send', role, str(i)), range(5)))
+                        assert len(set(fresh)) == 5
+                        submitted = {path.name for path in (box / 'submitted').iterdir() if not path.name.endswith('.submitted')}
+                        assert submitted == queued | {recovered, *fresh}
                         assert not list((box / 'queued').iterdir()) and not list((box / 'claimed').iterdir())
+                        assert retired.read_text() == stored
+                        assert [line for line in (box / 'delivery.log').read_text().splitlines() if message in line] == failures
                         first = 'm-20000101T000000Z-' + '1' * 32
-                        (box / 'queued' / first).write_text((box / 'submitted' / message).read_text().replace(message, first))
+                        (box / 'queued' / first).write_text((box / 'submitted' / recovered).read_text().replace(recovered, first))
                         marker, release = base / (mode + '-batch-running'), base / (mode + '-batch-release')
                         sender = subprocess.Popen([sys.executable, str(root / 'lib/tower_msg.py'),
                                                    'send', role, 'second in batch'], cwd=project,
@@ -203,7 +239,7 @@ with tempfile.TemporaryDirectory() as scratch:
                         assert (box / 'submitted' / (message + '.submitted')).read_text().startswith('at=')
                         assert tower(worktree, 'inbox', '--role', role, 'list') == message
                         assert tower(worktree, 'inbox', '--role', role, '--wait', '0') == message
-                        assert f'{role}\t{vendor}\tlive\twake:native\tunacknowledged:1' in tower(project, 'agents')
+                        assert f'{role}\t{vendor}\tlive\twake:native\tunacknowledged:1\tundeliverable:0' in tower(project, 'agents').splitlines()
                         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
                             acks = list(pool.map(lambda _: tower(project, 'inbox', '--role', role, 'ack', message), range(20)))
                         assert sum('already-acknowledged' not in ack for ack in acks) == 1

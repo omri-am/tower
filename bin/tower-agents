@@ -20,7 +20,7 @@ try:
             vendor += ' ' + agent['vendor_version']
         status = 'live' if agent['live'] else 'stale'
         print(f"{agent['role']}\t{vendor}\t{status}\twake:{agent['wake']}"
-              f"\tunacknowledged:{agent['unacknowledged']}")
+              f"\tunacknowledged:{agent['unacknowledged']}\tundeliverable:{agent['undeliverable']}")
 except (OSError, ValueError, subprocess.CalledProcessError) as error:
     print(f'tower-agents: {error}', file=sys.stderr)
     sys.exit(1)

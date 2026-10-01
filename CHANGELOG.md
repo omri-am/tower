@@ -5,6 +5,11 @@ what the version gives them.
 
 ## Unreleased
 
+- A message whose delivery fails 3 times now moves to `undeliverable/` instead of being
+  retried on every `tower send`. `tower agents` gains an `undeliverable:<n>` field per role.
+  `tower inbox list` and `read` deliberately ignore undeliverable messages because they
+  wait for a human, not the receiver.
+
 - Codex roles registered with `tower-register --thread <session uuid or name>` report
   `wake: native`; `tower send` delivers through `codex queue` into submitted, not acknowledged;
   Codex is the only entry in the per-vendor adapter table.
