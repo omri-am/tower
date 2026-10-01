@@ -106,7 +106,7 @@ time.sleep(60)
                     TOWER_CODEX_MARKER=str(marker))
     sent = subprocess.run([str(root / 'bin/tower-send'), 'stalenative', 'hello'],
                           env=send_env, capture_output=True, text=True)
-    assert sent.returncode == 3
+    assert sent.returncode == 3, (sent.returncode, sent.stderr)
     assert 'has no live owner' in sent.stderr
     assert not marker.exists()
 print('agents: all integration checks passed')
