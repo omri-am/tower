@@ -141,6 +141,15 @@ Body sections, all required:
   every box is checked and verified.
 - `## Verification` — exact commands that prove the acceptance criteria.
 
+**Changelog entries.** A project takes changelog fragments when its changelog tooling reads
+`changelog.d/`, as tower's own repository does with `scripts/tower-changelog-check` and
+`scripts/tower-release`. In such a project, a card's changelog entry goes in its own
+`changelog.d/<task-id>.md`, and the card's `## File ownership` lists that path. The card
+template documents the path in a comment, so dispatch still refuses a card whose ownership
+nobody filled in. Every card owns a different fragment, so two cards never need sequencing
+over the changelog. The tooling also accepts a direct `CHANGELOG.md` edit. Use it for a
+release or a hand edit that belongs to no card.
+
 Card size: one card is one reviewable PR. Concretely, it crosses one boundary, lists five or
 fewer paths under `## File ownership`, and carries seven or fewer acceptance criteria. A card
 that wants more than that wants splitting. This is where the protocol's two opposing forces
