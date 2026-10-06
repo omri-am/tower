@@ -276,7 +276,7 @@ assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "towe
   . "$ROOT/lib/tower-dispatch.sh"
   LAUNCH_ADAPTERS='fake - - - - - -'
   VENDOR=fake MODE=terminal MODEL=m EFFORT=e
-  prepare_launch name
+  prepare_launch name || exit
   printf '%s\n' "${#AGENT_ARGS[@]}"
 ) > "$TMP/none.stdout" 2> "$TMP/none.stderr"
 assert_status 'adapter with no flags prepares launch' "$?" 0
