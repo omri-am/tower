@@ -23,7 +23,8 @@ def main():
                                'payload = sys.stdin.read()\n'
                                'with pathlib.Path("hook-session-start.jsonl").open("a") as out:\n'
                                '    out.write(json.dumps({"time": time.time(), "payload": payload, '
-                               '"environment": dict(os.environ)}) + "\\n")\n'
+                               '"environment": {key: value for key, value in os.environ.items() '
+                               'if key.startswith("CODEX_")}}) + "\\n")\n'
                                '    out.flush()\n')
             command = shlex.join([sys.executable, str(capture)])
             # CLI -c parses the right side as TOML; the hook source stays in scratch.

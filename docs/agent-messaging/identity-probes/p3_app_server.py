@@ -4,7 +4,7 @@ For live runs set CODEX_BIN=/Users/omriam/.codex/packages/standalone/releases/0.
 """
 import os
 from pathlib import Path
-import time
+import subprocess
 
 from common import command, guard, parser
 from listing import Client, schema_excerpt
@@ -34,8 +34,8 @@ def daemon_socket(run):
 
 
 def daemon_pids():
-    result = __import__('subprocess').run(['pgrep', '-f', 'codex.*app-server'],
-                                         capture_output=True, text=True)
+    result = subprocess.run(['pgrep', '-f', 'codex.*app-server'],
+                            capture_output=True, text=True)
     return [line for line in result.stdout.splitlines() if line.isdigit()]
 
 

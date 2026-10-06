@@ -9,7 +9,6 @@ from pathlib import Path
 import pty
 import re
 import select
-import shutil
 import signal
 import struct
 import subprocess
@@ -28,6 +27,7 @@ SCREEN_CLEAR = re.compile(r'\x1b\[2J|\x1b\[1;1H\x1b\[J')
 NUMBERED_OPTION = re.compile(r'(?<![\w.])\d+\.(?!\d)')
 FOOTER = re.compile(r'(?:enter\s*(?:to\s*)?continue|esc\s*(?:to\s*)?(?:skip|quit|cancel))', re.I)
 DIALOG_FOOTER = re.compile(r'(?:enter|esc)\s*(?:to\s*)?(?:continue|confirm|skip|quit|cancel)', re.I)
+CONFIRMATION = re.compile(r'[\[(]\s*[yYnN]\s*/\s*[yYnN]\s*[\])]')
 
 
 def detect_dialog(screen, cwd, scratch_path_seen=False):
@@ -54,7 +54,7 @@ def detect_dialog(screen, cwd, scratch_path_seen=False):
     later_dialog = (trust_footer is not None and
                     (any(option.start() >= trust_footer.end() for option in numbered) or
                      any(footer.start() >= trust_footer.end() for footer in footers)))
-    if old_choice or later_dialog:
+    if old_choice or later_dialog or CONFIRMATION.search(plain):
         return 'other', plain
     if trust_signature and trust_footer is not None:
         return 'trust', plain
@@ -131,6 +131,11 @@ class Run:
         os.write(self.fd, (json.dumps(event, sort_keys=True) + '\n').encode())
         os.fsync(self.fd)
 
+    def write_pty(self, child, label, data):
+        self.log('pty_write', {'pid': child['pid'], 'label': label,
+                               'bytes_text': data.decode('utf-8', errors='backslashreplace')})
+        os.write(child['fd'], data)
+
     def check_time(self):
         if time.monotonic() >= self.deadline:
             raise TimeoutError('overall probe deadline')
@@ -206,7 +211,8 @@ class Run:
             dialog, plain = detect_dialog(child['screen'][child['input_offset']:], self.cwd,
                                           child['scratch_path_seen'])
             now = time.monotonic()
-            has_choice = bool(NUMBERED_OPTION.search(plain) or DIALOG_FOOTER.search(plain))
+            has_choice = bool(NUMBERED_OPTION.search(plain) or DIALOG_FOOTER.search(plain)
+                              or CONFIRMATION.search(plain))
             if has_choice and child['choice_seen'] is None:
                 child['choice_seen'] = now
             if not has_choice:
@@ -246,7 +252,7 @@ class Run:
                     raise RuntimeError('choice dialog; sent no response')
                 if dialog != 'trust':
                     continue
-                os.write(child['fd'], b'\r')
+                self.write_pty(child, 'workspace_trust_enter', b'\r')
                 child['trusted'] = True
                 child['trust_seen'] = None
                 child['composer_seen'] = None
@@ -293,7 +299,7 @@ class Run:
         composer = re.sub(r'\s+', '', composer).lower()
         if 'enteramessage' not in composer and 'askcodextodoanything' not in composer:
             return
-        os.write(child['fd'], b'\x1b[200~' + prompt.encode() + b'\x1b[201~')
+        self.write_pty(child, 'bracketed_paste', b'\x1b[200~' + prompt.encode() + b'\x1b[201~')
         time.sleep(0.2)
         self.drain_screen(child)
         dialog, plain = detect_dialog(child['screen'][child['input_offset']:], self.cwd,
@@ -301,7 +307,7 @@ class Run:
         if dialog:
             self.log('dialog_stop', {'pid': child['pid'], 'screen': plain[-8000:]})
             raise RuntimeError('dialog appeared after paste; sent no Enter')
-        os.write(child['fd'], b'\r')
+        self.write_pty(child, 'prompt_enter', b'\r')
         child['input_offset'] = len(child['screen'])
         child['prompt_sent'] = True
         self.log('prompt', {'pid': child['pid'], 'text': prompt})
@@ -362,12 +368,14 @@ class Run:
         for child in self.children:
             pid = child['pid']
             reaped = False
+            wait_status = None
             try:
                 os.killpg(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+            except OSError as error:
+                self.log('killpg_error', {'pid': pid, 'signal': 'SIGTERM', 'error': repr(error)})
             end = time.monotonic() + 5
             while time.monotonic() < end:
+                self.drain_exit_output(child)
                 try:
                     waited_pid, wait_status = os.waitpid(pid, os.WNOHANG)
                     reaped = bool(waited_pid)
@@ -378,12 +386,14 @@ class Run:
                     break
                 time.sleep(0.05)
             if not reaped:
+                self.log('reap_timeout', {'pid': pid, 'after_signal': 'SIGTERM'})
                 try:
                     os.killpg(pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    pass
+                except OSError as error:
+                    self.log('killpg_error', {'pid': pid, 'signal': 'SIGKILL', 'error': repr(error)})
                 end = time.monotonic() + 2
                 while time.monotonic() < end:
+                    self.drain_exit_output(child)
                     try:
                         waited_pid, wait_status = os.waitpid(pid, os.WNOHANG)
                         reaped = bool(waited_pid)
@@ -393,10 +403,24 @@ class Run:
                     if reaped:
                         break
                     time.sleep(0.05)
+            if not reaped:
+                self.log('reap_timeout', {'pid': pid, 'after_signal': 'SIGKILL'})
             os.close(child['fd'])
             self.log('child_stop', {'pid': pid, 'reaped': reaped,
                                     'waitpid_status': wait_status if reaped else None})
         os.close(self.fd)
+
+    def drain_exit_output(self, child):
+        for _ in range(20):
+            if not select.select([child['fd']], [], [], 0)[0]:
+                return
+            try:
+                data = os.read(child['fd'], 65536)
+            except OSError:
+                return
+            if not data:
+                return
+            self.record_screen(child, data)
 
 
 def parser(name):

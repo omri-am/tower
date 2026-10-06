@@ -103,21 +103,29 @@ class Client:
 
     def close(self):
         pid = self.process.pid
+        if self.process.poll() is None:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+            except OSError as error:
+                self.run.log('killpg_error', {'pid': pid, 'signal': 'SIGTERM',
+                                               'error': repr(error)})
         try:
-            os.killpg(pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            pass
-        try:
-            self.process.wait(timeout=2)
+            self.process.communicate(timeout=2)
         except subprocess.TimeoutExpired:
+            if self.process.poll() is None:
+                self.run.log('reap_timeout', {'pid': pid, 'after_signal': 'SIGTERM'})
+                try:
+                    os.killpg(pid, signal.SIGKILL)
+                except OSError as error:
+                    self.run.log('killpg_error', {'pid': pid, 'signal': 'SIGKILL',
+                                                   'error': repr(error)})
+            else:
+                self.run.log('pipe_drain_timeout', {'pid': pid, 'after_signal': 'SIGTERM'})
             try:
-                os.killpg(pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-            try:
-                self.process.wait(timeout=1)
+                self.process.communicate(timeout=1)
             except subprocess.TimeoutExpired:
-                pass
+                label = 'reap_timeout' if self.process.poll() is None else 'pipe_drain_timeout'
+                self.run.log(label, {'pid': pid, 'after_signal': 'SIGKILL'})
         self.run.log('app_client_stop', {'pid': pid, 'returncode': self.process.poll(),
                                          'reaped': self.process.returncode is not None})
 

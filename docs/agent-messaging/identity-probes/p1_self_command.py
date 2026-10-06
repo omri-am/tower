@@ -5,7 +5,6 @@ Live mode can install and start Codex's managed app-server daemon.
 """
 import json
 import os
-from pathlib import Path
 import re
 import select
 import signal
@@ -76,8 +75,21 @@ def agents_pty(run, env, thread):
     until = min(run.deadline, started + 10)
     checkpoints = [1, 3, 10]
     reaped = False
+    wait_status = None
+
+    def drain_exit_output():
+        for _ in range(20):
+            if not select.select([fd], [], [], 0)[0]:
+                return
+            try:
+                data = os.read(fd, 65536)
+            except OSError:
+                return
+            if not data:
+                return
+            run.log('agents_pty_drain', {'pid': pid, 'bytes': len(data)})
+
     try:
-        dialog = False
         while time.monotonic() < until:
             if select.select([fd], [], [], 0.2)[0]:
                 try:
@@ -99,7 +111,6 @@ def agents_pty(run, env, thread):
                                            line, re.I)]
                 run.log('dialog_stop', {'screen': redacted_agents(run, output, thread),
                                         'dialog_lines': safe_lines, 'kind': kind})
-                dialog = True
                 break
             while checkpoints and time.monotonic() - started >= checkpoints[0]:
                 run.log('agents_pty_screen', {'elapsed_seconds': checkpoints.pop(0),
@@ -108,49 +119,48 @@ def agents_pty(run, env, thread):
             run.log('agents_pty_screen', {'elapsed_seconds': checkpoints.pop(0),
                                            **redacted_agents(run, output, thread)})
         run.log('agents_pty_screen', redacted_agents(run, output, thread))
-        # The agents picker is read-only. Quit without selecting an entry.
-        for key in (() if dialog else (b'\x1b', b'q', b'\x03')):
-            os.write(fd, key)
-            if select.select([fd], [], [], 0.2)[0]:
-                try:
-                    os.read(fd, 65536)
-                except OSError:
-                    break
-            if os.waitpid(pid, os.WNOHANG)[0]:
-                reaped = True
-                break
     finally:
         if not reaped:
             try:
                 os.killpg(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+            except OSError as error:
+                run.log('killpg_error', {'pid': pid, 'signal': 'SIGTERM', 'error': repr(error)})
         end = time.monotonic() + 2
         while time.monotonic() < end:
+            drain_exit_output()
             try:
-                if os.waitpid(pid, os.WNOHANG)[0]:
+                waited_pid, wait_status = os.waitpid(pid, os.WNOHANG)
+                if waited_pid:
                     reaped = True
                     break
             except ChildProcessError:
                 reaped = True
+                wait_status = None
                 break
             time.sleep(0.05)
         if not reaped:
+            run.log('reap_timeout', {'pid': pid, 'after_signal': 'SIGTERM'})
             try:
                 os.killpg(pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
+            except OSError as error:
+                run.log('killpg_error', {'pid': pid, 'signal': 'SIGKILL', 'error': repr(error)})
             end = time.monotonic() + 2
             while time.monotonic() < end:
+                drain_exit_output()
                 try:
-                    if os.waitpid(pid, os.WNOHANG)[0]:
+                    waited_pid, wait_status = os.waitpid(pid, os.WNOHANG)
+                    if waited_pid:
                         reaped = True
                         break
                 except ChildProcessError:
                     reaped = True
+                    wait_status = None
                     break
                 time.sleep(0.05)
-        run.log('agents_pty_stop', {'pid': pid, 'reaped': reaped})
+        if not reaped:
+            run.log('reap_timeout', {'pid': pid, 'after_signal': 'SIGKILL'})
+        run.log('agents_pty_stop', {'pid': pid, 'reaped': reaped,
+                                    'waitpid_status': wait_status if reaped else None})
         os.close(fd)
 
 
