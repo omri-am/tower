@@ -87,7 +87,14 @@ def live_record(role):
 
 def owner_status(role):
     record = live_record(role)
-    return (True, record['wake']) if record else (False, 'none')
+    if record:
+        return True, record['wake']
+    entry = agents_directory() / (role + '.json')
+    try:
+        record = json.loads(entry.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        return False, 'none'
+    return False, record['wake']
 
 
 def register(role, vendor, vendor_version='', thread=''):

@@ -5,6 +5,12 @@ what the version gives them.
 
 ## Unreleased
 
+- `tower agents` now shows a stale role's stored wake capability instead of `wake:none`, so
+  a stale Codex role registered with `--thread` reads `stale` and `wake:native` and can be
+  told apart from a role that can never be woken, which still shows `wake:none`.
+  `tower send` is unchanged: a stale role has no live owner, so the message
+  stays queued and the command still exits 3.
+
 - A message left in `claimed/` by a `tower send` that died mid-delivery is requeued by the
   next `tower send` to that role. Recovery is immediate when its claimant is no longer the
   role's live session or the role has no live owner; otherwise it waits until the claim is
