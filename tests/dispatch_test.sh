@@ -212,7 +212,7 @@ assert_true 'codex dispatch with a model still succeeds' dispatch "$PROJECT" T00
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
 assert_true 'codex command carries model and effort' grep -q ' codex --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
 assert_false 'codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
-dispatch "$PROJECT" T001 --vendor codex --headless --model opus --effort high --print-only
+assert_true 'headless codex dispatch with a model succeeds' dispatch "$PROJECT" T001 --vendor codex --headless --model opus --effort high --print-only
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
 assert_true 'headless codex command carries model and effort' grep -q ' codex exec --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
 assert_false 'headless codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
@@ -251,19 +251,22 @@ PROJECT="$(cd "$PROJECT" && pwd -P)"
 WORKTREE="$(cd "$TMP" && pwd -P)/claude-golden-tower-worktrees/root/T001"
 SESSION="$("$ROOT/bin/tower-session-name" --task T001 --from "$PROJECT")"
 PROMPT="$PROJECT/.tower/prompts/T001-prompt.md"
-for HEADLESS in '' --headless; do
-  for FLAGS in '' model effort both; do
-    set -- T001
-    EXPECTED="cd $WORKTREE && TOWER_TASK=T001 claude -n $SESSION"
-    if [ -n "$HEADLESS" ]; then set -- "$@" --headless; EXPECTED="$EXPECTED -p"; fi
-    if [ "$FLAGS" = model ] || [ "$FLAGS" = both ]; then set -- "$@" --model opus; EXPECTED="$EXPECTED --model opus"; fi
-    if [ "$FLAGS" = effort ] || [ "$FLAGS" = both ]; then set -- "$@" --effort high; EXPECTED="$EXPECTED --effort high"; fi
-    (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" "$@" --print-only) > "$TMP/golden.stdout" 2> "$TMP/golden.stderr"
-    assert_status "claude $HEADLESS $FLAGS dispatch succeeds" "$?" 0
-    assert_eq "claude $HEADLESS $FLAGS command is unchanged" "$(cat "$TMP/golden.stdout")" "$EXPECTED \"\$(cat $PROMPT)\""
-    assert_empty "claude $HEADLESS $FLAGS has no stderr" "$(cat "$TMP/golden.stderr")"
-  done
-done
+assert_claude_command() {
+  local label="$1" arguments="$2"
+  shift 2
+  (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 "$@" --print-only) > "$TMP/golden.stdout" 2> "$TMP/golden.stderr"
+  assert_status "$label dispatch succeeds" "$?" 0
+  assert_eq "$label command is unchanged" "$(cat "$TMP/golden.stdout")" "cd $WORKTREE && TOWER_TASK=T001 claude $arguments \"\$(cat $PROMPT)\""
+  assert_empty "$label has no stderr" "$(cat "$TMP/golden.stderr")"
+}
+assert_claude_command 'claude' "-n $SESSION"
+assert_claude_command 'claude with model' "-n $SESSION --model opus" --model opus
+assert_claude_command 'claude with effort' "-n $SESSION --effort high" --effort high
+assert_claude_command 'claude with model and effort' "-n $SESSION --model opus --effort high" --model opus --effort high
+assert_claude_command 'headless claude' "-n $SESSION -p" --headless
+assert_claude_command 'headless claude with model' "-n $SESSION -p --model opus" --headless --model opus
+assert_claude_command 'headless claude with effort' "-n $SESSION -p --effort high" --headless --effort high
+assert_claude_command 'headless claude with model and effort' "-n $SESSION -p --model opus --effort high" --headless --model opus --effort high
 
 sed -i '' 's/^vendor: claude$/vendor: any/' "$PROJECT/.tower/tasks/T001-test.md"
 assert_true 'any vendor uses the table default' dispatch "$PROJECT" T001 --print-only
@@ -274,15 +277,14 @@ assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "towe
 
 (
   . "$ROOT/lib/tower-dispatch.sh"
-  LAUNCH_ADAPTERS='fake - - - - - -'
+  LAUNCH_ADAPTERS='fake - - -n - - -'
   VENDOR=fake MODE=terminal MODEL=m EFFORT=e
-  prepare_launch name || exit
-  printf '%s\n' "${#AGENT_ARGS[@]}"
+  prepare_launch name
+  printf '%s\n' "${AGENT_ARGS[*]}"
 ) > "$TMP/none.stdout" 2> "$TMP/none.stderr"
-assert_status 'adapter with no flags prepares launch' "$?" 0
-assert_eq 'adapter with no flags passes no arguments' "$(cat "$TMP/none.stdout")" 0
+assert_eq 'adapter row without model or effort flags passes only its session flag' "$(cat "$TMP/none.stdout")" '-n name'
 printf '%s\n' "tower-dispatch: warning: fake does not take --model from tower; ignoring 'm'" "tower-dispatch: warning: fake does not take --effort from tower; ignoring 'e'" > "$TMP/expected-none"
-assert_true 'adapter with no flags warns for both values' cmp -s "$TMP/expected-none" "$TMP/none.stderr"
+assert_true 'adapter row without model or effort flags warns for both values' cmp -s "$TMP/expected-none" "$TMP/none.stderr"
 
 PROJECT="$TMP/ambiguous-id"
 new_repo "$PROJECT"

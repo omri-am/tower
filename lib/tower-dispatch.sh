@@ -2,7 +2,8 @@
 
 # How each vendor's CLI takes tower's launch settings. The first row is the default vendor. "-" marks
 # an empty cell: the vendor takes no such argument, or its effort value has no prefix. Effort is
-# passed as <effort-flag> <effort-value-prefix><level>.
+# passed as <effort-flag> <effort-value-prefix><level>. Each cell is one word, and prepare_launch builds
+# the arguments in this order: session-name flag and name, mode form, model, effort.
 # codex-cli 0.160.0 --help has -m, --model but no --effort; -c model_reasoning_effort=<level> (verified 2026-10-06).
 #  vendor  interactive  headless  session-name-flag  model-flag  effort-flag  effort-value-prefix
 LAUNCH_ADAPTERS='
@@ -29,11 +30,7 @@ EOF
 }
 
 launch_vendors() {
-  local row_vendor rest
-  while read -r row_vendor rest; do
-    [ -n "$row_vendor" ] || continue
-    printf '%s\n' "$row_vendor"
-  done <<EOF
+  awk 'NF { print $1 }' <<EOF
 $LAUNCH_ADAPTERS
 EOF
 }
