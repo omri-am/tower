@@ -1,45 +1,47 @@
-# A second vendor needs evidence before a wider adapter shape
+# A second vendor fits the adapter table if one command can reach it
 
-`ADAPTERS` in `lib/tower_msg.py` has one `codex` entry with `qualifies`, `command`, and `name`. Registration hard-codes `thread`. Delivery uses subprocess exit status.
+Yes, `ADAPTERS` can absorb a second vendor channel that one command keyed by one string can reach. Names and launch code still change outside the table. A hosted channel, receipt handling, or in-process transport needs more work.
 
-## A second vendor channel would need an address rather than a thread
+## Registration already carries any one-string address
 
-`register()` stores `thread` in every record. `--thread` is `bin/tower-register`'s only vendor-specific flag. The Codex adapter's `qualifies` requires a nonempty `thread`.
+`register()` stores `thread` unchanged. Only the adapter's `qualifies` and `command` interpret it. `--thread` is `bin/tower-register`'s only vendor-specific flag, but it accepts any string. `tests/msg_test.sh` registers `exact session name`. By inference, another adapter could use the string as a socket path or port.
 
-`contract.md` lists `socket` for its PTY relay. M0's `compatibility.md` gave shared-terminal typing **no-go**. No relay command exists in `bin/`. `native-channels.md` measured Claude's stream-JSON input through its hosted `--print` process's stdin pipe. Codex app-server `turn/start` needs its host client's `--stdio` connection. Neither belongs to a later `tower send` process. Both hosting approaches change who owns the human interface. By inference, tower would need to own a host process that exposes a local endpoint. Registration would store its path, as the relay's `socket` field intended.
+`native-channels.md` measured Claude stream-JSON input through the hosted `--print` process's stdin pipe. The Codex probe hosted app-server over `--stdio`. Neither pipe belongs to a later `tower send` process. Both hosted channels fail reach into an existing TUI and change who owns the human interface. By inference, tower would need to own a host process exposing a local endpoint. Its path fits the existing string. `contract.md` proposed a `socket` registry field for a PTY relay, but M0 gave shared-terminal typing **no-go**.
 
-The smallest general change is one opaque `address` string in the registry and `register()` signature. Each adapter interprets it. Codex would pass it to `--thread`. `bin/tower-register` would add `--address` and keep `--thread` as an alias. A call that passes both flags fails. Keep `--thread` because `thread-identity.md` (T031, unmerged when this was written) recommends passing the main agent's `CODEX_THREAD_ID` to `tower-register --thread`. That value equalled the session's notify `thread-id` on codex-cli 0.159.3. Existing live `thread` records need a compatibility read or fresh registration.
+The smallest naming change is an opaque `address` field and `--address` flag, with `--thread` kept as an alias. A call with both flags fails. This changes the CLI and record schema, not channel capability. Keep `--thread` because `thread-identity.md` (T031, unmerged when this was written) recommends passing the main agent's `CODEX_THREAD_ID` to `tower-register --thread`. That value equalled its notify `thread-id` on codex-cli 0.159.3. A rename needs a compatibility read for live `thread` records, since their `tower-register` process keeps its old record until exit.
 
-## A second vendor channel would need a submission outcome and separate receipt evidence
+## Delivery fits one command but not every transport
 
-`deliver_queued()` calls `subprocess.run(adapter['command'](...), capture_output=True, text=True, errors='replace', timeout=30)`. Exit 0 moves `claimed` to `submitted`. `TimeoutExpired` becomes 124, `KeyboardInterrupt` 130, and `OSError` or `ValueError` 127. Failure requeues or retires the claim.
+`deliver_queued()` runs any argv returned by `adapter['command']`. Exit 0 moves `claimed` to `submitted`. It maps timeout to 124, interruption to 130, and `OSError` or `ValueError` to 127. Failure requeues or retires the claim.
 
-By inference, a helper executable could expose socket, HTTP, JSON-RPC, or file delivery as argv. Direct socket and HTTP calls need connection and response handling. A file drop needs a successful write, such as atomic publish, before submission. A callable is needed only if transport runs inside `tower send`. It should return a submission outcome and error while shared code retains claim transitions.
+By inference, a helper executable could turn a socket write, HTTP or JSON-RPC call, or file drop into one argv command. A file drop must define successful submission, such as atomic publish. Only an in-process transport needs a callable instead of an argv builder. The callable needs a submission outcome and error while shared code retains claim transitions.
 
-Codex app-server `turn/start` and `turn/steer` are measured JSON-RPC examples in `native-channels.md`. In a client-hosted thread, `turn/start` wakes from idle and `item/started` later carries receipt on the same connection. `turn/steer` fails idle wake. Both fail reach into a live TUI because `thread/resume` reports an active writer. The request response was not used as receipt. Codex `queue` exit 0 means enqueued, not received. Mapping that exit to `submitted` matches `contract.md`, where submission means bytes written without acknowledgement. The table lacks receipt observation and transition to `acknowledged`. The native rollout contains measured receipt evidence, but its format and path stability remain unverified.
+Codex app-server `turn/start` and `turn/steer` are measured JSON-RPC examples in `native-channels.md`. `turn/start` wakes a hosted thread, and `item/started` later carries receipt on the same connection. `turn/steer` fails idle wake. Both fail reach into a live TUI because `thread/resume` reports an active writer. The request response was not used as receipt. Codex `queue` exit 0 means enqueued, not received. Mapping exit 0 to `submitted` matches `contract.md`, which requires separate acknowledgement. Receipt handling is missing even for Codex. Its native rollout has measured receipt evidence, but its format and path stability remain unverified.
 
-`tests/msg_test.sh` runs real `bin/tower send` with a stub `codex` on `PATH`. It checks the first four argv fields exactly, then checks the message's envelope prefix and body suffix. An in-process callable needs a fake transport or local endpoint and equivalent state assertions. It loses the executable-boundary test. `subprocess.run` kills the child on timeout, limiting one stuck command's hold on `delivery.lock` to 30 seconds. `deliver()` keeps the lock for the whole batch. An in-process callable needs bounded I/O or process isolation to avoid holding that lock indefinitely. By inference, `SIGKILL` can leave the current child alive. That child could submit after recovery requeues the claim. An in-process transport dies with the sender unless it starts independent work.
+`tests/msg_test.sh` runs real `bin/tower send` with a stub `codex` on `PATH`. It checks four argv fields exactly and checks the message's envelope prefix and body suffix. An in-process callable needs a fake transport or local endpoint and equivalent state checks. It loses the executable-boundary test. `subprocess.run` kills a timed-out child after 30 seconds, bounding one command's hold on `delivery.lock`. `deliver()` holds the lock for the whole batch. An in-process callable needs bounded I/O or process isolation to avoid an indefinite hold. `CHANGELOG.md` documents that a killed sender can leave an adapter command running. It can finish after recovery requeues the claim, so the copy says `possibly a duplicate`. An in-process transport dies with its sender unless it starts independent work.
 
-## A measured second vendor channel would justify generalisation
-
-Generalising now would change a tested interface without a qualifying second vendor channel. Codex `queue` alone passes native reach and idle wake for a live TUI in `native-channels.md`. Claude stream-JSON input fails reach because `--input-format stream-json` works only with `--print` and starts its own session. `compatibility.md` calls Claude shared-terminal typing **no-go** because items 1, 2, 3, and 6 remain unproven. `hook-wake.md` gives Claude FileChanged idle wake **cannot determine** under its quota limit. Its model-context exclusion is documented, not measured.
-
-The trigger is a second vendor channel that passes all five `native-channels.md` items for a live interactive session on an exact version: reach, wake from idle, busy delivery, receipt signal, and human coexistence. Codex `queue` passed these on 0.158.0, with receipt API risk and human coexistence limited to the observed draft. By inference, the `contract.md` go rule governs shared-terminal typing. Its seven items concern readiness, dialogs, keystrokes, composer, submission bytes, reset, and payload. Codex was adopted through native-channel evidence while `compatibility.md` marked typing item 3 **fail**.
-
-## A second vendor changes more than the table
+## A second vendor channel can require changes outside the table
 
 | File | Change outside `ADAPTERS` | Scope |
 | --- | --- | --- |
-| `lib/tower_msg.py` | Change `register()` and its record field to `address`. Read existing live `thread` records. Keep `adapter_for()`'s vendor and `wake` checks. Change `deliver_queued()` for non-argv transport and add receipt handling. | Registration, delivery, receipt |
-| `bin/tower-register` | Add `--address`, preserve `--thread`, and pass the selected value to `register()`. | Registration |
-| `bin/tower-agents` | No change. It prints `wake`, not `thread`, from `list_agents()`. | None |
-| `tests/msg_test.sh` | Update `record['thread'] == thread`. Cover the new channel and preserve `--thread` behavior. | Registration, delivery |
-| `tests/agents_test.sh` | Update `register(..., thread='thread-1')` and cover the new channel's `wake` value. | Registration |
-| `docs/agent-messaging/contract.md` | Reconcile proposed `socket` and `adapters` with implemented `thread` and `wake`, or proposed `address`. Preserve the submission and receipt distinction. | Contract |
-| New host command in `bin/`, `bin/tower-bootstrap`, `lib/tower-dispatch.sh` | Tower would launch a hosted channel, expose a local endpoint, list the command in `COMMANDS`, and launch it through dispatch. `tests/shim_test.sh` requires every `bin/` command in `COMMANDS`. | Hosted channel only |
-| `lib/tower-dispatch.sh` | Extend `prepare_launch()` beyond Claude and Codex launch arguments. Launch-side, outside the messaging table. | Second dispatched vendor |
-| `bin/tower-dispatch` | Extend `case "$VENDOR" in claude\|codex)` validation. Launch-side, outside the messaging table. | Second dispatched vendor |
+| `lib/tower_msg.py` | Rename `thread` in `register()` and records for non-thread input, with a live-record read. Change `deliver_queued()` for callables. Add receipt handling when supported. | Conditional |
+| `bin/tower-register` | Add `--address` and keep `--thread` as an alias only with that rename. | Conditional |
+| `bin/tower-agents` | No change. It prints `wake`, not `thread`. | None |
+| `tests/msg_test.sh` | Update `record['thread'] == thread` with the rename. Cover the new adapter. | Conditional and new vendor |
+| `tests/agents_test.sh` | Update `register(..., thread='thread-1')` with the rename. | Conditional |
+| `docs/agent-messaging/contract.md` | Reconcile proposed `socket` and `adapters` with implemented `thread` and `wake`. Add five native items beside seven typing items. | Normative contract |
+| New host command in `bin/` | Own the vendor process and expose an endpoint. No such command exists today. | Hosted channel only |
+| `bin/tower-bootstrap` | Add the host command to `COMMANDS`, as `tests/shim_test.sh` requires. | Hosted channel only |
+| `lib/tower-dispatch.sh` | Extend `prepare_launch()` for vendor arguments. Start the host command for a hosted channel. Launch-side, outside the table. | Launch |
+| `bin/tower-dispatch` | Extend `case "$VENDOR" in claude\|codex)` validation. Launch-side, outside the table. | Launch |
+| `changelog.d/<task-id>.md` | Add a fragment for any `bin/` or `lib/` change, per `docs/REFERENCE.md`. | Changed code |
 
-**Recommendation: generalise when a second vendor passes the contract.** Here the contract means the five `native-channels.md` items above. A measured second vendor channel would justify an opaque address and a helper executable before a callable. This gives a future change more direction than leaving the table unchanged.
+## The current table should stay until a second vendor channel qualifies
 
-The strongest argument against waiting is the missing receipt slot for Codex, the live adapter. Waiting leaves that known gap in place. One change could add receipt handling and `address` together. But `native-channels.md` measured receipt only in Codex's native rollout, whose format and path stability remain unverified. A receipt slot has no supported source to call yet.
+Changing now would give a non-thread input a clearer name. M5 will spread `--thread` into dispatch prompts. Receipt handling is also missing for Codex. Yet an `address` rename adds no channel capability. Codex `queue` alone passed native wake for a live TUI in `native-channels.md`. Claude stream-JSON input has Reach **fail** for a live TUI because `--print` starts its own session. `compatibility.md` calls Claude shared-terminal typing **no-go** because items 1, 2, 3, and 6 remain unproven. `hook-wake.md` gives Claude FileChanged idle wake **cannot determine** under its quota limit. Its model-context exclusion is documented, not measured.
+
+A second vendor channel should pass all five `native-channels.md` items for a live interactive session on an exact version: reach, wake from idle, busy delivery, receipt signal, and human coexistence. Codex `queue` passed on 0.158.0, with receipt API risk and human coexistence limited to the observed draft. Its vendor card can then add the table entry and needed outside changes. By inference, the seven-item `contract.md` go rule governs shared-terminal typing. Codex used native-channel evidence although `compatibility.md` marked typing item 3 **fail**.
+
+**Recommendation: leave the table as it is.** One unrestricted string and one argv command already cover the measured native-channel shape. A rename alone cannot reach a new vendor channel. Add transport-specific code when a qualifying channel defines it.
+
+The strongest argument against this recommendation is missing receipt handling for Codex, the live adapter. Waiting leaves that gap in place. `native-channels.md` measured receipt only in Codex's native rollout, whose format and path stability remain unverified. Receipt handling has no supported source yet.
