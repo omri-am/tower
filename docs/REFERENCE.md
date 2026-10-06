@@ -235,6 +235,12 @@ on stderr before any `tower-*` command run through the bootstrap shim, and as a 
 start of a Claude session. Clone-route `bin/tower-*` calls, run without bootstrapping, skip
 it. [CHANGELOG.md](../CHANGELOG.md) says what each version added.
 
+A change under `bin/`, `lib/`, `web/`, `hooks/`, `scripts/`, `skills/`, `templates/`,
+`commands/`, `.claude-plugin/` or `PROTOCOL_VERSION` needs a changelog entry; each card
+adds finished `- ` bullets in its own `changelog.d/<task-id>.md` instead of editing
+`CHANGELOG.md`. `scripts/tower-release` folds those fragments into the new version section
+and deletes them.
+
 ## Core ideas
 
 **Task cards are decision-complete.** A card is not a ticket; it carries every decision

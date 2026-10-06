@@ -76,7 +76,17 @@ else
   [ "$UNRELEASED_HEADINGS" -eq 1 ] || die "CHANGELOG.md has $UNRELEASED_HEADINGS '## Unreleased' headings, expected exactly 1"
 
   UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr -d '[:space:]')"
-  [ -n "$UNRELEASED" ] || die "CHANGELOG.md has nothing under '## Unreleased' - a version bump with no entry tells nobody what shipped"
+  FRAGMENTS="$(git -C "$ROOT" ls-files -- 'changelog.d/*.md')"
+  TMP_FRAGMENTS="$(mktemp)"
+  trap 'rm -f "$TMP_FRAGMENTS"' EXIT
+  while IFS= read -r fragment; do
+    [ -n "$fragment" ] || continue
+    awk '{ lines[NR]=$0; if (NF) last=NR } END { for (i=1; i<=last; i++) print lines[i]; if (last) print "" }' "$ROOT/$fragment" >> "$TMP_FRAGMENTS"
+  done <<EOF
+$FRAGMENTS
+EOF
+  FRAGMENT_CONTENT="$(tr -d '[:space:]' < "$TMP_FRAGMENTS")"
+  [ -n "$UNRELEASED$FRAGMENT_CONTENT" ] || die "CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/ fragment has an entry - a version bump with no entry tells nobody what shipped"
 
   TODAY="$(date +%Y-%m-%d)"
   TMP="$(mktemp)"
@@ -105,14 +115,25 @@ else
   [ "$VERIFY" = "$NEW" ] || die "manifest rewrite did not take - $MANIFEST still does not read $NEW"
 
   TMP="$(mktemp)"
-  awk -v new="## v$NEW — $TODAY" '
-    /^## Unreleased$/ && !done { print "## Unreleased"; print ""; print new; done=1; next }
+  awk -v new="## v$NEW — $TODAY" -v fragments="$TMP_FRAGMENTS" '
+    function print_version_entries(    i, line) {
+      while (n && lines[n] ~ /^[[:space:]]*$/) n--
+      for (i=1; i<=n; i++) print lines[i]
+      print ""
+      while ((getline line < fragments) > 0) print line
+      close(fragments)
+    }
+    /^## Unreleased$/ && !done { print "## Unreleased"; print ""; print new; done=1; collecting=1; next }
+    /^## / && collecting { print_version_entries(); collecting=0 }
+    collecting { lines[++n]=$0; next }
     { print }
+    END { if (collecting) print_version_entries() }
   ' "$CHANGELOG" > "$TMP"
   mv "$TMP" "$CHANGELOG"
 
   git -C "$ROOT" checkout -q -b "release-v$NEW"
   git -C "$ROOT" add "$MANIFEST" "$CHANGELOG"
+  [ -z "$FRAGMENTS" ] || git -C "$ROOT" rm -q -- 'changelog.d/*.md'
   git -C "$ROOT" commit -q -m "Release v$NEW"
 
   echo "tower-release: v$NEW committed on release-v$NEW"
