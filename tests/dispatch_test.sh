@@ -6,6 +6,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+"$ROOT/bin/tower-dispatch" > "$TMP/usage.stdout" 2> "$TMP/usage.stderr"
+assert_status 'missing task exits with usage' "$?" 1
+printf '%s\n' 'usage: tower-dispatch <task-id> [--vendor claude|codex] [--model <name>] [--effort <level>] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]' > "$TMP/expected-usage"
+assert_true 'usage is byte-identical' cmp -s "$TMP/expected-usage" "$TMP/usage.stderr"
+assert_empty 'usage has no stdout' "$(cat "$TMP/usage.stdout")"
+
 PROJECT="$TMP/project"
 new_repo "$PROJECT"
 new_project "$PROJECT"
@@ -203,10 +209,13 @@ assert_true 'claude command carries the requested model' grep -q 'claude -n [^ ]
 assert_true 'effort is accepted' dispatch "$PROJECT" T001 --effort high --print-only
 assert_true 'claude command carries the requested effort' grep -q -- '--effort high ' "$TMP/dispatch.out"
 assert_true 'codex dispatch with a model still succeeds' dispatch "$PROJECT" T001 --vendor codex --model opus --effort high --print-only
-assert_true 'codex dispatch warns that the model is ignored' grep -q "warning: codex does not take --model from tower; ignoring 'opus'" "$TMP/dispatch.out"
-assert_true 'codex dispatch warns that the effort is ignored' grep -q "warning: codex does not take --effort from tower; ignoring 'high'" "$TMP/dispatch.out"
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
-assert_false 'codex command omits the model and effort' grep -q -e '--model' -e '--effort' "$TMP/codex-command"
+assert_true 'codex command carries model and effort' grep -q ' codex --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
+assert_false 'codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
+dispatch "$PROJECT" T001 --vendor codex --headless --model opus --effort high --print-only
+grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
+assert_true 'headless codex command carries model and effort' grep -q ' codex exec --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
+assert_false 'headless codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "$TOWER_TEST_ARGS"\nexit 1\n' > "$TMP/fakebin/claude"
 export TOWER_TEST_ARGS="$TMP/claude-args"
 assert_false 'dispatch with model and effort launches the agent' dispatch "$PROJECT" T001 --model opus --effort high --headless
@@ -233,6 +242,47 @@ assert_eq 'unset effort field is kept' "$(grep -c '^effort:' "$PROJECT/.tower/ta
 new_card "$PROJECT" T003
 assert_true 'model with a backslash dispatches' dispatch "$PROJECT" T003 --model 'a\tb' --prep
 assert_eq 'card keeps a backslash in the model literally' "$(card_field "$PROJECT" T003 model)" 'a\tb'
+
+PROJECT="$TMP/claude-golden"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+PROJECT="$(cd "$PROJECT" && pwd -P)"
+WORKTREE="$(cd "$TMP" && pwd -P)/claude-golden-tower-worktrees/root/T001"
+SESSION="$("$ROOT/bin/tower-session-name" --task T001 --from "$PROJECT")"
+PROMPT="$PROJECT/.tower/prompts/T001-prompt.md"
+for HEADLESS in '' --headless; do
+  for FLAGS in '' model effort both; do
+    set -- T001
+    EXPECTED="cd $WORKTREE && TOWER_TASK=T001 claude -n $SESSION"
+    if [ -n "$HEADLESS" ]; then set -- "$@" --headless; EXPECTED="$EXPECTED -p"; fi
+    if [ "$FLAGS" = model ] || [ "$FLAGS" = both ]; then set -- "$@" --model opus; EXPECTED="$EXPECTED --model opus"; fi
+    if [ "$FLAGS" = effort ] || [ "$FLAGS" = both ]; then set -- "$@" --effort high; EXPECTED="$EXPECTED --effort high"; fi
+    (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" "$@" --print-only) > "$TMP/golden.stdout" 2> "$TMP/golden.stderr"
+    assert_status "claude $HEADLESS $FLAGS dispatch succeeds" "$?" 0
+    assert_eq "claude $HEADLESS $FLAGS command is unchanged" "$(cat "$TMP/golden.stdout")" "$EXPECTED \"\$(cat $PROMPT)\""
+    assert_empty "claude $HEADLESS $FLAGS has no stderr" "$(cat "$TMP/golden.stderr")"
+  done
+done
+
+sed -i '' 's/^vendor: claude$/vendor: any/' "$PROJECT/.tower/tasks/T001-test.md"
+assert_true 'any vendor uses the table default' dispatch "$PROJECT" T001 --print-only
+grep '^cd ' "$TMP/dispatch.out" > "$TMP/default-command"
+assert_true 'default command launches claude' grep -q ' claude -n ' "$TMP/default-command"
+assert_false 'unknown vendor is rejected' dispatch "$PROJECT" T001 --vendor bogus --print-only
+assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "tower-dispatch: unknown vendor 'bogus'"
+
+(
+  . "$ROOT/lib/tower-dispatch.sh"
+  LAUNCH_ADAPTERS='fake - - - - - -'
+  VENDOR=fake MODE=terminal MODEL=m EFFORT=e
+  prepare_launch name
+  printf '%s\n' "${#AGENT_ARGS[@]}"
+) > "$TMP/none.stdout" 2> "$TMP/none.stderr"
+assert_status 'adapter with no flags prepares launch' "$?" 0
+assert_eq 'adapter with no flags passes no arguments' "$(cat "$TMP/none.stdout")" 0
+printf '%s\n' "tower-dispatch: warning: fake does not take --model from tower; ignoring 'm'" "tower-dispatch: warning: fake does not take --effort from tower; ignoring 'e'" > "$TMP/expected-none"
+assert_true 'adapter with no flags warns for both values' cmp -s "$TMP/expected-none" "$TMP/none.stderr"
 
 PROJECT="$TMP/ambiguous-id"
 new_repo "$PROJECT"

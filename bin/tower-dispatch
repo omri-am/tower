@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$BIN_DIR/../lib/tower-dispatch.sh"
+
 usage() {
-  echo "usage: tower-dispatch <task-id> [--vendor claude|codex] [--model <name>] [--effort <level>] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
+  echo "usage: tower-dispatch <task-id> [--vendor $(launch_vendors | paste -sd '|' -)] [--model <name>] [--effort <level>] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
   exit 1
 }
 
@@ -30,8 +33,6 @@ done
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
 
-BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$BIN_DIR/../lib/tower-dispatch.sh"
 . "$BIN_DIR/../lib/tower-paths.sh"
 LOCATE="$BIN_DIR/tower-locate"
 if ! LOCATED="$("$LOCATE" --task "$TASK_ID")"; then
@@ -94,9 +95,9 @@ PROMPT_FILE="$PROJECT_DIR/.tower/prompts/$TASK_ID-prompt.md"
 
 VENDOR="${VENDOR_FLAG:-$(frontmatter_field "$CARD" vendor)}"
 if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
-  VENDOR="claude"
+  VENDOR="$(launch_vendors | sed -n '1p')"
 fi
-case "$VENDOR" in claude|codex) ;; *) echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1 ;; esac
+launch_adapter "$VENDOR" || { echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1; }
 MODEL="${MODEL_FLAG:-$(frontmatter_field "$CARD" model | tr -d '"')}"
 EFFORT="${EFFORT_FLAG:-$(frontmatter_field "$CARD" effort | tr -d '"')}"
 

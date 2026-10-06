@@ -1,5 +1,48 @@
 #!/usr/bin/env bash
 
+# How each vendor's CLI takes tower's launch settings. The first row is the default vendor, and
+# "-" means the vendor takes none. Effort is passed as <effort-flag> <effort-value-prefix><level>.
+# codex-cli 0.160.0 --help has -m, --model but no --effort; -c model_reasoning_effort=<level> (verified 2026-10-06).
+#  vendor interactive headless session-name-flag model-flag effort-flag effort-value-prefix
+LAUNCH_ADAPTERS='
+claude   -          -p       -n                --model    --effort    -
+codex    -          exec     -                 --model    -c          model_reasoning_effort=
+'
+
+launch_adapter() {
+  local row_vendor interactive headless session_flag model_flag effort_flag effort_prefix
+  while read -r row_vendor interactive headless session_flag model_flag effort_flag effort_prefix; do
+    [ -n "$row_vendor" ] || continue
+    [ "$row_vendor" = "$1" ] || continue
+    ADAPTER_INTERACTIVE="$interactive"
+    ADAPTER_HEADLESS="$headless"
+    ADAPTER_SESSION_FLAG="$session_flag"
+    ADAPTER_MODEL_FLAG="$model_flag"
+    ADAPTER_EFFORT_FLAG="$effort_flag"
+    ADAPTER_EFFORT_PREFIX="$effort_prefix"
+    [ "$ADAPTER_INTERACTIVE" != - ] || ADAPTER_INTERACTIVE=""
+    [ "$ADAPTER_HEADLESS" != - ] || ADAPTER_HEADLESS=""
+    [ "$ADAPTER_SESSION_FLAG" != - ] || ADAPTER_SESSION_FLAG=""
+    [ "$ADAPTER_MODEL_FLAG" != - ] || ADAPTER_MODEL_FLAG=""
+    [ "$ADAPTER_EFFORT_FLAG" != - ] || ADAPTER_EFFORT_FLAG=""
+    [ "$ADAPTER_EFFORT_PREFIX" != - ] || ADAPTER_EFFORT_PREFIX=""
+    return 0
+  done <<EOF
+$LAUNCH_ADAPTERS
+EOF
+  return 1
+}
+
+launch_vendors() {
+  local row_vendor rest
+  while read -r row_vendor rest; do
+    [ -n "$row_vendor" ] || continue
+    printf '%s\n' "$row_vendor"
+  done <<EOF
+$LAUNCH_ADAPTERS
+EOF
+}
+
 dispatch_die() { echo "tower-dispatch: $*" >&2; exit 1; }
 
 dispatch_revision() {
@@ -132,17 +175,28 @@ commit_dispatch_card() {
 }
 
 prepare_launch() {
+  launch_adapter "$VENDOR"
   AGENT_ARGS=()
-  if [ "$VENDOR" = claude ]; then
-    AGENT_ARGS=(-n "$1")
-    [ "$MODE" != headless ] || AGENT_ARGS+=(-p)
-    [ -z "$MODEL" ] || AGENT_ARGS+=(--model "$MODEL")
-    [ -z "$EFFORT" ] || AGENT_ARGS+=(--effort "$EFFORT")
-    return 0
+  [ -z "$ADAPTER_SESSION_FLAG" ] || AGENT_ARGS+=("$ADAPTER_SESSION_FLAG" "$1")
+  if [ "$MODE" = headless ]; then
+    [ -z "$ADAPTER_HEADLESS" ] || AGENT_ARGS+=("$ADAPTER_HEADLESS")
+  else
+    [ -z "$ADAPTER_INTERACTIVE" ] || AGENT_ARGS+=("$ADAPTER_INTERACTIVE")
   fi
-  [ "$MODE" != headless ] || AGENT_ARGS=(exec)
-  [ -z "$MODEL" ] || echo "tower-dispatch: warning: codex does not take --model from tower; ignoring '$MODEL'" >&2
-  [ -z "$EFFORT" ] || echo "tower-dispatch: warning: codex does not take --effort from tower; ignoring '$EFFORT'" >&2
+  if [ -n "$MODEL" ]; then
+    if [ -n "$ADAPTER_MODEL_FLAG" ]; then
+      AGENT_ARGS+=("$ADAPTER_MODEL_FLAG" "$MODEL")
+    else
+      echo "tower-dispatch: warning: $VENDOR does not take --model from tower; ignoring '$MODEL'" >&2
+    fi
+  fi
+  if [ -n "$EFFORT" ]; then
+    if [ -n "$ADAPTER_EFFORT_FLAG" ]; then
+      AGENT_ARGS+=("$ADAPTER_EFFORT_FLAG" "$ADAPTER_EFFORT_PREFIX$EFFORT")
+    else
+      echo "tower-dispatch: warning: $VENDOR does not take --effort from tower; ignoring '$EFFORT'" >&2
+    fi
+  fi
 }
 
 launch_command() {
