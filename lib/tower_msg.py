@@ -17,6 +17,7 @@ import time
 BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
 DELIVERY_ATTEMPTS = 3
+DELIVERY_TIMEOUT = 30
 CLAIM_STALE_AFTER = timedelta(minutes=10)
 _OWNED = {}
 MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
@@ -254,7 +255,7 @@ def adapter_for(record):
     return ADAPTERS.get(record['vendor'])
 
 
-def deliver(directory, role, message_id):
+def deliver(directory, role, message_id, timeout=DELIVERY_TIMEOUT):
     with (directory / 'delivery.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if is_delivered(directory, message_id):
@@ -263,7 +264,7 @@ def deliver(directory, role, message_id):
         recover_abandoned_claims(directory, record)
         outcomes = {}
         if adapter_for(record) is not None:
-            outcomes, record = deliver_queued(directory, role, record)
+            outcomes, record = deliver_queued(directory, role, record, timeout)
         delivered = is_delivered(directory, message_id)
         if message_id in outcomes or delivered:
             return 0 if outcomes.get(message_id, delivered) else 1
@@ -276,7 +277,7 @@ def deliver(directory, role, message_id):
         return 1
 
 
-def deliver_queued(directory, role, record):
+def deliver_queued(directory, role, record, timeout):
     outcomes = {}
     for message_id in message_ids(directory, ('queued',)):
         record = live_record(role)
@@ -295,7 +296,7 @@ def deliver_queued(directory, role, record):
         try:
             claim.write_text(f"claimant={record['session']}\nat={datetime.now(timezone.utc).isoformat()}\n")
             result = subprocess.run(adapter['command'](record, text),
-                                    capture_output=True, text=True, errors='replace', timeout=30)
+                                    capture_output=True, text=True, errors='replace', timeout=timeout)
             code, error = result.returncode, result.stderr
             if code == 0:
                 submitted.with_suffix('.submitted').write_text(f'at={datetime.now(timezone.utc).isoformat()}\n')
@@ -307,7 +308,7 @@ def deliver_queued(directory, role, record):
             stderr = failure.stderr or b''
             if isinstance(stderr, bytes):
                 stderr = stderr.decode('utf-8', errors='replace')
-            code, error = 124, f"{adapter['name']} delivery timed out after 30 seconds: {stderr}"
+            code, error = 124, f"{adapter['name']} delivery timed out after {timeout} seconds: {stderr}"
         except (OSError, ValueError) as failure:
             code, error = 127, str(failure)
         outcomes[message_id] = code == 0
