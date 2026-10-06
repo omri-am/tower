@@ -82,6 +82,28 @@ assert_status "a code change with a new fragment passes" "$?" "0"
 assert_empty "a new fragment passes quietly" "$OUT"
 
 new_repo
+git -C "$R" checkout -q -b feature
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Added a thing.' > "$R/changelog.d/T999.txt"
+git -C "$R" add -A
+git -C "$R" commit -q -m "code change with a non-markdown fragment"
+OUT="$(run_check main 2>&1)"
+assert_status "a code change with only a .txt fragment fails" "$?" "1"
+assert_eq "a .txt fragment refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
+
+new_repo
+git -C "$R" checkout -q -b feature
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+mkdir -p "$R/changelog.d"
+: > "$R/changelog.d/.gitkeep"
+git -C "$R" add -A
+git -C "$R" commit -q -m "code change with a gitkeep file"
+OUT="$(run_check main 2>&1)"
+assert_status "a code change with only .gitkeep fails" "$?" "1"
+assert_eq "a .gitkeep refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
+
+new_repo
 mkdir -p "$R/changelog.d"
 printf '%s\n' '- Original entry.' > "$R/changelog.d/T998.md"
 git -C "$R" add -A
@@ -96,16 +118,15 @@ assert_empty "a modified fragment passes quietly" "$OUT"
 
 new_repo
 mkdir -p "$R/changelog.d"
-printf '%s\n' '- Original entry.' > "$R/changelog.d/T998.md"
-git -C "$R" add -A
-git -C "$R" commit -q -m "existing fragment"
-git -C "$R" checkout -q -b feature
 printf 'more code\n' >> "$R/lib/tower-thing.sh"
-git -C "$R" rm -q changelog.d/T998.md
-git -C "$R" commit -qam "code change deleting a fragment"
+printf '%s\n' '- Added a thing.' > "$R/changelog.d/T999.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "unreleased card"
+git -C "$R" checkout -q -b feature
+git -C "$R" revert --no-edit HEAD >/dev/null
 OUT="$(run_check main 2>&1)"
-assert_status "a code change with only a deleted fragment fails" "$?" "1"
-assert_eq "a deleted fragment refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
+assert_status "a pure revert that deletes an unreleased fragment passes" "$?" "0"
+assert_empty "a reverting deletion passes quietly" "$OUT"
 
 new_repo
 git -C "$R" checkout -q -b feature

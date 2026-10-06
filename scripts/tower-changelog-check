@@ -17,7 +17,7 @@ if printf '%s\n' "$CHANGED" | grep -q '^CHANGELOG\.md$'; then
   exit 0
 fi
 
-FRAGMENTS="$(git -C "$ROOT" diff --name-only --diff-filter=AM "$BASE...HEAD" -- changelog.d/)" || die "git diff failed for '$BASE...HEAD'"
+FRAGMENTS="$(git -C "$ROOT" diff --name-only --diff-filter=AMD "$BASE...HEAD" -- 'changelog.d/*.md')" || die "git diff failed for '$BASE...HEAD'"
 [ -z "$FRAGMENTS" ] || exit 0
 
 TRIGGER_RE='^(bin/|lib/|web/|hooks/|scripts/|skills/|templates/|commands/|\.claude-plugin/|PROTOCOL_VERSION$)'
