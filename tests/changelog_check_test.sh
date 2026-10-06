@@ -81,27 +81,18 @@ OUT="$(run_check main 2>&1)"
 assert_status "a code change with a new fragment passes" "$?" "0"
 assert_empty "a new fragment passes quietly" "$OUT"
 
-new_repo
-git -C "$R" checkout -q -b feature
-printf 'more code\n' >> "$R/lib/tower-thing.sh"
-mkdir -p "$R/changelog.d"
-printf '%s\n' '- Added a thing.' > "$R/changelog.d/T999.txt"
-git -C "$R" add -A
-git -C "$R" commit -q -m "code change with a non-markdown fragment"
-OUT="$(run_check main 2>&1)"
-assert_status "a code change with only a .txt fragment fails" "$?" "1"
-assert_eq "a .txt fragment refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
-
-new_repo
-git -C "$R" checkout -q -b feature
-printf 'more code\n' >> "$R/lib/tower-thing.sh"
-mkdir -p "$R/changelog.d"
-: > "$R/changelog.d/.gitkeep"
-git -C "$R" add -A
-git -C "$R" commit -q -m "code change with a gitkeep file"
-OUT="$(run_check main 2>&1)"
-assert_status "a code change with only .gitkeep fails" "$?" "1"
-assert_eq "a .gitkeep refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
+for f in changelog.d/T999.txt changelog.d/.gitkeep; do
+  new_repo
+  git -C "$R" checkout -q -b feature
+  printf 'more code\n' >> "$R/lib/tower-thing.sh"
+  mkdir -p "$R/changelog.d"
+  printf '%s\n' '- Added a thing.' > "$R/$f"
+  git -C "$R" add -A
+  git -C "$R" commit -q -m "code change with only $f"
+  OUT="$(run_check main 2>&1)"
+  assert_status "a code change with only $f fails" "$?" "1"
+  assert_eq "the $f refusal names the code path" "$(printf '%s' "$OUT" | grep -c 'lib/tower-thing.sh')" "1"
+done
 
 new_repo
 mkdir -p "$R/changelog.d"
@@ -124,6 +115,8 @@ git -C "$R" add -A
 git -C "$R" commit -q -m "unreleased card"
 git -C "$R" checkout -q -b feature
 git -C "$R" revert --no-edit HEAD >/dev/null
+assert_eq "the revert deletes the fragment and reverts the code" \
+  "$(git -C "$R" diff --name-status main...feature)" "$(printf 'D\tchangelog.d/T999.md\nM\tlib/tower-thing.sh')"
 OUT="$(run_check main 2>&1)"
 assert_status "a pure revert that deletes an unreleased fragment passes" "$?" "0"
 assert_empty "a reverting deletion passes quietly" "$OUT"
