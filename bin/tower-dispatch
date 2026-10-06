@@ -3,6 +3,7 @@ set -euo pipefail
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$BIN_DIR/../lib/tower-dispatch.sh"
+. "$BIN_DIR/../lib/tower-paths.sh"
 
 usage() {
   echo "usage: tower-dispatch <task-id> [--vendor $(launch_vendors | paste -sd '|' -)] [--model <name>] [--effort <level>] [--headless] [--here] [--prep] [--print-only] [--in-place] [--worktree <path>] [--resume] [--expect-revision <hash>]" >&2
@@ -33,7 +34,6 @@ done
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "tower-dispatch: not inside a git repository" >&2; exit 1; }
 
-. "$BIN_DIR/../lib/tower-paths.sh"
 LOCATE="$BIN_DIR/tower-locate"
 if ! LOCATED="$("$LOCATE" --task "$TASK_ID")"; then
   echo "tower-dispatch: no single .tower/ project holds $TASK_ID - cd into the project dir, or run tower-init there first" >&2
@@ -97,7 +97,7 @@ VENDOR="${VENDOR_FLAG:-$(frontmatter_field "$CARD" vendor)}"
 if [ -z "$VENDOR" ] || [ "$VENDOR" = "any" ]; then
   VENDOR="$(launch_vendors | sed -n '1p')"
 fi
-launch_adapter "$VENDOR" || { echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1; }
+load_launch_adapter "$VENDOR" || { echo "tower-dispatch: unknown vendor '$VENDOR'" >&2; exit 1; }
 MODEL="${MODEL_FLAG:-$(frontmatter_field "$CARD" model | tr -d '"')}"
 EFFORT="${EFFORT_FLAG:-$(frontmatter_field "$CARD" effort | tr -d '"')}"
 

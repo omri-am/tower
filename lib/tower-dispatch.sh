@@ -11,7 +11,7 @@ LAUNCH_ADAPTERS='
    codex   -            exec      -                  --model     -c           model_reasoning_effort=
 '
 
-launch_adapter() {
+load_launch_adapter() {
   local row_vendor
   while read -r row_vendor ADAPTER_INTERACTIVE ADAPTER_HEADLESS ADAPTER_SESSION_FLAG ADAPTER_MODEL_FLAG ADAPTER_EFFORT_FLAG ADAPTER_EFFORT_PREFIX; do
     [ -n "$row_vendor" ] || continue
@@ -177,7 +177,7 @@ append_launch_setting() {
 }
 
 prepare_launch() {
-  launch_adapter "$VENDOR"
+  load_launch_adapter "$VENDOR"
   AGENT_ARGS=()
   [ -z "$ADAPTER_SESSION_FLAG" ] || AGENT_ARGS+=("$ADAPTER_SESSION_FLAG" "$1")
   if [ "$MODE" = headless ]; then

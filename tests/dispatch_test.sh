@@ -208,7 +208,7 @@ assert_true 'model is accepted' dispatch "$PROJECT" T001 --model opus --print-on
 assert_true 'claude command carries the requested model' grep -q 'claude -n [^ ]* --model opus ' "$TMP/dispatch.out"
 assert_true 'effort is accepted' dispatch "$PROJECT" T001 --effort high --print-only
 assert_true 'claude command carries the requested effort' grep -q -- '--effort high ' "$TMP/dispatch.out"
-assert_true 'codex dispatch with a model still succeeds' dispatch "$PROJECT" T001 --vendor codex --model opus --effort high --print-only
+assert_true 'codex dispatch with a model and effort succeeds' dispatch "$PROJECT" T001 --vendor codex --model opus --effort high --print-only
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
 assert_true 'codex command carries model and effort' grep -q ' codex --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
 assert_false 'codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
