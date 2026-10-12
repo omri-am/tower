@@ -2,9 +2,9 @@
 
 The contract between the orchestrator role, implementor sessions, and the human owner.
 Everything durable lives in files under `.tower/` at the **project root**, committed to
-main, except the role mailbox and agent registry described under
-[Escalation routing](#escalation-routing). Sessions are disposable; any session assuming a
-role rehydrates from these files.
+main, except the role mailbox and role registrations described under
+[Durable role messages](#durable-role-messages). Sessions are disposable; any session
+assuming a role rehydrates from these files.
 
 The project root is where `tower-init` was run: the repo root for a single-project repo, or
 a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
@@ -336,10 +336,10 @@ guessing — picking the plausible-looking row is.
 ### Durable role messages
 
 `tower send <role> <text>` addresses a role, not a session, and stores the message before it
-tries delivery. The mailbox is under `<git-common-dir>/tower/root/mailbox/<role>/`, or
-`<git-common-dir>/tower/projects/<project-relative-path>/mailbox/<role>/` for a subproject,
-so every worktree of the project shares it. Receipt is best-effort, so **cards and handoffs
-remain the only authority for whether work happened**.
+tries delivery. The mailbox is `<git-common-dir>/tower/<project-key>/mailbox/<role>/` and
+role registrations are in `<git-common-dir>/tower/<project-key>/agents/`, so every worktree
+of the project shares them. Receipt is best-effort, so **cards and handoffs remain the only
+authority for whether work happened**.
 
 Exit 0 means delivered to the vendor adapter, 3 means stored with no live role owner, and 4
 means stored but the role cannot be woken automatically. Exit 1 after a delivery attempt

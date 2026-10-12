@@ -48,8 +48,8 @@ callers from receiving the same ID. The command prints the created path and does
 `tower-send <role> [--reply-to <id>] <text|->` stores the text, or reads stdin for `-`.
 `--reply-to` records a message ID in the new message. The message's `from` is `TOWER_ROLE`,
 or `owner` when it is unset. The command prints the new ID before it tries delivery. See
-[Escalation routing](../PROTOCOL.md#escalation-routing) for its exit status and the authority
-of cards and handoffs.
+[Durable role messages](../PROTOCOL.md#durable-role-messages) for its exit status and the
+authority of cards and handoffs.
 
 `tower-inbox [--role <role>] [--wait [SECONDS]] [list|read <id>|ack <id>]` uses `TOWER_ROLE`
 when `--role` is absent. `list` is the default and includes queued and submitted message
