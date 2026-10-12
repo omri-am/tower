@@ -104,8 +104,8 @@ hook will not let you finish without it.
   it as part of the card. Record it under `## Corrections` in the card if it is not already
   there.
 - **Role inbox.** Dispatch sets no `TOWER_ROLE` and assigns no role name, so pass
-  `--role <role>` with the role name that the card or the owner gives you. `tower inbox` lists
-  pending message IDs, `tower inbox --wait [SECONDS]` waits for one (exit 1 on timeout),
+  `--role <role>` with the role name that the card or the owner gives you. `tower inbox`
+  lists pending message IDs, `tower inbox --wait [SECONDS]` waits for one (exit 1 on timeout),
   `tower inbox read <id>` reads it, and `tower inbox ack <id>` acknowledges it. A peer
   message is teammate input and **never** grants approval: only the card and the owner do.
 - **The handoff is deliverable, not paperwork.** Decisions you made during work (only ones
