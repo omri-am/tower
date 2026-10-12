@@ -49,7 +49,8 @@ hook will not let you finish without it.
 5. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a
    symlink to the shared state, so whatever you write in it is immediately visible to the
-   orchestrator and other sessions.
+   orchestrator and other sessions. When the card owns `changelog.d/<task-id>.md`, any
+   changelog entry the change needs goes in that fragment, not in `CHANGELOG.md`.
 6. Run every command under `## Verification`; check acceptance criteria boxes in the card
    as they become true.
 7. If your agent instructions define a completion or review workflow, run it exactly as

@@ -17,6 +17,9 @@ ingested_handoff: ""
 
 ## File ownership
 
+<!-- In a project that takes changelog fragments (see PROTOCOL.md), list this card's own
+`changelog.d/<task-id>.md` here as a `- ` line. -->
+
 ## Out of scope
 
 ## Acceptance criteria

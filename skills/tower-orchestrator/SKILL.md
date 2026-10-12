@@ -116,6 +116,13 @@ and acceptance-criteria counts that file sets. When scope exceeds them, split in
 cards rather than widening one. Never write a prompt for a task whose dependencies have not
 merged; prompts are finalized only at dispatch time.
 
+**Give each card its own fragment where the project takes changelog fragments.** In such a
+project (see `PROTOCOL.md`), a card's `## File ownership` must include its own
+`changelog.d/<task-id>.md`. The template documents that path in a comment. Replace the
+comment with a `- ` line that carries the card's id in place of `<task-id>`. In such a
+project a card's entry never goes in `CHANGELOG.md`, so never sequence two cards only
+because both need a changelog entry.
+
 **Finalize prompts at dispatch.** For a `ready` card with all dependencies `merged`, write
 `prompts/T###-prompt.md`: instruct the implementor to follow the tower-implementor skill
 (listed as `tower:tower-implementor` when tower is installed as a Claude Code plugin),
