@@ -2,7 +2,9 @@
 
 The contract between the orchestrator role, implementor sessions, and the human owner.
 Everything durable lives in files under `.tower/` at the **project root**, committed to
-main. Sessions are disposable; any session assuming a role rehydrates from these files.
+main, except the role mailbox and role registrations described under
+[Durable role messages](#durable-role-messages). Sessions are disposable; any session
+assuming a role rehydrates from these files.
 
 The project root is where `tower-init` was run: the repo root for a single-project repo, or
 a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
@@ -56,8 +58,9 @@ task's marker. A short directory lock inside the state repo's Git directory seri
 dispatch validation and claiming. An uncatchable termination can leave that lock behind;
 remove it only after confirming the dispatch process has stopped. `--resume` accepts an
 `in-flight` card and reuses the worktree on its recorded branch, including uncommitted
-implementation. Dispatch records the selected vendor, and any model or effort, on the card
-so resuming retains those overrides. Never resume while the previous session is still running.
+implementation. Dispatch uses the card's model and effort unless the matching flags override
+them. It records the selected vendor, model, and effort on the card so resuming retains them.
+Never resume while the previous session is still running.
 
 Tower commits must name their intended paths with `git commit --only -- <paths>` so they
 do not consume unrelated staged work. Agents committing several state files name all of
@@ -110,8 +113,8 @@ title: Short imperative title
 status: draft        # draft | ready | in-flight | in-review | merged | blocked
 depends_on: []       # list of task ids, e.g. [T001, T002]
 vendor: any          # claude | codex | any
-model: ""            # filled at dispatch when --model is passed
-effort: ""           # filled at dispatch when --effort is passed
+model: ""            # orchestrator may set; dispatch uses it unless --model is passed
+effort: ""           # orchestrator may set; dispatch uses it unless --effort is passed
 branch: ""           # filled at dispatch
 pr: ""               # filled when the PR is opened
 ingested_handoff: "" # git hash-object of the handoff last processed by the orchestrator
@@ -329,6 +332,27 @@ rejected with an error naming that session's `[ref]`, and the resend carries it 
 Agents must never guess a role-holder from the machine's session list; unrelated sessions
 share the machine. Deriving a name from the project and confirming it in `ListAgents` is not
 guessing — picking the plausible-looking row is.
+
+### Durable role messages
+
+`tower send <role> <text>` addresses a role, not a session, and stores the message before it
+tries delivery. The mailbox is `<git-common-dir>/tower/<project-key>/mailbox/<role>/` and
+role registrations are in `<git-common-dir>/tower/<project-key>/agents/`, so every worktree
+of the project shares them. Receipt is best-effort, so **cards and handoffs remain the only
+authority for whether work happened**.
+
+Exit 0 means delivered to the vendor adapter, 3 means stored with no live role owner, and 4
+means stored but the role cannot be woken automatically. Exit 1 after a delivery attempt
+means stored but not delivered: the message returns to `queued/`, or moves to
+`undeliverable/` after three failed attempts, `redelivery` increases, and the error is
+appended to `mailbox/<role>/delivery.log`. Usage errors exit 2 and other errors exit 1. If
+the command printed an ID, the message is stored.
+
+Registration is manual. `tower-register <role> --vendor <vendor>` holds the role's lock and
+keeps the role live only while it runs, so leave it running, for example in a spare terminal.
+Dispatch does not register a role, does not set `TOWER_ROLE`, and assigns no role name. Only a
+Codex role registered with `--thread <id>` has `wake: native` today. Every other registration
+has `wake: none`, because no other vendor has a verified wake adapter.
 
 ## Orchestrators without Claude Code plumbing
 
