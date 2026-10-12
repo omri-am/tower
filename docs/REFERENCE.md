@@ -30,9 +30,9 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-whoami` | tooling | Prints this session's own addressable name |
 | `tower-version-check [--notice]` | you | Checks for a newer tagged version now |
 | `tower-notify <title> <message>` | tooling | macOS notification |
-| `tower-send <role> [--reply-to <id>] <text\|->` | any role | Stores a role message, then tries delivery |
-| `tower-inbox [--role <role>] [--wait [SECONDS]] [list\|read <id>\|ack <id>]` | any role | Lists, reads, waits for, or acknowledges role messages |
-| `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` | role owner | Holds a role registration while running |
+| `tower-send <role> [--reply-to <id>] <text\|->` | you, any role | Stores a role message, then tries delivery |
+| `tower-inbox [--role <role>] [list\|read <id>\|ack <id>] [--wait [SECONDS]]` | any role | Lists, reads, waits for, or acknowledges role messages |
+| `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` | you | Holds a role registration while running |
 | `tower-agents` | any role | Lists registered roles and mailbox counts |
 
 ## `tower new`
@@ -51,16 +51,17 @@ or `owner` when it is unset. The command prints the new ID before it tries deliv
 [Durable role messages](../PROTOCOL.md#durable-role-messages) for its exit status and the
 authority of cards and handoffs.
 
-`tower-inbox [--role <role>] [--wait [SECONDS]] [list|read <id>|ack <id>]` uses `TOWER_ROLE`
+`tower-inbox [--role <role>] [list|read <id>|ack <id>] [--wait [SECONDS]]` uses `TOWER_ROLE`
 when `--role` is absent. `list` is the default and includes queued and submitted message
 IDs. `--wait` applies only to `list`; without seconds it waits without a time limit, and
-with seconds it exits 1 when none arrives in time. `read` prints a message; `ack`
+with seconds it exits 1 when none arrives in time. Put an explicit `list` before `--wait`:
+`--wait list` reads `list` as the seconds and exits 2. `read` prints a message; `ack`
 acknowledges a queued or submitted message.
 
 `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` prints a
-session token and holds the role's lock until the command stops, so leave it running. A Codex
-registration with `--thread` is listed by `tower-agents` as `wake:native`; every other
-registration as `wake:none`.
+session token and holds the role's lock until the command stops, so leave it running. It exits
+1 when another live session holds the role. A `--vendor codex` registration with `--thread` is
+listed by `tower-agents` as `wake:native`; every other registration as `wake:none`.
 
 `tower-agents` takes no flags. Its tab-separated columns are role, vendor with optional
 version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverable:<n>`.

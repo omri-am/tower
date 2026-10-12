@@ -345,8 +345,8 @@ Exit 0 means delivered to the vendor adapter, 3 means stored with no live role o
 means stored but the role cannot be woken automatically. Exit 1 after a delivery attempt
 means stored but not delivered: the message returns to `queued/`, or moves to
 `undeliverable/` after three failed attempts, `redelivery` increases, and the error is
-appended to `mailbox/<role>/delivery.log`. Before storage, other errors exit 1 and usage
-errors exit 2.
+appended to `mailbox/<role>/delivery.log`. Usage errors exit 2 and other errors exit 1. If
+the command printed an ID, the message is stored.
 
 Registration is manual. `tower-register <role> --vendor <vendor>` holds the role's lock and
 keeps the role live only while it runs, so leave it running, for example in a spare terminal.

@@ -173,8 +173,8 @@ absent.
 `tower send <role> <text>` is another way to reach a role, alongside `## Corrections`. Write
 the correction into the card first; the file protocol stays authoritative. Exit 3 or 4 means
 the message was stored but not delivered, not that the send failed. Dispatch registers no role
-and assigns no role name. A send exits 3 unless that role was registered by hand with
-`tower-register`, and the implementor sees the message only by reading that role's inbox or
+and assigns no role name. A send exits 3 unless a `tower-register` for that role, started by
+hand, is still running, and the implementor sees the message only by reading that role's inbox or
 through wake for a Codex role registered with `--thread`.
 
 **Sync the board.** If the project tracks work on the agent-kanban board, mirror card
