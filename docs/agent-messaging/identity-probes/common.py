@@ -433,5 +433,6 @@ def parser(name):
 def command(run, args, timeout=20, env=None):
     run.check_time()
     result = subprocess.run(args, cwd=str(run.cwd), env=env, capture_output=True,
+                            stdin=subprocess.DEVNULL,
                             text=True, timeout=min(timeout, max(1, run.deadline-time.monotonic())))
     return {'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}
