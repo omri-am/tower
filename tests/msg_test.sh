@@ -289,6 +289,27 @@ with tempfile.TemporaryDirectory() as scratch:
                             acks = list(pool.map(lambda _: tower(project, 'inbox', '--role', role, 'ack', message), range(20)))
                         assert sum('already-acknowledged' not in ack for ack in acks) == 1
                         assert (box / 'acknowledged' / message).is_file() and not list((box / 'submitted').iterdir())
+                        child = ("import runpy, sys\n"
+                                 "m = runpy.run_path(sys.argv[1])\n"
+                                 "m['ADAPTERS']['codex']['name'] = 'Stub vendor'\n"
+                                 "directory = m['mailbox'](sys.argv[2])\n"
+                                 "message_id = m['publish'](directory, sys.argv[2], 'times out', None)\n"
+                                 "print(message_id, flush=True)\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=0.5))")
+                        result = subprocess.run([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'), role],
+                                                cwd=project,
+                                                env=dict(env, CODEX_BLOCK=str(base / (mode + '-timeout-running'))),
+                                                text=True, capture_output=True, timeout=10)
+                        assert result.returncode == 1 and 'Traceback' not in result.stderr, result.stderr
+                        timed_out = result.stdout.strip()
+                        stored = (box / 'queued' / timed_out).read_text()
+                        assert 'redelivery: 1' in stored and '; possibly a duplicate]' in stored
+                        assert not list((box / 'claimed').iterdir())
+                        failures = [line for line in (box / 'delivery.log').read_text().splitlines() if timed_out in line]
+                        assert len(failures) == 1
+                        assert f'{timed_out} exit=124 Stub vendor delivery timed out after 0.5 seconds:' in failures[0]
+                        assert 'Stub vendor delivery timed out after 0.5 seconds' in result.stderr
+                        tower(project, 'inbox', '--role', role, 'ack', timed_out)
                         marker = base / (mode + '-running')
                         sender = subprocess.Popen([sys.executable, str(root / 'lib/tower_msg.py'),
                                                    'send', role, 'interrupt me'], cwd=project,
