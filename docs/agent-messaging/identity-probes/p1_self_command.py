@@ -1,7 +1,7 @@
 """Throwaway T031 self-command probe. Run only from a mktemp -d directory.
 
 For live runs set CODEX_BIN=/Users/omriam/.codex/packages/standalone/releases/0.159.3-aarch64-apple-darwin/bin/codex.
-Live mode can install and start Codex's managed app-server daemon.
+Live mode can install and start Codex's managed app-server daemon. Do not rerun live mode unless the owner accepts that change under ~/.codex.
 """
 import json
 import os
