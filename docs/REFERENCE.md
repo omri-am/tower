@@ -30,6 +30,10 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-whoami` | tooling | Prints this session's own addressable name |
 | `tower-version-check [--notice]` | you | Checks for a newer tagged version now |
 | `tower-notify <title> <message>` | tooling | macOS notification |
+| `tower-send <role> [--reply-to <id>] <text\|->` | any role | Stores a role message, then tries delivery |
+| `tower-inbox [--role <role>] [--wait [SECONDS]] [list\|read <id>\|ack <id>]` | any role | Lists, reads, waits for, or acknowledges role messages |
+| `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` | role owner | Holds a role registration while running |
+| `tower-agents` | any role | Lists registered roles and mailbox counts |
 
 ## `tower new`
 
@@ -39,13 +43,31 @@ nonempty argument. Allocation considers card filenames, frontmatter IDs, and per
 `.claims/` directories; letter-suffixed IDs are ignored. Atomic claims prevent concurrent
 callers from receiving the same ID. The command prints the created path and does not commit.
 
+## Messaging commands
+
+`tower-send <role> [--reply-to <id>] <text|->` stores the text, or reads stdin for `-`.
+`--reply-to` records a message ID in the new message. The command prints the new ID before
+it tries delivery. See [Escalation routing](../PROTOCOL.md#escalation-routing) for delivery
+status and the authority of cards and handoffs.
+
+`tower-inbox [--role <role>] [--wait [SECONDS]] [list|read <id>|ack <id>]` uses `TOWER_ROLE`
+when `--role` is absent. `list` is the default and includes queued and submitted message
+IDs. `--wait` applies only to `list`; without seconds it waits without a time limit.
+`read` prints a message; `ack` acknowledges a queued or submitted message.
+
+`tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` holds the
+role's lock until the command stops. Run it in the background. A Codex registration with
+`--thread` reports `wake:native`; other registrations report `wake:none`.
+`tower-agents` takes no flags. Its tab-separated columns are role, vendor with optional
+version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverable:<n>`.
+
 ## `tower-dispatch` flags
 
 | Flag | Effect |
 | --- | --- |
 | `--vendor claude\|codex` | Overrides the card's vendor |
-| `--model <name>` | Passes `--model` to Claude and records it on the card, where `--resume` reuses it; for codex it is recorded but not passed, with a warning |
-| `--effort <level>` | Passes `--effort` to Claude and records it on the card, where `--resume` reuses it; for codex it is recorded but not passed, with a warning |
+| `--model <name>` | Overrides the card's `model:`; without the flag, uses the card value. Passes `--model <name>` to Claude or Codex and records the selected value on first dispatch |
+| `--effort <level>` | Overrides the card's `effort:`; without the flag, uses the card value. Passes `--effort <level>` to Claude or `-c model_reasoning_effort=<level>` to Codex and records the selected value on first dispatch |
 | `--headless` | Runs `claude -p` / `codex exec` instead of opening a Terminal window |
 | `--here` | Launches the implementor in the current terminal (tmux, Superset panes) |
 | `--print-only` | Prints the launch command and changes nothing |

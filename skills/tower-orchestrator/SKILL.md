@@ -170,6 +170,11 @@ as `<name> [ref]` using the ref from that error or from `ListAgents`. Your own r
 `.tower/orchestrator` is what lets a blocked implementor message you back; keep it current or
 absent.
 
+`tower send <role> <text>` is another way to reach a role, alongside `## Corrections`. Write
+the correction into the card first; the file protocol stays authoritative. Exit 3 or 4 means
+the message was stored but not delivered, not that the send failed. Dispatch does not register
+a role, so a send to a dispatched implementor exits 3 unless that session ran `tower-register`.
+
 **Sync the board.** If the project tracks work on the agent-kanban board, mirror card
 status changes there. The board is the owner's glanceable view; `.tower/` stays the source
 of truth.
