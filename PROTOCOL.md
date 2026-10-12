@@ -2,8 +2,9 @@
 
 The contract between the orchestrator role, implementor sessions, and the human owner.
 Everything durable lives in files under `.tower/` at the **project root**, committed to
-main, except the role mailbox described under [Escalation routing](#escalation-routing).
-Sessions are disposable; any session assuming a role rehydrates from these files.
+main, except the role mailbox and agent registry described under
+[Escalation routing](#escalation-routing). Sessions are disposable; any session assuming a
+role rehydrates from these files.
 
 The project root is where `tower-init` was run: the repo root for a single-project repo, or
 a subdirectory (e.g. `monorepo/connectors/`) when one repo holds several projects. Every
@@ -301,28 +302,8 @@ session-to-session messages ride on top of that and never replace it: a send can
 the files cannot, and delivery to a peer session is gated on approval at the receiving end, so
 a message arriving sooner is a possibility, never a guarantee.
 
-### Durable role messages
-
-`tower send <role> <text>` stores a message before it tries delivery. The mailbox is under
-`<git-common-dir>/tower/root/mailbox/<role>/`, or
-`<git-common-dir>/tower/projects/<project-relative-path>/mailbox/<role>/` for a subproject.
-Every worktree of the project shares that mailbox. Receipt is best-effort, so cards and
-handoffs remain the ONLY authority for whether work happened.
-
-Exit 0 means delivered to the vendor adapter, 3 means stored with no live role owner, and 4
-means stored but the role cannot be woken automatically. Exit 1 after a delivery attempt
-means stored but not delivered. The failed message returns to `queued/`, or moves to
-`undeliverable/` after three failed attempts; `redelivery` increases and the error is
-appended to `mailbox/<role>/delivery.log`. Before storage, other errors exit 1 and usage
-errors exit 2.
-
-Registration is manual: run `tower-register <role> --vendor <vendor>` in the background.
-It holds the role's lock while running. Dispatch does not register the role. Only a Codex
-role registered with `--thread <id>` has `wake: native` today; all other registrations
-have `wake: none` because no other vendor has a wake adapter.
-
-`SendMessage` addressing is by session name because a name can belong to a role. `SendMessage`
-also accepts `uds:<socket path>`, and that form needs no `[ref]`, but a socket path belongs to a process:
+Addressing is by session name because a name can belong to a role. `SendMessage` also accepts
+`uds:<socket path>`, and that form needs no `[ref]`, but a socket path belongs to a process:
 the orchestrator that gets flushed and replaced comes back on a new PID behind a new socket,
 so a recorded path dies with the session that wrote it while a role name addresses whichever
 session currently holds the role.
@@ -342,7 +323,7 @@ assumed by hand in an already-running session — that session carries a derived
 convention one, which is exactly why the file is the authority and the convention is only how
 the other side guesses right on the first try.
 
-Only a session named in that file gets `SendMessage`; when the file is absent, nobody does. A `--headless` implementor is addressable in neither direction as a `SendMessage` target — headless
+Only a session named in that file gets messaged; when the file is absent, nobody does. A `--headless` implementor is addressable in neither direction as a target — headless
 sessions do not enter the registry, so `-n` labels them without making them reachable, and
 their corrections stay in the card. First contact with a session the sender did not spawn is
 rejected with an error naming that session's `[ref]`, and the resend carries it as
@@ -351,6 +332,27 @@ rejected with an error naming that session's `[ref]`, and the resend carries it 
 Agents must never guess a role-holder from the machine's session list; unrelated sessions
 share the machine. Deriving a name from the project and confirming it in `ListAgents` is not
 guessing — picking the plausible-looking row is.
+
+### Durable role messages
+
+`tower send <role> <text>` addresses a role, not a session, and stores the message before it
+tries delivery. The mailbox is under `<git-common-dir>/tower/root/mailbox/<role>/`, or
+`<git-common-dir>/tower/projects/<project-relative-path>/mailbox/<role>/` for a subproject,
+so every worktree of the project shares it. Receipt is best-effort, so **cards and handoffs
+remain the only authority for whether work happened**.
+
+Exit 0 means delivered to the vendor adapter, 3 means stored with no live role owner, and 4
+means stored but the role cannot be woken automatically. Exit 1 after a delivery attempt
+means stored but not delivered: the message returns to `queued/`, or moves to
+`undeliverable/` after three failed attempts, `redelivery` increases, and the error is
+appended to `mailbox/<role>/delivery.log`. Before storage, other errors exit 1 and usage
+errors exit 2.
+
+Registration is manual. `tower-register <role> --vendor <vendor>` holds the role's lock and
+keeps the role live only while it runs, so leave it running, for example in a spare terminal.
+Dispatch does not register a role, does not set `TOWER_ROLE`, and assigns no role name. Only a
+Codex role registered with `--thread <id>` has `wake: native` today. Every other registration
+has `wake: none`, because no other vendor has a verified wake adapter.
 
 ## Orchestrators without Claude Code plumbing
 

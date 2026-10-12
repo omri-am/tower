@@ -46,18 +46,22 @@ callers from receiving the same ID. The command prints the created path and does
 ## Messaging commands
 
 `tower-send <role> [--reply-to <id>] <text|->` stores the text, or reads stdin for `-`.
-`--reply-to` records a message ID in the new message. The command prints the new ID before
-it tries delivery. See [Escalation routing](../PROTOCOL.md#escalation-routing) for delivery
-status and the authority of cards and handoffs.
+`--reply-to` records a message ID in the new message. The message's `from` is `TOWER_ROLE`,
+or `owner` when it is unset. The command prints the new ID before it tries delivery. See
+[Escalation routing](../PROTOCOL.md#escalation-routing) for its exit status and the authority
+of cards and handoffs.
 
 `tower-inbox [--role <role>] [--wait [SECONDS]] [list|read <id>|ack <id>]` uses `TOWER_ROLE`
 when `--role` is absent. `list` is the default and includes queued and submitted message
-IDs. `--wait` applies only to `list`; without seconds it waits without a time limit.
-`read` prints a message; `ack` acknowledges a queued or submitted message.
+IDs. `--wait` applies only to `list`; without seconds it waits without a time limit, and
+with seconds it exits 1 when none arrives in time. `read` prints a message; `ack`
+acknowledges a queued or submitted message.
 
-`tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` holds the
-role's lock until the command stops. Run it in the background. A Codex registration with
-`--thread` reports `wake:native`; other registrations report `wake:none`.
+`tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` prints a
+session token and holds the role's lock until the command stops, so leave it running. A Codex
+registration with `--thread` is listed by `tower-agents` as `wake:native`; every other
+registration as `wake:none`.
+
 `tower-agents` takes no flags. Its tab-separated columns are role, vendor with optional
 version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverable:<n>`.
 
