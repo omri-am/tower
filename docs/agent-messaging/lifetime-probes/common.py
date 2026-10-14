@@ -61,8 +61,8 @@ class Run(identity.Run):
             self.screen_due = False
 
     def launch(self, prompt=None, extra=()):
-        # A dispatched worktree inherits trust from its trusted repository root. This run-only
-        # override gives the fixture the same trust without answering the dialog or saving it.
+        # Codex keys trust by repository root, so a dispatched worktree is assumed to inherit its
+        # trusted root. This run-only override trusts the fixture without a dialog or a save.
         trust = 'projects={%s={trust_level="trusted"}}' % json.dumps(str(self.cwd.parent / 'repo'))
         return super().launch(prompt, ('-c', trust) + tuple(extra))
 

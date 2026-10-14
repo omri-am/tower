@@ -75,13 +75,13 @@ def main():
         raise
     finally:
         try:
-            if not completed:
-                for name in started:
-                    checks[name]['last_observed'] = check_registration(
-                        run, roles[name], state_root, 'last_observed')
-                    log_file(run, 'reg-' + name + '.out')
-                    log_file(run, 'reg-' + name + '.err')
             try:
+                if not completed:
+                    for name in started:
+                        checks[name]['last_observed'] = check_registration(
+                            run, roles[name], state_root, 'last_observed')
+                        log_file(run, 'reg-' + name + '.out')
+                        log_file(run, 'reg-' + name + '.err')
                 run.stop()
                 if completed:
                     time.sleep(5)
