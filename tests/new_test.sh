@@ -15,10 +15,56 @@ OUT="$("$ROOT/bin/tower" new 'Fix the thing' 2>"$PROJECT/error")"
 assert_status 'tower new succeeds' "$?" 0
 assert_eq 'next flat path' "$OUT" "$TASKS/T012-fix-the-thing.md"
 if [ ! -f "$OUT" ]; then summary; exit 1; fi
-sed -e 's/^id: T000$/id: T012/' -e 's/^title:$/title: Fix the thing/' \
+sed -e 's/^id: T000$/id: T012/' -e 's/^title:$/title: Fix the thing/' -e 's/<task-id>/T012/g' \
   "$PROJECT/.tower/templates/task-card.md" > "$PROJECT/expected"
-assert_true 'only id and title change in template' cmp -s "$OUT" "$PROJECT/expected"
+assert_true 'only id, title and task-id placeholder change in template' cmp -s "$OUT" "$PROJECT/expected"
+assert_false 'no task-id placeholder survives' grep -qF '<task-id>' "$OUT"
 assert_true 'claim remains' test -d "$TASKS/.claims/T012"
+
+export TOWER_PROJECT_DIR="$PROJECT/fixture"
+mkdir -p "$TOWER_PROJECT_DIR/.tower/templates"
+cat > "$TOWER_PROJECT_DIR/.tower/templates/task-card.md" <<'EOF'
+---
+id: T000
+title:
+status: draft
+---
+<!-- Fragment:
+changelog.d/<task-id>.md and <task-id>
+<other-id> and <task-ID>
+-->
+Body <task-id> with <other-id> and <task-ID>.
+EOF
+cat > "$PROJECT/fixture-expected" <<'EOF'
+---
+id: T001
+title: Fixture
+status: draft
+---
+<!-- Fragment:
+changelog.d/T001.md and T001
+<other-id> and <task-ID>
+-->
+Body T001 with <other-id> and <task-ID>.
+EOF
+OUT="$("$NEW" 'Fixture')"
+assert_true 'fixture replaces all task-id occurrences and preserves other placeholders' cmp -s "$OUT" "$PROJECT/fixture-expected"
+
+export TOWER_PROJECT_DIR="$PROJECT/no-placeholder"
+mkdir -p "$TOWER_PROJECT_DIR/.tower/templates"
+cat > "$TOWER_PROJECT_DIR/.tower/templates/task-card.md" <<'EOF'
+---
+id: T000
+title:
+status: draft
+---
+Body <other-id> and <task-ID>.
+EOF
+sed -e 's/^id: T000$/id: T001/' -e 's/^title:$/title: No placeholder/' \
+  "$TOWER_PROJECT_DIR/.tower/templates/task-card.md" > "$PROJECT/no-placeholder-expected"
+OUT="$("$NEW" 'No placeholder')"
+assert_true 'template without task-id preserves other content' cmp -s "$OUT" "$PROJECT/no-placeholder-expected"
+export TOWER_PROJECT_DIR="$PROJECT"
 
 printf '%s\n' '---' 'id: T020' '---' 'id: T999' > "$TASKS/mismatched.md"
 assert_eq 'frontmatter counts but body does not' "$("$NEW" 'Frontmatter')" "$TASKS/T021-frontmatter.md"
@@ -72,6 +118,14 @@ done
 assert_eq 'parallel creators return distinct paths' "$(cat "$PROJECT"/result-* | sort -u | wc -l | tr -d ' ')" 20
 assert_eq 'parallel creators write twenty cards' "$(find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | wc -l | tr -d ' ')" 20
 assert_eq 'parallel cards have distinct ids' "$(sed -n 's/^id: //p' "$TOWER_PROJECT_DIR"/.tower/tasks/*.md | sort -u | wc -l | tr -d ' ')" 20
+: > "$PROJECT/parallel-fragment-ids"
+for CARD in "$TOWER_PROJECT_DIR"/.tower/tasks/*.md; do
+  CARD_ID="$(sed -n 's/^id: //p' "$CARD")"
+  if grep -qF "changelog.d/$CARD_ID.md" "$CARD"; then
+    printf '%s\n' "$CARD_ID" >> "$PROJECT/parallel-fragment-ids"
+  fi
+done
+assert_eq 'parallel cards name their own fragment' "$(wc -l < "$PROJECT/parallel-fragment-ids" | tr -d ' ')" 20
 assert_true 'empty project starts at T001' test -f "$TOWER_PROJECT_DIR/.tower/tasks/T001-same-title.md"
 env TOWER_BIN_DIR="$PROJECT/bootstrap-bin" TOWER_LIBEXEC_DIR="$PROJECT/bootstrap-libexec" "$ROOT/bin/tower-bootstrap" >/dev/null 2>&1
 assert_true 'bootstrap links command' test -L "$PROJECT/bootstrap-bin/tower-new"

@@ -46,7 +46,7 @@ while IFS= read -r LINE || [ -n "$LINE" ]; do
   case "$LINE" in
     'id: T000') printf 'id: %s\n' "$ID" ;;
     title:*) printf 'title: %s\n' "$TITLE" ;;
-    *) printf '%s\n' "$LINE" ;;
+    *) printf '%s\n' "${LINE//"<task-id>"/$ID}" ;;
   esac
 done < "$TEMPLATE" > "$CARD"
 printf '%s\n' "$CARD"
