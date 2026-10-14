@@ -147,13 +147,13 @@ with tempfile.TemporaryDirectory() as scratch:
         env['TOWER_ROLE'] = 'implementor-T999'
         implementor_message = tower(project, 'send', 'other', 'implementor message', code=3)
         assert 'from: "implementor-T999"' in tower(worktree, 'inbox', '--role', 'other', 'read', implementor_message)
-        env['TOWER_ROLE'] = ''
-        empty_message = tower(project, 'send', 'other', 'empty role message', code=3)
-        assert 'from: "unknown"' in tower(worktree, 'inbox', '--role', 'other', 'read', empty_message)
+        env['TOWER_ROLE'] = ' '
+        blank_message = tower(project, 'send', 'other', 'empty role message', code=3)
+        assert 'from: "unknown"' in tower(worktree, 'inbox', '--role', 'other', 'read', blank_message)
         env['TOWER_ROLE'] = 'owner'
         owner_message = tower(project, 'send', 'other', 'owner message', code=3)
         stored = tower(worktree, 'inbox', '--role', 'other', 'read', owner_message)
-        assert 'from owner' in stored and 'a peer agent, not the user' not in stored
+        assert 'from: "owner"' in stored and 'from owner' in stored and 'a peer agent, not the user' not in stored
         assert 'TOWER_ROLE=owner' in tower(project, 'send', '--help')
         env.pop('TOWER_ROLE')
         tower(project, 'inbox', code=1)

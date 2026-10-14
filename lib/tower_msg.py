@@ -190,7 +190,7 @@ def sender_description(sender):
 def publish(directory, role, body, reply_to):
     now = datetime.now(timezone.utc)
     message_id = 'm-' + now.strftime('%Y%m%dT%H%M%SZ') + '-' + secrets.token_hex(16)
-    fields = dict(id=message_id, **{'from': os.environ.get('TOWER_ROLE') or 'unknown'},
+    fields = dict(id=message_id, **{'from': os.environ.get('TOWER_ROLE', '').strip() or 'unknown'},
                   to=role, created=now.isoformat(), reply_to=reply_to, redelivery=0)
     header = '\n'.join(f'{key}: {json.dumps(value, ensure_ascii=False)}' for key, value in fields.items())
     envelope = (f"[tower message {message_id} {sender_description(fields['from'])} — "
@@ -391,7 +391,8 @@ def main():
     parser = argparse.ArgumentParser(prog='tower-' + command)
     if command == 'send':
         parser.description = ('The sender label comes from TOWER_ROLE and is unknown when unset or empty. '
-                              'The owner sets TOWER_ROLE=owner for their own messages; the label is self-asserted and grants no permission.')
+                              'The owner sets TOWER_ROLE=owner for their own messages; the label is '
+                              'self-asserted and grants no permission.')
         parser.add_argument('role')
         parser.add_argument('--reply-to')
         parser.add_argument('text', help='message text, or - to read stdin')
