@@ -178,6 +178,7 @@ append_launch_setting() {
 
 prepare_launch() {
   load_launch_adapter "$VENDOR"
+  LAUNCH_ENV=("TOWER_TASK=$TASK_ID" "TOWER_ROLE=implementor-$TASK_ID")
   AGENT_ARGS=()
   [ -z "$ADAPTER_SESSION_FLAG" ] || AGENT_ARGS+=("$ADAPTER_SESSION_FLAG" "$1")
   if [ "$MODE" = headless ]; then
@@ -191,13 +192,13 @@ prepare_launch() {
 
 launch_command() {
   local command prompt_path
-  printf -v command '%q ' "$VENDOR" ${AGENT_ARGS[@]+"${AGENT_ARGS[@]}"}
+  printf -v command '%q ' "${LAUNCH_ENV[@]}" "$VENDOR" ${AGENT_ARGS[@]+"${AGENT_ARGS[@]}"}
   printf -v prompt_path '%q' "$PROMPT_FILE"
-  printf 'cd %q && TOWER_TASK=%q %s"$(cat %s)"' "$WORK_DIR" "$TASK_ID" "$command" "$prompt_path"
+  printf 'cd %q && %s"$(cat %s)"' "$WORK_DIR" "$command" "$prompt_path"
 }
 
 launch_here() {
-  (cd "$WORK_DIR" && TOWER_TASK="$TASK_ID" "$VENDOR" ${AGENT_ARGS[@]+"${AGENT_ARGS[@]}"} "$(cat "$PROMPT_FILE")")
+  (cd "$WORK_DIR" && env "${LAUNCH_ENV[@]}" "$VENDOR" ${AGENT_ARGS[@]+"${AGENT_ARGS[@]}"} "$(cat "$PROMPT_FILE")")
 }
 
 common_git_dir() {
