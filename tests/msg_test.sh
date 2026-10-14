@@ -31,6 +31,13 @@ def tower(cwd, *args, **kwargs):
 with tempfile.TemporaryDirectory() as scratch:
     base = Path(scratch)
     module = runpy.run_path(str(root / 'lib/tower_msg.py'))
+    shadow_dir = base / 'shadow-stdlib'
+    shadow_dir.mkdir()
+    (shadow_dir / 'subprocess.py').write_text('raise SystemExit(55)\n')
+    result = subprocess.run([sys.executable, '-I', '-c', module['DELIVERY_WRAPPER'], '1',
+                             sys.executable, '-c', 'import sys; sys.exit(7)'],
+                            cwd=shadow_dir, capture_output=True, start_new_session=True)
+    assert result.returncode == 7, result.stderr
     box = base / 'missing-redelivery'
     for state in module['STATES']:
         (box / state).mkdir(parents=True)
@@ -163,6 +170,7 @@ with tempfile.TemporaryDirectory() as scratch:
         stub = stub_dir / 'codex'
         stub.write_text('#!/bin/bash\nprintf "%s\\0" "$@" > "$CODEX_ARGS"\n'
                         'cat "$CODEX_CLAIM_DIR"/*.claim > "$CODEX_CLAIMS"\n'
+                        'if [ -n "${CODEX_PID:-}" ]; then echo "$$" > "$CODEX_PID"; fi\n'
                         'if [ -n "${CODEX_BLOCK:-}" ]; then\n'
                         '  : > "$CODEX_BLOCK"\n'
                         '  if [ -n "${CODEX_RELEASE:-}" ]; then\n'
@@ -191,9 +199,18 @@ with tempfile.TemporaryDirectory() as scratch:
                 wake = 'native' if code != 4 else 'none'
                 assert record['thread'] == thread and record['wake'] == wake
                 assert f'{role}\t{vendor}\tlive\twake:{wake}' in tower(project, 'agents')
+                adapter_pid_file = base / (mode + '-adapter-pid')
                 result = subprocess.run([str(root / 'bin/tower'), 'send', role, 'hello\n世界\n'],
-                                        cwd=project, env=env, text=True, capture_output=True)
+                                        cwd=project, env=dict(env, CODEX_PID=str(adapter_pid_file)) if code == 0 else env,
+                                        text=True, capture_output=True)
                 assert result.returncode == code, result.stderr
+                if code == 0:
+                    try:
+                        os.kill(int(adapter_pid_file.read_text()), 0)
+                    except ProcessLookupError:
+                        pass
+                    else:
+                        assert False, 'successful delivery left its adapter running'
                 message = result.stdout.strip()
                 assert re.fullmatch(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}', message)
                 box = mailbox.parent / role
@@ -324,6 +341,140 @@ with tempfile.TemporaryDirectory() as scratch:
                         assert f'{timed_out} exit=124 Stub vendor delivery timed out after 0.5 seconds:' in failures[0]
                         assert 'Stub vendor delivery timed out after 0.5 seconds' in result.stderr
                         tower(project, 'inbox', '--role', role, 'ack', timed_out)
+                        child = ("import runpy, sys\n"
+                                 "m = runpy.run_path(sys.argv[1])\n"
+                                 "m['ADAPTERS']['codex']['command'] = lambda record, text: "
+                                 "['/bin/sh', '-c', 'echo boom >&2; kill -KILL $$']\n"
+                                 "directory = m['mailbox'](sys.argv[2])\n"
+                                 "message_id = m['publish'](directory, sys.argv[2], 'adapter killed', None)\n"
+                                 "print(message_id, flush=True)\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=30))")
+                        result = subprocess.run([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'), role],
+                                                cwd=project, env=env, text=True, capture_output=True, timeout=5)
+                        assert result.returncode == 1, result.stderr
+                        killed = result.stdout.strip()
+                        failures = [line for line in (box / 'delivery.log').read_text().splitlines() if killed in line]
+                        assert len(failures) == 1 and f'{killed} exit=-9 boom' in failures[0], failures
+                        tower(project, 'inbox', '--role', role, 'ack', killed)
+                        child = ("import runpy, sys\n"
+                                 "m = runpy.run_path(sys.argv[1])\n"
+                                 "m['ADAPTERS']['codex']['command'] = lambda record, text: "
+                                 "['definitely-missing-binary']\n"
+                                 "directory = m['mailbox'](sys.argv[2])\n"
+                                 "message_id = m['publish'](directory, sys.argv[2], 'missing adapter', None)\n"
+                                 "print(message_id, flush=True)\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=30))")
+                        result = subprocess.run([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'), role],
+                                                cwd=project, env=env, text=True, capture_output=True, timeout=5)
+                        assert result.returncode == 1, result.stderr
+                        missing = result.stdout.strip()
+                        failures = [line for line in (box / 'delivery.log').read_text().splitlines() if missing in line]
+                        assert len(failures) == 1 and f"{missing} exit=127 [Errno 2] No such file or directory: 'definitely-missing-binary'" in failures[0], failures
+                        tower(project, 'inbox', '--role', role, 'ack', missing)
+                        escaped_adapter = base / (mode + '-escaped-adapter.py')
+                        escaped_pid_file = base / (mode + '-escaped-pid')
+                        escaped_adapter.write_text("""import os, pathlib, sys, time
+read_fd, write_fd = os.pipe()
+if os.fork():
+    os.close(write_fd)
+    os.read(read_fd, 1)
+    os._exit(0)
+os.close(read_fd)
+os.setsid()
+pathlib.Path(sys.argv[1]).write_text(str(os.getpid()))
+os.write(write_fd, b'1')
+os.close(write_fd)
+time.sleep(10)
+""")
+                        child = ("import runpy, sys\n"
+                                 "m = runpy.run_path(sys.argv[1])\n"
+                                 "m['ADAPTERS']['codex']['name'] = 'Stub vendor'\n"
+                                 "m['ADAPTERS']['codex']['command'] = lambda record, text: "
+                                 "[sys.executable, sys.argv[3], sys.argv[4]]\n"
+                                 "directory = m['mailbox'](sys.argv[2])\n"
+                                 "message_id = m['publish'](directory, sys.argv[2], 'escaped stderr', None)\n"
+                                 "print(message_id, flush=True)\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=0.5))")
+                        sender = subprocess.Popen([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'),
+                                                   role, str(escaped_adapter), str(escaped_pid_file)],
+                                                  cwd=project, env=env, text=True,
+                                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        try:
+                            escaped_message = sender.stdout.readline().strip()
+                            sender.wait(timeout=5)
+                            assert sender.returncode == 1
+                            failures = [line for line in (box / 'delivery.log').read_text().splitlines()
+                                        if escaped_message in line]
+                            assert len(failures) == 1
+                            assert f'{escaped_message} exit=124 Stub vendor delivery timed out after 0.5 seconds:' in failures[0], failures[0]
+                        finally:
+                            if sender.poll() is None:
+                                sender.kill()
+                                sender.wait(timeout=5)
+                            if escaped_pid_file.exists():
+                                try:
+                                    os.kill(int(escaped_pid_file.read_text()), signal.SIGKILL)
+                                except ProcessLookupError:
+                                    pass
+                            sender.communicate(timeout=5)
+                        tower(project, 'inbox', '--role', role, 'ack', escaped_message)
+                        marker = base / (mode + '-orphan-running')
+                        adapter_pid_file = base / (mode + '-orphan-pid')
+                        child = ("import runpy, sys\n"
+                                 "m = runpy.run_path(sys.argv[1])\n"
+                                 "directory = m['mailbox'](sys.argv[2])\n"
+                                 "message_id = m['publish'](directory, sys.argv[2], 'orphan deadline', None)\n"
+                                 "print(message_id, flush=True)\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=2))")
+                        sender = subprocess.Popen([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'), role],
+                                                  cwd=project,
+                                                  env=dict(env, CODEX_BLOCK=str(marker), CODEX_PID=str(adapter_pid_file)),
+                                                  text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        orphan = None
+                        adapter_pid = None
+                        adapter_exited = False
+                        started = time.monotonic()
+                        try:
+                            orphan = sender.stdout.readline().strip()
+                            while not marker.exists() and sender.poll() is None and time.monotonic() < started + 5:
+                                time.sleep(0.01)
+                            assert marker.exists(), 'orphan-deadline stub did not start'
+                            blocked = time.monotonic()
+                            adapter_pid = int(adapter_pid_file.read_text())
+                            sender.kill()
+                            sender.wait(timeout=5)
+                            assert (box / 'claimed' / orphan).is_file()
+                            assert f'claimant={session}' in (box / 'claimed' / (orphan + '.claim')).read_text()
+                            os.kill(adapter_pid, 0)
+                            while time.monotonic() < blocked + 5:
+                                try:
+                                    os.kill(adapter_pid, 0)
+                                except ProcessLookupError:
+                                    adapter_exited = True
+                                    break
+                                time.sleep(0.01)
+                            else:
+                                assert False, 'adapter survived its deadline after sender was killed'
+                        finally:
+                            if adapter_pid is not None and not adapter_exited:
+                                try:
+                                    os.kill(adapter_pid, signal.SIGKILL)
+                                except ProcessLookupError:
+                                    pass
+                            if sender.poll() is None:
+                                sender.kill()
+                            sender.communicate(timeout=5)
+                            if orphan:
+                                (box / 'claimed' / orphan).unlink(missing_ok=True)
+                                (box / 'claimed' / (orphan + '.claim')).unlink(missing_ok=True)
+                        for signum, child_command in (
+                                (signal.SIGPIPE, ['/bin/sh', '-c', 'kill -PIPE $$']),
+                                (signal.SIGKILL, [sys.executable, '-c',
+                                                  f'import os, signal; os.kill(os.getpid(), {signal.SIGKILL})'])):
+                            result = subprocess.run([sys.executable, '-I', '-c', module['DELIVERY_WRAPPER'], '1',
+                                                     *child_command],
+                                                    text=True, capture_output=True, start_new_session=True)
+                            assert result.returncode == -signum, result.stderr
                         marker = base / (mode + '-running')
                         sender = subprocess.Popen([sys.executable, str(root / 'lib/tower_msg.py'),
                                                    'send', role, 'interrupt me'], cwd=project,

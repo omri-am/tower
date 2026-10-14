@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import signal
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,27 @@ BIN = Path(__file__).resolve().parent.parent / 'bin'
 STATES = ('queued', 'claimed', 'submitted', 'acknowledged', 'undeliverable', 'tmp')
 DELIVERY_ATTEMPTS = 3
 DELIVERY_TIMEOUT = 30
+DELIVERY_WRAPPER = """import os, signal, subprocess, sys
+
+def expire(signum, frame):
+    os.killpg(0, signal.SIGKILL)
+
+signal.signal(signal.SIGALRM, expire)
+signal.setitimer(signal.ITIMER_REAL, float(sys.argv[1]))
+try:
+    code = subprocess.run(sys.argv[2:]).returncode
+    signal.setitimer(signal.ITIMER_REAL, 0)
+except OSError as failure:
+    print(failure, file=sys.stderr)
+    sys.exit(127)
+# Re-raise the adapter's fatal signal so the parent sees its direct return code.
+if code < 0:
+    signum = -code
+    if signum != signal.SIGKILL:
+        signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+sys.exit(code)
+"""
 CLAIM_STALE_AFTER = timedelta(minutes=10)
 _OWNED = {}
 MESSAGE_ID = re.compile(r'm-\d{8}T\d{6}Z-[0-9a-f]{32}')
@@ -303,9 +325,24 @@ def deliver_queued(directory, role, record, timeout):
         interrupted = None
         try:
             claim.write_text(f"claimant={record['session']}\nat={datetime.now(timezone.utc).isoformat()}\n")
-            result = subprocess.run(adapter['command'](record, text),
-                                    capture_output=True, text=True, errors='replace', timeout=timeout)
-            code, error = result.returncode, result.stderr
+            command = [sys.executable, '-I', '-c', DELIVERY_WRAPPER, str(timeout), *adapter['command'](record, text)]
+            started = time.monotonic()
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                       text=True, errors='replace', start_new_session=True)
+            try:
+                _, error = process.communicate(timeout=timeout)
+            except BaseException:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    # macOS reports EPERM when the group's only member is an unreaped zombie.
+                    pass
+                process.wait()
+                raise
+            code = process.returncode
+            # The wrapper's deadline kills its group with SIGKILL; elapsed time excludes an unrelated adapter SIGKILL.
+            if code == -signal.SIGKILL and time.monotonic() - started >= timeout:
+                raise subprocess.TimeoutExpired(command, timeout, stderr=error)
             if code == 0:
                 submitted.with_suffix('.submitted').write_text(f'at={datetime.now(timezone.utc).isoformat()}\n')
                 claimed.rename(submitted)
