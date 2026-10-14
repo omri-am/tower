@@ -9,6 +9,47 @@ die() { echo "tower-release: $1" >&2; exit 1; }
 
 usage() { die "usage: tower-release <x.y.z> | tower-release --tag <x.y.z>"; }
 
+collect_index_fragments() {
+  local fragments="$1" output="$2" fragment
+  while IFS= read -r fragment; do
+    [ -n "$fragment" ] || continue
+    awk '
+      !/^[[:space:]]*$/ { if (!first) first=NR; last=NR }
+      { lines[NR]=$0 }
+      END {
+        if (!first) exit
+        if (lines[first] !~ /^## /) exit 1
+        for (i=first; i<=last; i++) print lines[i]
+        print ""
+      }
+    ' "$ROOT/$fragment" >> "$output" || die "$fragment must start with a '## ' heading"
+  done <<EOF
+$fragments
+EOF
+}
+
+check_index_anchor() {
+  local document="$1" anchor="$2" content="$3" count
+  [ -s "$content" ] || return 0
+  [ -f "$ROOT/$document" ] || die "$document must contain '$anchor' exactly once"
+  count="$(grep -cxF "$anchor" "$ROOT/$document" || true)"
+  [ "$count" -eq 1 ] || die "$document must contain '$anchor' exactly once"
+}
+
+fold_index() {
+  local document="$1" anchor="$2" content="$3"
+  [ -s "$content" ] || return 0
+  TMP="$(mktemp)"
+  awk -v anchor="$anchor" -v fragments="$content" '
+    $0 == anchor {
+      while ((getline line < fragments) > 0) print line
+      close(fragments)
+    }
+    { print }
+  ' "$ROOT/$document" > "$TMP"
+  mv "$TMP" "$ROOT/$document"
+}
+
 if [ "${1:-}" = "--tag" ]; then
   MODE="tag"
   [ $# -eq 2 ] || usage
@@ -77,16 +118,26 @@ else
 
   UNRELEASED="$(awk '/^## Unreleased$/{f=1;next} /^## /{f=0} f' "$CHANGELOG" | tr -d '[:space:]')"
   FRAGMENTS="$(git -C "$ROOT" ls-files -- 'changelog.d/*.md')"
+  PROTOCOL_FRAGMENTS="$(git -C "$ROOT" ls-files -- 'protocol.d/*.md')"
+  REFERENCE_FRAGMENTS="$(git -C "$ROOT" ls-files -- 'reference.d/*.md')"
+  TMP=""
   TMP_FRAGMENTS="$(mktemp)"
-  trap 'rm -f "$TMP_FRAGMENTS"' EXIT
+  TMP_PROTOCOL="$(mktemp)"
+  TMP_REFERENCE="$(mktemp)"
+  trap 'rm -f "$TMP_FRAGMENTS" "$TMP_PROTOCOL" "$TMP_REFERENCE" "$TMP"' EXIT
   while IFS= read -r fragment; do
     [ -n "$fragment" ] || continue
     awk '{ lines[NR]=$0; if (NF) last=NR } END { for (i=1; i<=last; i++) print lines[i]; if (last) print "" }' "$ROOT/$fragment" >> "$TMP_FRAGMENTS"
   done <<EOF
 $FRAGMENTS
 EOF
+  collect_index_fragments "$PROTOCOL_FRAGMENTS" "$TMP_PROTOCOL"
+  collect_index_fragments "$REFERENCE_FRAGMENTS" "$TMP_REFERENCE"
+  check_index_anchor "PROTOCOL.md" "## Protocol version" "$TMP_PROTOCOL"
+  check_index_anchor "docs/REFERENCE.md" "## Core ideas" "$TMP_REFERENCE"
   FRAGMENT_CONTENT="$(tr -d '[:space:]' < "$TMP_FRAGMENTS")"
-  [ -n "$UNRELEASED$FRAGMENT_CONTENT" ] || die "CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/ fragment has an entry - a version bump with no entry tells nobody what shipped"
+  [ -n "$UNRELEASED$FRAGMENT_CONTENT" ] || [ -s "$TMP_PROTOCOL" ] || [ -s "$TMP_REFERENCE" ] ||
+    die "CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/, protocol.d/ or reference.d/ fragment has an entry - a version bump with no entry tells nobody what shipped"
 
   TODAY="$(date +%Y-%m-%d)"
   TMP="$(mktemp)"
@@ -131,12 +182,24 @@ EOF
   ' "$CHANGELOG" > "$TMP"
   mv "$TMP" "$CHANGELOG"
 
+  # Unreleased fragments can disagree; read and reconcile the assembled text before tagging.
+  fold_index "PROTOCOL.md" "## Protocol version" "$TMP_PROTOCOL"
+  fold_index "docs/REFERENCE.md" "## Core ideas" "$TMP_REFERENCE"
+
   git -C "$ROOT" checkout -q -b "release-v$NEW"
   git -C "$ROOT" add "$MANIFEST" "$CHANGELOG"
+  [ ! -s "$TMP_PROTOCOL" ] || git -C "$ROOT" add -- PROTOCOL.md
+  [ ! -s "$TMP_REFERENCE" ] || git -C "$ROOT" add -- docs/REFERENCE.md
   [ -z "$FRAGMENTS" ] || git -C "$ROOT" rm -q -- 'changelog.d/*.md'
+  [ -z "$PROTOCOL_FRAGMENTS" ] || git -C "$ROOT" rm -q -- 'protocol.d/*.md'
+  [ -z "$REFERENCE_FRAGMENTS" ] || git -C "$ROOT" rm -q -- 'reference.d/*.md'
   git -C "$ROOT" commit -q -m "Release v$NEW"
 
   echo "tower-release: v$NEW committed on release-v$NEW"
+  FOLDED_DOCUMENTS=""
+  [ ! -s "$TMP_PROTOCOL" ] || FOLDED_DOCUMENTS="PROTOCOL.md"
+  [ ! -s "$TMP_REFERENCE" ] || FOLDED_DOCUMENTS="${FOLDED_DOCUMENTS:+$FOLDED_DOCUMENTS and }docs/REFERENCE.md"
+  [ -z "$FOLDED_DOCUMENTS" ] || echo "tower-release: read the folded $FOLDED_DOCUMENTS text before tagging, and rewrite it where two fragments disagree"
   echo "tower-release: run -> git push -u origin release-v$NEW"
   echo "tower-release: open a pull request, merge it, then run -> tower-release --tag $NEW"
 
