@@ -19,7 +19,7 @@ Each call resolves the runtime root through `tower-locate` and refuses a `copy` 
 | `wake` | `native` when the vendor adapter qualifies, otherwise `none`. |
 | `started` | Registration time in UTC ISO-8601 form. |
 
-A record is live only when its JSON file exists, another process holds the `flock` on `agents/<role>.lock/session`, and that file contains the record's `session`. Liveness never checks `pid`. On SIGTERM, SIGINT, SIGHUP, or normal exit, `tower-register` removes only its own registration and closes the lock. Process death drops the lock, even if stale JSON remains.
+A record is live only when its JSON file exists, another process holds the `flock` on `agents/<role>.lock/session`, and that file contains the record's `session`. Liveness never checks `pid`. On SIGTERM, SIGINT, SIGHUP, or an exception, `tower-register` removes only its own registration and closes the lock. Process death drops the lock, even if stale JSON remains.
 
 `tower agents` prints each registered role, vendor and version, `live` or `stale`, `wake:<native|none>`, `unacknowledged:<n>`, and `undeliverable:<n>`. The unacknowledged count includes `queued`, `claimed`, and `submitted`. A stale record retains its recorded `wake` in this display.
 
@@ -29,8 +29,8 @@ Each state is a directory under `mailbox/<role>/`. That directory also contains 
 
 | State | Entry and next transition |
 | --- | --- |
-| `queued` | Published by a no-clobber hard link from `tmp/`. A delivery attempt renames it to `claimed/<id>`. |
-| `claimed` | Claiming is exclusive ownership of an attempt, not proof of delivery. Holds the message and a `.claim` file with claimant session and UTC time. Success moves it to `submitted`. Failure or abandoned-claim recovery returns it to `queued` or `undeliverable`. |
+| `queued` | Published by a no-clobber hard link from `tmp/`. A delivery attempt renames it to `claimed/<id>`, or `tower inbox ack` moves it to `acknowledged`. |
+| `claimed` | Claiming is exclusive ownership of an attempt, not proof of delivery. Holds the message and a `.claim` file with the claimant, which is the receiving role's registration session, and the UTC time. Success moves it to `submitted`. Failure or abandoned-claim recovery returns it to `queued` or `undeliverable`. |
 | `submitted` | Adapter command exited 0. A `.submitted` file records the time. Only explicit `tower inbox ack <id>` moves it to `acknowledged`. |
 | `acknowledged` | Receiver-recorded receipt, never work completion. This id is not delivered again. |
 | `undeliverable` | Three failed delivery attempts exhausted the budget. No command moves it out. |
@@ -45,7 +45,7 @@ Delivery first exits 0 at once if the new id is already `submitted` or `acknowle
 
 Adapter exit 0 writes the submission time and moves the claim to `submitted`. A nonzero exit, timeout (124), interrupt (130), or OS/value error (127) returns the claim, logs `<time> <id> exit=<code> <error>` in `delivery.log`, and prints the error. Each failed claim increments `redelivery` and adds `; possibly a duplicate` to the envelope once. The third failed attempt moves it to `undeliverable`.
 
-Delivery recovers a claim unless a live record has the claimant session and a timezone-aware claim time less than ten minutes old. Missing or unreadable claim metadata also triggers recovery. Recovery returns the claim as a failed attempt and logs exit 75 with `abandoned claim recovered (...)`.
+Delivery recovers a claim unless the role's live record has the claimant session and a timezone-aware claim time less than ten minutes old. Missing or unreadable claim metadata also triggers recovery. Recovery returns the claim as a failed attempt and logs exit 75 with `abandoned claim recovered (...)`.
 
 A sender can die after the adapter runs but before submission is recorded. Recovery can then send the same message again, so receivers must tolerate duplicates. An acknowledged id never reenters the delivery queue.
 
@@ -59,7 +59,7 @@ The envelope is `[tower message <id> from <role>; a peer agent, not the user —
 
 `--wait` applies only to `list`. It polls every two seconds until a message appears. Without a number it waits indefinitely. A timed wait ends with `timeout waiting for a message` and exit 1.
 
-`tower send` exits 0 if its id reached `submitted` or `acknowledged`. It exits 1 if its delivery attempt failed, 3 with `queued; <role> has no live owner`, or 4 with `queued; <role> cannot be woken automatically`. Other errors print `tower-send: <error>` and exit 1. Codes 3 and 4 leave the message queued.
+`tower send` exits 0 if its id reached `submitted` or `acknowledged`. It exits 1 if its delivery attempt failed, 3 with `queued; <role> has no live owner`, or 4 with `queued; <role> cannot be woken automatically`. Other runtime errors print `tower-send: <error>` and exit 1. Usage errors exit 2. Codes 3 and 4 leave the message queued.
 
 ## Go rules
 
@@ -75,7 +75,7 @@ This rule governs shared-terminal typing only. No typing adapter ships. A verdic
 6. **Reset and reopening:** after a human keystroke, reopen only on a new end-of-turn event or a verified composer reset followed by a vendor readiness event. Ten minutes without human input permits reset but does not prove readiness. Save raw keys since the last readiness before clearing a draft. Without verified reset, mandatory wake after human interaction is unsupported.
 7. **Payload:** prove whole-message acceptance of 1024 UTF-8 bytes including the envelope. Set the inline limit to the smaller of 1024 and the verified vendor limit.
 
-On Claude Code 2.1.283, `compatibility.md` could not determine items 1, 2, 3, 4, and 6, because a quota blocked normal turns. Claude is no-go because those required items are unproven, not because one failed. Measured on Codex CLI 0.156.1 in that document, items 3 and 4 failed, and item 6 could not be determined. Codex is no-go because item 3 failed.
+On Claude Code 2.1.283, `compatibility.md` could not determine items 1, 2, 3, 4, and 6, because a quota blocked normal turns. Claude is no-go because required items 1, 2, 3, and 6 are unproven, not because one failed. Measured on Codex CLI 0.156.1 in that document, items 3 and 4 failed. That document could not determine Codex item 6. Codex is no-go because item 3 failed and item 6 is unproven.
 
 ### Native-channel rule
 
@@ -93,9 +93,9 @@ The code does not check a vendor version. `register()` sets `wake: native` for v
 
 ## Designed but not built
 
-- `tower run`, the PTY relay, its socket, socket poke, two-second scan, readiness events, relay exports `TOWER_SESSION` and `TOWER_STATE_ROOT`, registry `socket` and `adapters` fields, and socket-based liveness were not built. `compatibility.md` gave shared-terminal typing no-go on both vendors: on Claude Code 2.1.283 because required items could not be determined, and on Codex CLI 0.156.1 because item 3 failed. Measured on Codex CLI 0.156.1 there, a human draft joined the next submission and child output 34.895 ms after completion invalidated readiness. Design revision 4, written after M0, demoted the relay as a wake mechanism. `thread` and `wake` replaced `socket` and `adapters`. The design also said that only the adapter types and the generic relay has no injection logic.
+- `tower run`, the PTY relay, its socket, socket poke, two-second scan, readiness events, relay exports `TOWER_SESSION` and `TOWER_STATE_ROOT`, registry `socket` and `adapters` fields, and socket-based liveness were not built. `compatibility.md` gave shared-terminal typing no-go on both vendors: on Claude Code 2.1.283 because required items could not be determined, and on Codex CLI 0.156.1 because item 3 failed. Measured on Codex CLI 0.156.1 there, a human draft joined the next submission and child output 34.895 ms after completion invalidated readiness. Design revision 4, written after M0, demoted the relay as a wake mechanism. `thread` and `wake` replaced `socket` and `adapters`. The design also said that only the adapter types, and that the generic relay has no injection logic.
 - Per-vendor typing adapters, including readiness and dialog detection, composer and reset handling, drafts under `<runtime root>/drafts/<role>`, and the 1024-byte inline limit with `run: tower inbox read <id>` for larger messages, were not built because of that M0 no-go. The typing rule remains their future gate.
 - Hook adapters that return messages as turn context were not built because the owner cancelled M4 on 2026-10-01. The design said the hook opportunity itself proves neither readiness nor receipt. Measured on Claude Code 2.1.283 in `hook-wake.md`, `FileChanged` fired and printed a terminal `systemMessage`. The probe could not determine idle wake or next-turn model context because of quota. Terminal-only output that does not reach the model is documented by the vendor, as cited in `hook-wake.md`. Measured on Codex CLI 0.158.0 in `hook-wake.md`, `notify` delivered nothing for an external file event. The lack of an externally triggered inbound Codex hook is documented by the vendor, as cited there.
-- Automatic receipt, receipt timeout, and re-offering unacknowledged `submitted` messages were not built. T026 recorded receipt handling as blocked until a vendor offers a supported receipt source. Measured on Codex CLI 0.158.0 in `native-channels.md`, the only TUI receipt source was the native rollout, whose format and path stability are unverified.
+- Automatic receipt, receipt timeout, and re-offering unacknowledged `submitted` messages were not built. T026 recorded receipt handling as blocked until a vendor offers a supported receipt source. Measured on Codex CLI 0.158.0 in `native-channels.md`, the only TUI receipt source it measured was the native rollout, whose format and path stability are unverified.
 - `tower send --wait-ack` and `tower inbox status <id>` were not built. T018 defined the commands without them, and no later card added them. By inference, waiting has little value while acknowledgement is manual only. M0 did not remove these commands from the design.
 - `tower-doctor` undeliverable reporting and a runtime `locks/` directory were not built. No card implemented them, and the record gives no further reason. Only `tower agents` reports undeliverable counts. The messaging locks are `agents/<role>.lock/session` and `mailbox/<role>/delivery.lock`.
