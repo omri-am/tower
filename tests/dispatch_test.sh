@@ -210,15 +210,19 @@ assert_true 'effort is accepted' dispatch "$PROJECT" T001 --effort high --print-
 assert_true 'claude command carries the requested effort' grep -q -- '--effort high ' "$TMP/dispatch.out"
 assert_true 'codex dispatch with a model and effort succeeds' dispatch "$PROJECT" T001 --vendor codex --model opus --effort high --print-only
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
+assert_true 'codex command labels the implementor' grep -q 'TOWER_ROLE=implementor-T001 codex' "$TMP/codex-command"
 assert_true 'codex command carries model and effort' grep -q ' codex --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
 assert_false 'codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
 assert_true 'headless codex dispatch with a model succeeds' dispatch "$PROJECT" T001 --vendor codex --headless --model opus --effort high --print-only
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/codex-command"
+assert_true 'headless codex command labels the implementor' grep -q 'TOWER_ROLE=implementor-T001 codex' "$TMP/codex-command"
 assert_true 'headless codex command carries model and effort' grep -q ' codex exec --model opus -c model_reasoning_effort=high ' "$TMP/codex-command"
 assert_false 'headless codex model and effort cause no warning' grep -q 'warning:' "$TMP/dispatch.out"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "$TOWER_TEST_ARGS"\nexit 1\n' > "$TMP/fakebin/claude"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "$TOWER_TEST_ARGS"\nprintf "%%s" "$TOWER_ROLE" > "$TOWER_TEST_ROLE"\nexit 1\n' > "$TMP/fakebin/claude"
 export TOWER_TEST_ARGS="$TMP/claude-args"
+export TOWER_TEST_ROLE="$TMP/claude-role"
 assert_false 'dispatch with model and effort launches the agent' dispatch "$PROJECT" T001 --model opus --effort high --headless
+assert_eq 'headless launch labels the implementor' "$(cat "$TOWER_TEST_ROLE")" implementor-T001
 assert_eq 'card records the dispatched model' "$(card_field "$PROJECT" T001 model)" opus
 assert_eq 'card records the dispatched effort' "$(card_field "$PROJECT" T001 effort)" high
 rm "$TOWER_TEST_ARGS"
@@ -256,7 +260,7 @@ assert_claude_command() {
   shift 2
   (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 "$@" --print-only) > "$TMP/golden.stdout" 2> "$TMP/golden.stderr"
   assert_status "$label dispatch succeeds" "$?" 0
-  assert_eq "$label command is unchanged" "$(cat "$TMP/golden.stdout")" "cd $WORKTREE && TOWER_TASK=T001 claude $arguments \"\$(cat $PROMPT)\""
+  assert_eq "$label command is unchanged" "$(cat "$TMP/golden.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 claude $arguments \"\$(cat $PROMPT)\""
   assert_empty "$label has no stderr" "$(cat "$TMP/golden.stderr")"
 }
 assert_claude_command 'claude' "-n $SESSION"
@@ -278,7 +282,7 @@ assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "towe
 (
   . "$ROOT/lib/tower-dispatch.sh"
   LAUNCH_ADAPTERS='fake - - -n - - -'
-  VENDOR=fake MODE=terminal MODEL=m EFFORT=e
+  VENDOR=fake MODE=terminal MODEL=m EFFORT=e TASK_ID=T001
   prepare_launch name
   printf '%s\n' "${AGENT_ARGS[*]}"
 ) > "$TMP/none.stdout" 2> "$TMP/none.stderr"

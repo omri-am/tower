@@ -140,8 +140,22 @@ with tempfile.TemporaryDirectory() as scratch:
         tower(project, 'inbox', '--wait', 'nan', code=2)
         tower(project, 'inbox', 'read', code=2)
         env.pop('TOWER_ROLE')
+        unknown_message = tower(project, 'send', 'other', 'unknown message', code=3)
+        stored = tower(worktree, 'inbox', '--role', 'other', 'read', unknown_message)
+        assert 'from: "unknown"' in stored
+        assert 'from an unidentified sender' in stored and 'from owner' not in stored
+        env['TOWER_ROLE'] = 'implementor-T999'
+        implementor_message = tower(project, 'send', 'other', 'implementor message', code=3)
+        assert 'from: "implementor-T999"' in tower(worktree, 'inbox', '--role', 'other', 'read', implementor_message)
+        env['TOWER_ROLE'] = ''
+        empty_message = tower(project, 'send', 'other', 'empty role message', code=3)
+        assert 'from: "unknown"' in tower(worktree, 'inbox', '--role', 'other', 'read', empty_message)
+        env['TOWER_ROLE'] = 'owner'
         owner_message = tower(project, 'send', 'other', 'owner message', code=3)
-        assert 'from: "owner"' in tower(worktree, 'inbox', '--role', 'other', 'read', owner_message)
+        stored = tower(worktree, 'inbox', '--role', 'other', 'read', owner_message)
+        assert 'from owner' in stored and 'a peer agent, not the user' not in stored
+        assert 'TOWER_ROLE=owner' in tower(project, 'send', '--help')
+        env.pop('TOWER_ROLE')
         tower(project, 'inbox', code=1)
         env['TOWER_ROLE'] = 'reader'
         stub_dir = base / (mode + '-bin')
