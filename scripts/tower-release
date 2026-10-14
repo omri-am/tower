@@ -10,19 +10,24 @@ die() { echo "tower-release: $1" >&2; exit 1; }
 usage() { die "usage: tower-release <x.y.z> | tower-release --tag <x.y.z>"; }
 
 collect_index_fragments() {
-  local fragments="$1" output="$2" fragment
+  local fragments="$1" output="$2" anchor="$3" fragment status
   while IFS= read -r fragment; do
     [ -n "$fragment" ] || continue
-    awk '
+    awk -v anchor="$anchor" '
       !/^[[:space:]]*$/ { if (!first) first=NR; last=NR }
       { lines[NR]=$0 }
       END {
         if (!first) exit
         if (lines[first] !~ /^## /) exit 1
+        for (i=first; i<=last; i++) if (lines[i] == anchor) exit 2
         for (i=first; i<=last; i++) print lines[i]
         print ""
       }
-    ' "$ROOT/$fragment" >> "$output" || die "$fragment must start with a '## ' heading"
+    ' "$ROOT/$fragment" >> "$output" || {
+      status=$?
+      [ "$status" -eq 2 ] && die "$fragment must not contain the line '$anchor'"
+      die "$fragment must start with a '## ' heading"
+    }
   done <<EOF
 $fragments
 EOF
@@ -131,8 +136,8 @@ else
   done <<EOF
 $FRAGMENTS
 EOF
-  collect_index_fragments "$PROTOCOL_FRAGMENTS" "$TMP_PROTOCOL"
-  collect_index_fragments "$REFERENCE_FRAGMENTS" "$TMP_REFERENCE"
+  collect_index_fragments "$PROTOCOL_FRAGMENTS" "$TMP_PROTOCOL" "## Protocol version"
+  collect_index_fragments "$REFERENCE_FRAGMENTS" "$TMP_REFERENCE" "## Core ideas"
   check_index_anchor "PROTOCOL.md" "## Protocol version" "$TMP_PROTOCOL"
   check_index_anchor "docs/REFERENCE.md" "## Core ideas" "$TMP_REFERENCE"
   FRAGMENT_CONTENT="$(tr -d '[:space:]' < "$TMP_FRAGMENTS")"

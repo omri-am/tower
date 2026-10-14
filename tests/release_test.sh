@@ -336,15 +336,73 @@ for document in PROTOCOL.md docs/REFERENCE.md; do
   done
 done
 
+for fragment_dir in protocol.d reference.d; do
+  case "$fragment_dir" in
+    protocol.d) anchor='## Protocol version' ;;
+    reference.d) anchor='## Core ideas' ;;
+  esac
+  for position in first later; do
+    new_repo "$R"
+    add_index_fixture "$R"
+    if [ "$position" = first ]; then
+      printf '%s\nText.\n' "$anchor" > "$R/$fragment_dir/T9.md"
+    else
+      printf '## New entry\n\n%s\n' "$anchor" > "$R/$fragment_dir/T9.md"
+    fi
+    git -C "$R" add -A
+    git -C "$R" commit -q -m "fragment with $fragment_dir anchor"
+    BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
+    BEFORE_PROTOCOL="$(cat "$R/PROTOCOL.md")"
+    BEFORE_REFERENCE="$(cat "$R/docs/REFERENCE.md")"
+    BEFORE_FRAGMENT="$(cat "$R/$fragment_dir/T9.md")"
+    OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+    assert_status "refuses $fragment_dir anchor on $position line" "$?" "1"
+    assert_eq "anchor refusal names $fragment_dir/T9.md on $position line" \
+      "$(printf '%s\n' "$OUT" | grep -cxF "tower-release: $fragment_dir/T9.md must not contain the line '$anchor'")" "1"
+    assert_eq "anchor refusal keeps manifest ($fragment_dir, $position)" \
+      "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
+    assert_eq "anchor refusal keeps HEAD ($fragment_dir, $position)" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
+    assert_eq "anchor refusal keeps protocol ($fragment_dir, $position)" "$(cat "$R/PROTOCOL.md")" "$BEFORE_PROTOCOL"
+    assert_eq "anchor refusal keeps reference ($fragment_dir, $position)" "$(cat "$R/docs/REFERENCE.md")" "$BEFORE_REFERENCE"
+    assert_eq "anchor refusal keeps fragment ($fragment_dir, $position)" \
+      "$(cat "$R/$fragment_dir/T9.md")" "$BEFORE_FRAGMENT"
+    assert_empty "anchor refusal keeps tree clean ($fragment_dir, $position)" "$(git -C "$R" status --porcelain)"
+  done
+done
+
+for fragment_dir in protocol.d reference.d; do
+  new_repo "$R"
+  add_index_fixture "$R"
+  case "$fragment_dir" in
+    protocol.d) printf '## Protocol versions\n' > "$R/$fragment_dir/T9.md" ;;
+    reference.d) printf '## New entry\nSee ## Core ideas\n' > "$R/$fragment_dir/T9.md" ;;
+  esac
+  git -C "$R" add -A
+  git -C "$R" commit -q -m "near-match $fragment_dir anchor"
+  "$R/scripts/tower-release" 0.7.0 >/dev/null 2>&1
+  assert_status "releases $fragment_dir near-match anchor" "$?" "0"
+done
+
 new_repo "$R"
 add_index_fixture "$R"
-printf '\nNot a heading\n' > "$R/protocol.d/T9.md"
+printf '## New entry\n## Protocol version\n' > "$R/reference.d/T9.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "other document's anchor"
+"$R/scripts/tower-release" 0.7.0 >/dev/null 2>&1
+assert_status "releases a reference fragment with the protocol anchor" "$?" "0"
+assert_eq "the protocol anchor lands in the reference" \
+  "$(grep -cxF '## Protocol version' "$R/docs/REFERENCE.md")" "1"
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '\nNot a heading\n## Protocol version\n' > "$R/protocol.d/T9.md"
 git -C "$R" add -A
 git -C "$R" commit -q -m "bad protocol heading"
 BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
 OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
 assert_status "refuses a protocol fragment without a heading" "$?" "1"
-assert_eq "heading refusal names the fragment" "$(printf '%s' "$OUT" | grep -c 'protocol.d/T9.md')" "1"
+assert_eq "heading refusal takes priority over the fragment anchor" \
+  "$(printf '%s\n' "$OUT" | grep -cxF "tower-release: protocol.d/T9.md must start with a '## ' heading")" "1"
 assert_eq "heading refusal leaves manifest unchanged" \
   "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
 assert_eq "heading refusal makes no commit" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
