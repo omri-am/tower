@@ -22,6 +22,15 @@ new_repo() {
   git -C "$dir" commit -q -m init
 }
 
+add_index_fixture() {
+  local dir="$1"
+  mkdir -p "$dir/docs" "$dir/protocol.d" "$dir/reference.d"
+  printf '# Protocol\n\nExisting protocol.\n\n## Protocol version\n\nVersion details.\n' > "$dir/PROTOCOL.md"
+  printf '# Reference\n\nExisting reference.\n\n## Core ideas\n\nCore details.\n' > "$dir/docs/REFERENCE.md"
+  : > "$dir/protocol.d/.gitkeep"
+  : > "$dir/reference.d/.gitkeep"
+}
+
 R="$TMP/repo"
 ORIGIN="$TMP/origin.git"
 
@@ -209,7 +218,7 @@ OUT="$(TMPDIR="$TMP/release-tmp-refused" "$R/scripts/tower-release" 0.7.0 2>&1)"
 assert_status "a whitespace-only fragment cannot permit an empty release" "$?" "1"
 assert_empty "a refused release leaves no temp files behind" "$(ls -A "$TMP/release-tmp-refused")"
 assert_eq "an empty release refusal names both empty sources" \
-  "$(printf '%s' "$OUT" | grep -c "tower-release: CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/ fragment has an entry")" "1"
+  "$(printf '%s' "$OUT" | grep -c "tower-release: CHANGELOG.md has nothing under '## Unreleased' and no changelog.d/, protocol.d/ or reference.d/ fragment has an entry")" "1"
 assert_eq "a refused empty release makes no commit" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
 assert_eq "a refused empty release keeps the old manifest version" \
   "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
@@ -225,6 +234,125 @@ assert_eq "an untracked fragment stays in the working tree" \
   "$(cat "$R/changelog.d/T040.md")" "- Untracked entry."
 assert_eq "an untracked fragment stays outside the release commit" \
   "$(git -C "$R" ls-tree -r --name-only HEAD -- changelog.d/T040.md)" ""
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '\n## Protocol T9\n\nNinth.\n  \n' > "$R/protocol.d/T9.md"
+printf '## Protocol T10\nTenth.\n' > "$R/protocol.d/T10.md"
+printf '\n## Reference T9\nNinth.\n\n' > "$R/reference.d/T9.md"
+printf '## Reference T10\nTenth.\n' > "$R/reference.d/T10.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "index fragments"
+OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "release folds both index fragment sets" "$?" "0"
+assert_eq "complete protocol keeps sorted fragments and exact spacing" "$(cat "$R/PROTOCOL.md")" \
+  "$(printf '# Protocol\n\nExisting protocol.\n\n## Protocol T10\nTenth.\n\n## Protocol T9\n\nNinth.\n\n## Protocol version\n\nVersion details.\n')"
+assert_eq "complete reference keeps sorted fragments and exact spacing" "$(cat "$R/docs/REFERENCE.md")" \
+  "$(printf '# Reference\n\nExisting reference.\n\n## Reference T10\nTenth.\n\n## Reference T9\nNinth.\n\n## Core ideas\n\nCore details.\n')"
+assert_empty "folded index fragments leave the working tree" \
+  "$(find "$R/protocol.d" "$R/reference.d" -name '*.md' -print)"
+assert_empty "folded index fragments leave HEAD" \
+  "$(git -C "$R" ls-tree -r --name-only HEAD -- protocol.d/ reference.d/ | grep '\.md$')"
+assert_eq "release commit deletes exactly the folded index fragments" \
+  "$(git -C "$R" diff --name-status HEAD~1 HEAD -- protocol.d/ reference.d/ | grep '^D')" \
+  "$(printf 'D\tprotocol.d/T10.md\nD\tprotocol.d/T9.md\nD\treference.d/T10.md\nD\treference.d/T9.md')"
+assert_eq "both index placeholders remain tracked" \
+  "$(git -C "$R" ls-files -- protocol.d/.gitkeep reference.d/.gitkeep)" \
+  "$(printf 'protocol.d/.gitkeep\nreference.d/.gitkeep')"
+assert_empty "index folding leaves a clean tree" "$(git -C "$R" status --porcelain)"
+assert_eq "release output states the review duty before push" \
+  "$(printf '%s\n' "$OUT" | awk '/read the folded PROTOCOL.md and docs\/REFERENCE.md text/{d=NR} /git push/{p=NR} END{print (d < p && d > 0)}')" "1"
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '## Tracked protocol\n' > "$R/protocol.d/T9.md"
+printf ' \n' > "$R/reference.d/T9.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "index fixture"
+printf '## Untracked protocol\n' > "$R/protocol.d/T40.md"
+"$R/scripts/tower-release" 0.7.0 >/dev/null 2>&1
+assert_status "untracked protocol fragment permits a normal release" "$?" "0"
+assert_eq "untracked protocol fragment does not enter the document" \
+  "$(cat "$R/PROTOCOL.md")" "$(printf '# Protocol\n\nExisting protocol.\n\n## Tracked protocol\n\n## Protocol version\n\nVersion details.\n')"
+assert_empty "blank tracked reference fragment is deleted" "$(git -C "$R" ls-files -- reference.d/T9.md)"
+assert_eq "blank reference fragment does not rewrite the document" "$(cat "$R/docs/REFERENCE.md")" \
+  "$(printf '# Reference\n\nExisting reference.\n\n## Core ideas\n\nCore details.\n')"
+assert_eq "untracked protocol fragment stays outside the commit" \
+  "$(git -C "$R" ls-tree -r --name-only HEAD -- protocol.d/T40.md)" ""
+assert_eq "untracked protocol fragment stays in the working tree" "$(cat "$R/protocol.d/T40.md")" "## Untracked protocol"
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '# Changelog\n\n## Unreleased\n\n' > "$R/CHANGELOG.md"
+printf ' \n\t\n' > "$R/protocol.d/T9.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "blank protocol fragment"
+BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
+OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "blank protocol fragment cannot permit an empty release" "$?" "1"
+assert_eq "empty refusal names protocol fragments" "$(printf '%s' "$OUT" | grep -c 'protocol.d/')" "1"
+assert_eq "blank protocol refusal makes no commit" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
+assert_eq "blank protocol refusal keeps the manifest" \
+  "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '# Changelog\n\n## Unreleased\n\n' > "$R/CHANGELOG.md"
+printf '## Reference only\nA new idea.\n' > "$R/reference.d/T9.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "reference entry only"
+OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "reference fragment alone permits release" "$?" "0"
+assert_eq "reference-only release names only the folded reference" \
+  "$(printf '%s\n' "$OUT" | grep -cxF 'tower-release: read the folded docs/REFERENCE.md text before tagging, and rewrite it where two fragments disagree')" "1"
+assert_eq "reference-only entry lands before Core ideas" \
+  "$(grep -B 2 -xF '## Core ideas' "$R/docs/REFERENCE.md")" "$(printf 'A new idea.\n\n## Core ideas')"
+
+for document in PROTOCOL.md docs/REFERENCE.md; do
+  case "$document" in
+    PROTOCOL.md) fragment_dir=protocol.d; anchor='## Protocol version'; replacement='## Renamed version' ;;
+    docs/REFERENCE.md) fragment_dir=reference.d; anchor='## Core ideas'; replacement='## Renamed ideas' ;;
+  esac
+  for anchor_count in 0 2; do
+    new_repo "$R"
+    add_index_fixture "$R"
+    printf '## New entry\n' > "$R/$fragment_dir/T9.md"
+    if [ "$anchor_count" = 0 ]; then
+      sed "s/$anchor/$replacement/" "$R/$document" > "$R/anchor.tmp"
+    else
+      { cat "$R/$document"; printf '%s\n' "$anchor"; } > "$R/anchor.tmp"
+    fi
+    mv "$R/anchor.tmp" "$R/$document"
+    git -C "$R" add -A
+    git -C "$R" commit -q -m "bad $document anchor"
+    BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
+    OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+    assert_status "refuses $document anchor count $anchor_count" "$?" "1"
+    assert_eq "anchor refusal names $document and $anchor ($anchor_count)" \
+      "$(printf '%s' "$OUT" | grep -cF "$document must contain '$anchor'")" "1"
+    assert_eq "anchor refusal leaves $document manifest unchanged ($anchor_count)" \
+      "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
+    assert_eq "anchor refusal makes no $document commit ($anchor_count)" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
+  done
+done
+
+new_repo "$R"
+add_index_fixture "$R"
+printf '\nNot a heading\n' > "$R/protocol.d/T9.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "bad protocol heading"
+BEFORE_LOG="$(git -C "$R" rev-parse HEAD)"
+OUT="$("$R/scripts/tower-release" 0.7.0 2>&1)"
+assert_status "refuses a protocol fragment without a heading" "$?" "1"
+assert_eq "heading refusal names the fragment" "$(printf '%s' "$OUT" | grep -c 'protocol.d/T9.md')" "1"
+assert_eq "heading refusal leaves manifest unchanged" \
+  "$(. "$ROOT/lib/tower-meta.sh"; tower_version "$R")" "0.1.0"
+assert_eq "heading refusal makes no commit" "$(git -C "$R" rev-parse HEAD)" "$BEFORE_LOG"
+
+assert_eq "the real protocol has one exact version anchor" \
+  "$(grep -cxF '## Protocol version' "$ROOT/PROTOCOL.md")" "1"
+assert_eq "the real reference has one exact core ideas anchor" \
+  "$(grep -cxF '## Core ideas' "$ROOT/docs/REFERENCE.md")" "1"
 
 new_repo "$R"
 git -C "$R" branch release-v0.2.0
