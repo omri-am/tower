@@ -81,13 +81,15 @@ def main():
                         run, roles[name], state_root, 'last_observed')
                     log_file(run, 'reg-' + name + '.out')
                     log_file(run, 'reg-' + name + '.err')
-            run.stop()
-            if completed:
-                time.sleep(5)
-                for name in variants:
-                    checks[name]['after_tui_stop'] = check_registration(
-                        run, roles[name], state_root, 'after_tui_stop')
-            kill_registrations(run, list(roles.values()), state_root)
+            try:
+                run.stop()
+                if completed:
+                    time.sleep(5)
+                    for name in variants:
+                        checks[name]['after_tui_stop'] = check_registration(
+                            run, roles[name], state_root, 'after_tui_stop')
+            finally:
+                kill_registrations(run, list(roles.values()), state_root)
             run.log('summary', {name: {stage: item['lock_held']
                                        for stage, item in checks[name].items()}
                                 for name in variants})
