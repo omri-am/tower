@@ -33,7 +33,7 @@ By inference, an argv helper reports only exit status. Even if it waits for `ite
 | `tests/agents_test.sh` | Update `register(..., thread='thread-1')` with the rename. | Conditional |
 | `docs/agent-messaging/contract.md` | Reconcile `socket` and `adapters` with `thread` and `wake`. State native and typing go rules. | Already needed for Codex |
 | New host command in `bin/` | Own the vendor process and expose an endpoint. No such command exists today. | Hosted channel only |
-| `bin/tower-bootstrap` | Add the host command to `COMMANDS`, as `tests/shim_test.sh` requires. | Hosted channel only |
+| `bin/tower-bootstrap` | No change. It links any new `bin/` command with no edit. | None |
 | `lib/tower-dispatch.sh` | Extend `prepare_launch()` for vendor arguments. Start the host command for a hosted channel. Launch-side, outside the table. | Launch |
 | `bin/tower-dispatch` | Extend `case "$VENDOR" in claude\|codex)` validation. Launch-side, outside the table. | Launch |
 | `PROTOCOL.md` | Extend the card template's `vendor: any # claude \| codex \| any`. | Launch |

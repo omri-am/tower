@@ -32,6 +32,9 @@ BINDIR="$TMP/bin"
 cp "$ROOT/bin/tower-shim" "$DEV/bin/tower-shim"
 cp "$ROOT/bin/tower-bootstrap" "$DEV/bin/tower-bootstrap"
 chmod +x "$DEV/bin/tower-shim" "$DEV/bin/tower-bootstrap"
+ln -s tower-shim "$DEV/bin/tower"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$DEV/bin/tower-fixture-only"
+chmod +x "$DEV/bin/tower-fixture-only"
 env TOWER_BIN_DIR="$BINDIR" TOWER_LIBEXEC_DIR="$LIBEXEC" HOME="$FAKE_HOME" \
     "$DEV/bin/tower-bootstrap" >/dev/null 2>&1
 
@@ -39,9 +42,18 @@ assert_true "shim copied to libexec" test -x "$LIBEXEC/tower-shim"
 assert_true "tower-init linked" test -L "$BINDIR/tower-init"
 assert_true "tower-locate linked" test -L "$BINDIR/tower-locate"
 assert_true "tower-bootstrap linked" test -L "$BINDIR/tower-bootstrap"
-LISTED="$(sed -n 's/^COMMANDS="\(.*\)"$/\1/p' "$ROOT/bin/tower-bootstrap" | tr ' ' '\n' | sort | tr '\n' ' ')"
+assert_true "a command present only in bin/ gets linked" test -L "$BINDIR/tower-fixture-only"
+assert_false "tower-shim is never linked into the bin dir" test -e "$BINDIR/tower-shim" -o -L "$BINDIR/tower-shim"
+ROOT_BINDIR="$TMP/root-bin"
+ROOT_LIBEXEC="$TMP/root-libexec"
+OUT_ROOT_BOOTSTRAP="$(env TOWER_BIN_DIR="$ROOT_BINDIR" TOWER_LIBEXEC_DIR="$ROOT_LIBEXEC" HOME="$FAKE_HOME" "$ROOT/bin/tower-bootstrap" 2>&1)"
+LINKED="$(ls "$ROOT_BINDIR" | sort | tr '\n' ' ')"
 PRESENT="$(ls "$ROOT/bin" | grep -v '^tower-shim$' | sort | tr '\n' ' ')"
-assert_eq "bootstrap links every command in bin/" "$LISTED" "$PRESENT"
+assert_eq "bootstrap links every command in bin/" "$LINKED" "$PRESENT"
+assert_false "root bootstrap never links tower-shim" test -e "$ROOT_BINDIR/tower-shim" -o -L "$ROOT_BINDIR/tower-shim"
+printf '%s\n' "$OUT_ROOT_BOOTSTRAP" > "$TMP/root-bootstrap.out"
+assert_true "bootstrap reports the number of linked commands" grep -Fqx \
+  "tower-bootstrap: linked $(printf '%s\n' "$PRESENT" | wc -w | tr -d ' ') commands into $ROOT_BINDIR" "$TMP/root-bootstrap.out"
 
 assert_eq "links point at the shim copy" "$(readlink "$BINDIR/tower-init")" "$LIBEXEC/tower-shim"
 
