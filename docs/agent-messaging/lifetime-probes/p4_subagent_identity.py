@@ -48,30 +48,32 @@ def main():
         raise
     finally:
         try:
-            run.read_notify()
-            main = read_env(run, 'main-env.txt')
-            sub = read_env(run, 'sub-env.txt')
-            main_thread = main.get('CODEX_THREAD_ID')
-            sub_thread = sub.get('CODEX_THREAD_ID')
-            run.log('notify_order', [{'thread-id': event.get('payload', {}).get('thread-id'),
-                                      'client': event.get('payload', {}).get('client'),
-                                      'last-assistant-message':
-                                      str(event.get('payload', {}).get('last-assistant-message', ''))[:200]}
-                                     for event in run.notifies])
-            run.log('subagent_identity', {
-                'notify_main_thread_id': thread,
-                'main_thread_id': main_thread, 'sub_thread_id': sub_thread,
-                'main_session_id': main.get('CODEX_SESSION_ID'),
-                'sub_session_id': sub.get('CODEX_SESSION_ID'),
-                'sub_thread_equals_main_thread': bool(sub_thread and main_thread and
-                                                      sub_thread == main_thread),
-                'sub_thread_equals_notify_main': bool(sub_thread and thread and sub_thread == thread),
-                'main_thread_equals_notify_main': bool(main_thread and thread and main_thread == thread),
-                'sub_session_equals_main_session': bool(sub.get('CODEX_SESSION_ID') and
-                                                        main.get('CODEX_SESSION_ID') and
-                                                        sub['CODEX_SESSION_ID'] == main['CODEX_SESSION_ID'])})
-            rollout_evidence(run, {value for value in (thread, main_thread, sub_thread) if value})
-            run.stop()
+            try:
+                run.read_notify()
+                main = read_env(run, 'main-env.txt')
+                sub = read_env(run, 'sub-env.txt')
+                main_thread = main.get('CODEX_THREAD_ID')
+                sub_thread = sub.get('CODEX_THREAD_ID')
+                run.log('notify_order', [{'thread-id': event.get('payload', {}).get('thread-id'),
+                                          'client': event.get('payload', {}).get('client'),
+                                          'last-assistant-message':
+                                          str(event.get('payload', {}).get('last-assistant-message', ''))[:200]}
+                                         for event in run.notifies])
+                run.log('subagent_identity', {
+                    'notify_main_thread_id': thread,
+                    'main_thread_id': main_thread, 'sub_thread_id': sub_thread,
+                    'main_session_id': main.get('CODEX_SESSION_ID'),
+                    'sub_session_id': sub.get('CODEX_SESSION_ID'),
+                    'sub_thread_equals_main_thread': bool(sub_thread and main_thread and
+                                                          sub_thread == main_thread),
+                    'sub_thread_equals_notify_main': bool(sub_thread and thread and sub_thread == thread),
+                    'main_thread_equals_notify_main': bool(main_thread and thread and main_thread == thread),
+                    'sub_session_equals_main_session': bool(sub.get('CODEX_SESSION_ID') and
+                                                            main.get('CODEX_SESSION_ID') and
+                                                            sub['CODEX_SESSION_ID'] == main['CODEX_SESSION_ID'])})
+                rollout_evidence(run, {value for value in (thread, main_thread, sub_thread) if value})
+            finally:
+                run.stop()
         finally:
             finish(run)
 

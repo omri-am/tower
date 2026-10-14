@@ -1,7 +1,7 @@
 """Throwaway T038 shared probe. Run only from a fresh ~/.cache/tower-t038-probes/tmp.* directory.
 
 Set CODEX_BIN to ~/.codex/packages/standalone/current/bin/codex.
-No dialog answered is enforced by replacing identity.detect_dialog for Run.pump and Run.paste.
+No dialog is ever answered: this module replaces identity.detect_dialog, which Run.pump and Run.paste call.
 """
 import fcntl
 import importlib.util

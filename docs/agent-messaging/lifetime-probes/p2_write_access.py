@@ -35,17 +35,21 @@ def main():
         raise
     finally:
         try:
-            read_env(run, 'session-env.txt')
-            for name in ('mkdir.exit', 'mkdir.err', 'python.exit', 'python.err', 'reg-write.out'):
-                log_file(run, name)
-            log_file(run, 'reg-write.err')
-            agents = state_root / 'agents'
-            run.log('agents_directory', {'exists': agents.is_dir(),
-                                         'listing': sorted(path.name for path in agents.iterdir())
-                                         if agents.is_dir() else []})
-            check_registration(run, role, state_root)
-            kill_registrations(run, [role], state_root)
-            run.stop()
+            try:
+                read_env(run, 'session-env.txt')
+                for name in ('mkdir.exit', 'mkdir.err', 'python.exit', 'python.err', 'reg-write.out'):
+                    log_file(run, name)
+                log_file(run, 'reg-write.err')
+                agents = state_root / 'agents'
+                run.log('agents_directory', {'exists': agents.is_dir(),
+                                             'listing': sorted(path.name for path in agents.iterdir())
+                                             if agents.is_dir() else []})
+                check_registration(run, role, state_root)
+            finally:
+                try:
+                    run.stop()
+                finally:
+                    kill_registrations(run, [role], state_root)
         finally:
             finish(run)
 
