@@ -108,6 +108,22 @@ assert_status "a code change with a modified fragment passes" "$?" "0"
 assert_empty "a modified fragment passes quietly" "$OUT"
 
 new_repo
+git -C "$R" config diff.renames true
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Original entry.' > "$R/changelog.d/T998.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "existing fragment"
+git -C "$R" checkout -q -b feature
+git -C "$R" mv changelog.d/T998.md changelog.d/T999.md
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+git -C "$R" commit -qam "code change with a renamed fragment"
+assert_eq "the fixture has a renamed fragment and code change" \
+  "$(git -C "$R" diff -M --name-status main...feature)" "$(printf 'R100\tchangelog.d/T998.md\tchangelog.d/T999.md\nM\tlib/tower-thing.sh')"
+OUT="$(run_check main 2>&1)"
+assert_status "a code change with a renamed fragment passes" "$?" "0"
+assert_empty "a renamed fragment passes quietly" "$OUT"
+
+new_repo
 mkdir -p "$R/changelog.d"
 printf 'more code\n' >> "$R/lib/tower-thing.sh"
 printf '%s\n' '- Added a thing.' > "$R/changelog.d/T999.md"
