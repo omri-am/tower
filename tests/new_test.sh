@@ -73,6 +73,7 @@ assert_eq 'parallel creators return distinct paths' "$(cat "$PROJECT"/result-* |
 assert_eq 'parallel creators write twenty cards' "$(find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | wc -l | tr -d ' ')" 20
 assert_eq 'parallel cards have distinct ids' "$(sed -n 's/^id: //p' "$TOWER_PROJECT_DIR"/.tower/tasks/*.md | sort -u | wc -l | tr -d ' ')" 20
 assert_true 'empty project starts at T001' test -f "$TOWER_PROJECT_DIR/.tower/tasks/T001-same-title.md"
-assert_true 'bootstrap links command' grep -q 'COMMANDS=.*tower-new' "$ROOT/bin/tower-bootstrap"
+env TOWER_BIN_DIR="$PROJECT/bootstrap-bin" TOWER_LIBEXEC_DIR="$PROJECT/bootstrap-libexec" "$ROOT/bin/tower-bootstrap" >/dev/null 2>&1
+assert_true 'bootstrap links command' test -L "$PROJECT/bootstrap-bin/tower-new"
 assert_true 'reference lists command' grep -q 'tower new' "$ROOT/docs/REFERENCE.md"
 summary
