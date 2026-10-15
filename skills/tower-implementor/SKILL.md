@@ -70,14 +70,15 @@ hook will not let you finish without it.
    its turn ends, so nothing is left to wake: there, skip the hold and finish on the draft.
 11. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
    since you opened the PR (the PR's diff and its review threads), and finalize the handoff
-   with it. Only then flip the card `in-review` -> `merged` and commit the card and handoff
-   together. In a sidecar `.tower/` (where `.tower/.git` exists), a new handoff is untracked
-   and `git commit --only` fails with `pathspec did not match`, so first run
-   `git -C .tower add -- <handoff path>`. Then commit with
-   `git commit --only -- <card path> <handoff path>` — `merged` is
-   the orchestrator's ingest gate, so flipping it before finalizing offers a draft up as the
-   deliverable. On `CLOSED`: record in the handoff that the PR was closed unmerged and what
-   remains, leave the card `in-review`, and run `tower-notify`.
+   with it. Only then flip the card `in-review` -> `merged` — `merged` is the orchestrator's
+   ingest gate, so flipping it before finalizing offers a draft up as the deliverable. Commit
+   the card and handoff together using `git commit --only -- <card path> <handoff path>`. In a
+   sidecar `.tower/` (where `.tower/.git` exists), a new handoff is untracked and that commit
+   fails with `pathspec did not match`. Run both commands in the sidecar, with paths relative
+   to `.tower/`: first `git -C .tower add -- <handoff path>`, then
+   `git -C .tower commit --only -- <card path> <handoff path>`. On `CLOSED`: record in the
+   handoff that the PR was closed unmerged and what remains, leave the card `in-review`, and
+   run `tower-notify`.
    Leave `ingested_handoff` untouched: only the orchestrator records what it has processed.
 
 ## Hard rules
