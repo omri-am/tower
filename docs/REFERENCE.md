@@ -47,9 +47,9 @@ callers from receiving the same ID. The command prints the created path and does
 
 `tower-send <role> [--reply-to <id>] <text|->` stores the text, or reads stdin for `-`.
 `--reply-to` records a message ID in the new message. The message's `from` is `TOWER_ROLE`,
-or `owner` when it is unset. The command prints the new ID before it tries delivery. See
-[Durable role messages](../PROTOCOL.md#durable-role-messages) for its exit status and the
-authority of cards and handoffs.
+or `unknown` when it is unset or empty. The command prints the new ID before it tries
+delivery. See [Durable role messages](../PROTOCOL.md#durable-role-messages) for its
+exit status and the authority of cards and handoffs.
 
 `tower-inbox [--role <role>] [list|read <id>|ack <id>] [--wait [SECONDS]]` uses `TOWER_ROLE`
 when `--role` is absent. `list` is the default and includes queued and submitted message
@@ -267,6 +267,13 @@ A change under `bin/`, `lib/`, `web/`, `hooks/`, `scripts/`, `skills/`, `templat
 adds finished `- ` bullets in its own `changelog.d/<task-id>.md` instead of editing
 `CHANGELOG.md`. `scripts/tower-release` folds those fragments into the new version section
 and deletes them.
+
+A card that adds a top-level section to `PROTOCOL.md` or `docs/REFERENCE.md` writes it as
+`protocol.d/<task-id>.md` or `reference.d/<task-id>.md` and does not edit the index. Each
+fragment's first nonblank line starts with a `## ` heading. `scripts/tower-release` folds
+the fragments in `git ls-files` order before `## Protocol version` in `PROTOCOL.md` and before
+`## Core ideas` in `docs/REFERENCE.md`. The release commit deletes them. An edit to
+existing text in either index is still a direct edit.
 
 ## Core ideas
 

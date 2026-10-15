@@ -350,7 +350,12 @@ the command printed an ID, the message is stored.
 
 Registration is manual. `tower-register <role> --vendor <vendor>` holds the role's lock and
 keeps the role live only while it runs, so leave it running, for example in a spare terminal.
-Dispatch does not register a role, does not set `TOWER_ROLE`, and assigns no role name. Only a
+Dispatch does not register a role. When it launches the session itself (`--here`,
+`--headless`, or the printed or Terminal command), it sets `TOWER_TASK` and
+`TOWER_ROLE=implementor-<task-id>`. A session started by hand after `--prep` gets neither.
+`tower-inbox` defaults to `TOWER_ROLE`, so a launched session reads
+`mailbox/implementor-<task-id>/`. Without manual registration, nothing owns that role, so a
+message sent to it is stored with no live owner. Only a
 Codex role registered with `--thread <id>` has `wake: native` today. Every other registration
 has `wake: none`, because no other vendor has a verified wake adapter.
 
