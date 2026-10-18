@@ -2,7 +2,7 @@
 
 Run each probe from a separate, fresh, mode-0700 directory outside Git. Set `<path>` to the installed `~/.codex/packages/standalone/current/bin/codex` binary and `<probe>` to the absolute path of this directory. The reused T038 guard creates `repo/` and a linked `wt/`. Each probe writes a JSONL log beside them. Copy that log into `logs/<run directory name>/` as soon as the run ends. Put the results in [`../sandbox-access.md`](../sandbox-access.md).
 
-p2's launcher `PATH` is the one a new terminal gives. In its default mode, dispatch opens a new terminal window. In `here` and `headless` modes, it starts Codex with the dispatcher's environment (`lib/tower-dispatch.sh:201`). Either way, the agent gets a terminal's `PATH`. In run tmp.TN38cRgr, under the `workspace` profile the tool-call shell could not read the user's startup files, so it did not rebuild `PATH` from a system `PATH` launcher.
+p2's launcher `PATH` is the one a new terminal gives. In its default mode, dispatch opens a new terminal window. In `here` and `headless` modes, it starts Codex with the dispatcher's environment (`lib/tower-dispatch.sh:201`). Either way, the agent gets a terminal's `PATH`. In run tmp.TN38cRgr, under the `workspace` profile, the tool-call shell did not rebuild `PATH` from a system `PATH` launcher. That it could not read the user's startup files is inferred.
 
 ```sh
 TERMINAL_PATH=$(env -i HOME=$HOME USER=$USER LOGNAME=$USER SHELL=/bin/zsh TERM=xterm-256color LANG=en_US.UTF-8 PATH=/usr/bin:/bin:/usr/sbin:/sbin /bin/zsh -lic 'print -r -- $PATH' | tail -1)
@@ -11,7 +11,7 @@ cd "$(mktemp -d ~/.cache/tower-t038-probes/tmp.XXXXXXXX)"
 env -i HOME=$HOME USER=$USER LOGNAME=$USER SHELL=/bin/zsh TERM=xterm-256color LANG=en_US.UTF-8 PATH="$TERMINAL_PATH" CODEX_HOME=$HOME/.codex CODEX_BIN=<path> /usr/bin/python3 <probe>/p2_live_session.py --discover-only
 ```
 
-Use `p2_live_session.jsonl`'s `tool-path.txt` line 1 as `--tool-path` for p1. Repeat `--entry LABEL=ABSPATH` for each candidate read path. Use a new run directory for every run. Run p1 with the Claude sandbox disabled: otherwise `--log-denials` reports “None found.” The owner profile check reads `~/.codex/config.toml` and stops if its base filesystem entries changed.
+Use `p2_live_session.jsonl`'s `tool-path.txt` line 1 as `--tool-path` for p1. Repeat `--entry LABEL=ABSPATH` for each candidate read path. Use a new run directory for every run. Run p1 with the Claude sandbox disabled, as every measured run did, so that the Claude sandbox adds no denials of its own. `--log-denials` can still print “None found.” for a real denial, so the verdict uses exit status and output only. The owner profile check reads `~/.codex/config.toml` and stops if its base filesystem entries changed.
 
 ```sh
 cd "$(mktemp -d ~/.cache/tower-t038-probes/tmp.XXXXXXXX)"

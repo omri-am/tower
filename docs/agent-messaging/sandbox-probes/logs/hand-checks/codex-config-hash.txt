@@ -1,0 +1,13 @@
+# T045 hand check, 2026-10-18T13:51:57Z: ~/.codex/config.toml state, read only
+# hashes recorded earlier in the Claude session, not in a log: 5246261ea67ec0c117ad99f3447926417f2a89c21e4ddb67d30666bb2075d2c4 (2026-10-14 and after tmp.EJwmuOBy on 2026-10-15), 445e16388bec4d48005f89f445692de824d4ef4590e310a3a79e00041eb2aa32 (2026-10-18 ~10:16 local)
+e4b37c8d84e3e75425400180702dbccffed47a69a472f963106c599d4b180f11  /Users/omriam/.codex/config.toml
+mtime 2026-10-18T15:01:54+0300
+210:[permissions.workspace.filesystem]
+211-":minimal" = "read"
+212-
+213:[permissions.workspace.filesystem.":project_roots"]
+214-"." = "write"
+215-
+216:[permissions.workspace.network]
+217-enabled = true
+218-
