@@ -185,7 +185,7 @@ def main():
                                       if line.endswith('/tower-register')), '')
                 if os.path.isabs(register_path):
                     lib_dir = os.path.realpath(os.path.join(
-                        os.path.realpath(os.path.dirname(register_path)), '..', 'lib'))
+                        os.path.dirname(os.path.realpath(register_path)), '..', 'lib'))
                     checks['after_cleanup'] = kill_holder(run, ROLE, state_root, lib_dir, holder_pid)
                 else:
                     run.log('cleanup_skipped', {'reason': 'tower-register path unavailable'})

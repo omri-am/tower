@@ -14,6 +14,7 @@ TESTS = {
     'tower_help': ['tower', '--help'],
     'register_help': ['tower-register', '--help'],
     'python': ['python3', '-c', 'import sys; print(sys.executable); print(sys.base_prefix)'],
+    'bash_git': ['/bin/bash', '-c', 'git rev-parse --show-toplevel'],
 }
 DENIAL_MARKER = '=== Sandbox denials ==='
 
@@ -111,13 +112,16 @@ def main():
             matches = results['tower_help']['stdout'] == references['tower_help']['stdout']
             runtime_matches = (results['runtime_root']['stdout'] ==
                                references['runtime_root']['stdout'])
-            verdict = 'pass' if matches and runtime_matches and all(
+            bash_git_matches = (results['bash_git']['stdout'] ==
+                                references['bash_git']['stdout'])
+            verdict = 'pass' if matches and runtime_matches and bash_git_matches and all(
                 item['returncode'] == 0 for item in results.values()) else 'fail'
             run.log('case_verdict', {'case': case,
                                      'returncodes': {name: item['returncode']
                                                      for name, item in results.items()},
                                      'tower_help_matches_reference': matches,
                                      'runtime_root_matches_reference': runtime_matches,
+                                     'bash_git_matches_reference': bash_git_matches,
                                      'verdict': verdict})
             summary[case] = verdict
         run.log('summary', summary)
