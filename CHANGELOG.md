@@ -5,6 +5,8 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.7.0 — 2026-10-20
+
 - `tower agents` now shows a stale role's stored wake capability instead of `wake:none`, so
   a stale Codex role registered with `--thread` reads `stale` and `wake:native` and can be
   told apart from a role that can never be woken, which still shows `wake:none`.
@@ -52,6 +54,70 @@ what the version gives them.
 
 - Added a durable mailbox shared across worktrees: `tower send` stores messages and
   `tower inbox` lists, reads, acknowledges, or waits for them without a vendor CLI.
+
+- `tower-dispatch --vendor codex` now passes `--model` as `--model <name>` and `--effort` as
+  `-c model_reasoning_effort=<level>` instead of warning and dropping them. Claude launch commands
+  are unchanged, and vendor launch arguments come from one table in `lib/tower-dispatch.sh`.
+
+- `tower send` is unchanged: native delivery still times out after 30 seconds. The timeout is
+  now an internal argument in `lib/tower_msg.py`, so the test suite covers the timeout path.
+
+- Changes can carry their changelog entry in a `changelog.d/<task-id>.md` file instead of
+  editing `CHANGELOG.md`. `scripts/tower-changelog-check` accepts added, modified or deleted
+  `changelog.d/*.md` fragments like a `CHANGELOG.md` edit, and a renamed fragment counts too;
+  `scripts/tower-release` folds them in filename order after existing Unreleased entries and
+  deletes them in the release commit.
+
+- The shared role mailbox is now documented in `PROTOCOL.md`, both role skills, and
+  `docs/REFERENCE.md`. The reference also lists the four messaging commands and corrects
+  Codex model and effort launch flags. `PROTOCOL.md` now says the orchestrator may set a
+  card's `model:` and `effort:`, which dispatch uses when the matching flag is absent.
+
+- `scripts/tower-changelog-check` counts only `changelog.d/*.md` fragments, the set
+  `scripts/tower-release` folds, so a `T999.txt` or a lone `.gitkeep` does not satisfy it. A
+  deleted fragment counts as well, so a pure revert of an unreleased card passes.
+
+- The card template documents `changelog.d/<task-id>.md` in a comment under
+  `## File ownership`. `PROTOCOL.md` and the orchestrator and implementor skills name a card's
+  own fragment as the place for its changelog entry in a project that takes fragments. Editing
+  `CHANGELOG.md` directly stays accepted for a release or a hand edit that belongs to no card.
+
+- `tower send` native delivery now enforces its 30-second deadline inside the delivery child.
+  Killing the sender no longer leaves an adapter running without a deadline that could submit
+  a duplicate later. Timeout logging and exit codes are unchanged.
+
+- Release now folds tracked `protocol.d/<task-id>.md` and `reference.d/<task-id>.md` fragments
+  into `PROTOCOL.md` before `## Protocol version` and `docs/REFERENCE.md` before
+  `## Core ideas`. Each fragment must start with a `## ` heading. The release commit deletes them.
+
+- `tower-new` now replaces every literal `<task-id>` in the card template with the claimed
+  id, including inside HTML comments. The card's changelog fragment path is filled in at
+  creation, and the orchestrator skill no longer tells the author to replace it by hand.
+
+- `scripts/tower-changelog-check` counts a renamed `changelog.d/*.md` fragment. Rename
+  detection used to pair the deleted and added fragment into one entry that the check's
+  filter dropped, so a PR that renamed its fragment failed although the release still folds it.
+
+- `tower send` now labels a sender with no `TOWER_ROLE` as `unknown` instead of `owner`, and the
+  envelope says the sender is unidentified. The owner sets `TOWER_ROLE=owner` to label their own
+  messages; the label is self-asserted and grants nothing. `tower-dispatch` launches every vendor
+  with `TOWER_ROLE=implementor-<task-id>`.
+
+- `tower-bootstrap` links every `tower` and `tower-*` entry in its `bin/` directory, except
+  `tower-shim`, instead of a hand-written command list. A new command in `bin/` no longer needs
+  an edit to `tower-bootstrap`.
+
+- The implementor skill and docs now describe `unknown` for an unset `TOWER_ROLE` and
+  `TOWER_ROLE=implementor-<task-id>` for dispatch-launched sessions. Step 11 of the
+  implementor skill now tells a session with a sidecar `.tower/` to stage its new handoff and
+  commit inside `.tower/`, because `git commit --only` fails on an untracked handoff.
+- `docs/REFERENCE.md` now explains `protocol.d/` and `reference.d/` fragments.
+  `docs/agent-messaging/adapter-shape.md` now says that the delivery wrapper kills the
+  adapter's process group at the 30-second deadline, even after the sender is killed.
+
+- `scripts/tower-release` refuses a `protocol.d/` or `reference.d/` fragment that contains its
+  own document's fold anchor line (`## Protocol version` or `## Core ideas`), and names the
+  fragment instead of releasing a document with two anchors.
 
 ## v0.6.0 — 2026-09-28
 
