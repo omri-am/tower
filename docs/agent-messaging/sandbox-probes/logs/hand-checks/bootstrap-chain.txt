@@ -1,0 +1,16 @@
+# T045 hand check, 2026-10-18T13:51:32Z, codex-cli 0.162.1, run in the Claude session with its sandbox off
+# worktree: /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa
+# PATH: ~/.local/bin, then the tool PATH of tmp.xEJAMdPW
+# /Users/omriam/.local/bin/tower-locate -> /Users/omriam/.local/libexec/tower-shim
+# unsandboxed: command -v: /Users/omriam/.local/bin/tower-locate /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa ancestor exit=0 
+
+$ env -i HOME=/Users/omriam USER=omriam LOGNAME=omriam SHELL=/bin/zsh TERM=xterm LANG=en_US.UTF-8 PATH=<as above> /Users/omriam/.codex/packages/standalone/current/bin/codex sandbox -P workspace -c check_for_update_on_startup=false -c 'permissions.workspace.filesystem={":minimal"="read", ":project_roots"={"."="write"}, "/Users/omriam/Documents/personal-projects/tower"="read", "/Users/omriam/.claude/plugins/cache/tower"="read", "/Users/omriam/.pyenv"="read", "/opt/homebrew/opt"="read", "/opt/homebrew/bin"="read", "/opt/homebrew/Cellar/pyenv"="read", "/opt/homebrew/Cellar/gettext"="read", "/opt/homebrew/Cellar/pcre2"="read", "/opt/homebrew/Cellar/git"="read", "/opt/homebrew/etc/gitconfig"="read", "/Users/omriam/.gitconfig"="read", "/Users/omriam/.gitconfig-personal"="read"}' -C /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa -- /bin/bash -c 'echo "command -v: $(command -v tower-locate)"; /Users/omriam/.local/bin/tower-locate; echo exit=$?'
+command -v: /Users/omriam/Documents/personal-projects/tower/bin/tower-locate
+/bin/bash: /Users/omriam/.local/bin/tower-locate: Operation not permitted
+exit=126
+
+$ env -i HOME=/Users/omriam USER=omriam LOGNAME=omriam SHELL=/bin/zsh TERM=xterm LANG=en_US.UTF-8 PATH=<as above> /Users/omriam/.codex/packages/standalone/current/bin/codex sandbox -P workspace -c check_for_update_on_startup=false -c 'permissions.workspace.filesystem={":minimal"="read", ":project_roots"={"."="write"}, "/Users/omriam/Documents/personal-projects/tower"="read", "/Users/omriam/.claude/plugins/cache/tower"="read", "/Users/omriam/.pyenv"="read", "/opt/homebrew/opt"="read", "/opt/homebrew/bin"="read", "/opt/homebrew/Cellar/pyenv"="read", "/opt/homebrew/Cellar/gettext"="read", "/opt/homebrew/Cellar/pcre2"="read", "/opt/homebrew/Cellar/git"="read", "/opt/homebrew/etc/gitconfig"="read", "/Users/omriam/.gitconfig"="read", "/Users/omriam/.gitconfig-personal"="read", "/Users/omriam/.local/bin"="read", "/Users/omriam/.local/libexec"="read"}' -C /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa -- /bin/bash -c 'echo "command -v: $(command -v tower-locate)"; /Users/omriam/.local/bin/tower-locate; echo exit=$?'
+command -v: /Users/omriam/.local/bin/tower-locate
+/Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa
+ancestor
+exit=0

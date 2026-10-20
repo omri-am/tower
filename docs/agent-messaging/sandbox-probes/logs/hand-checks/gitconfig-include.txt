@@ -1,0 +1,12 @@
+# T045 hand check, 2026-10-15T19:51:52Z, codex-cli 0.162.1, run in the Claude session with its sandbox off
+# worktree: /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa
+# git dir: /Users/omriam/Documents/personal-projects/tower/.git/worktrees/T045-measure-the-codex-permission-entries-that-let-a-sa
+# ~/.gitconfig line: 10:[includeIf "gitdir:~/Documents/personal-projects/"]
+
+$ env -i HOME=/Users/omriam USER=omriam LOGNAME=omriam SHELL=/bin/zsh TERM=xterm LANG=en_US.UTF-8 PATH=<tool PATH of tmp.xEJAMdPW> /Users/omriam/.codex/packages/standalone/current/bin/codex sandbox -P workspace -c check_for_update_on_startup=false -c 'permissions.workspace.filesystem={":minimal"="read", ":project_roots"={"."="write"}, "/Users/omriam/Documents/personal-projects/tower"="read", "/Users/omriam/.claude/plugins/cache/tower"="read", "/Users/omriam/.pyenv"="read", "/opt/homebrew/opt"="read", "/opt/homebrew/bin"="read", "/opt/homebrew/Cellar/pyenv"="read", "/opt/homebrew/Cellar/gettext"="read", "/opt/homebrew/Cellar/pcre2"="read", "/opt/homebrew/Cellar/git"="read", "/opt/homebrew/etc/gitconfig"="read", "/Users/omriam/.gitconfig"="read"}' -C /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa -- /bin/bash -c 'git rev-parse --show-toplevel; echo exit=$?'
+fatal: unable to access '/Users/omriam/.gitconfig-personal': Operation not permitted
+exit=128
+
+$ env -i HOME=/Users/omriam USER=omriam LOGNAME=omriam SHELL=/bin/zsh TERM=xterm LANG=en_US.UTF-8 PATH=<tool PATH of tmp.xEJAMdPW> /Users/omriam/.codex/packages/standalone/current/bin/codex sandbox -P workspace -c check_for_update_on_startup=false -c 'permissions.workspace.filesystem={":minimal"="read", ":project_roots"={"."="write"}, "/Users/omriam/Documents/personal-projects/tower"="read", "/Users/omriam/.claude/plugins/cache/tower"="read", "/Users/omriam/.pyenv"="read", "/opt/homebrew/opt"="read", "/opt/homebrew/bin"="read", "/opt/homebrew/Cellar/pyenv"="read", "/opt/homebrew/Cellar/gettext"="read", "/opt/homebrew/Cellar/pcre2"="read", "/opt/homebrew/Cellar/git"="read", "/opt/homebrew/etc/gitconfig"="read", "/Users/omriam/.gitconfig"="read", "/Users/omriam/.gitconfig-personal"="read"}' -C /Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa -- /bin/bash -c 'git rev-parse --show-toplevel; echo exit=$?'
+/Users/omriam/.superset/worktrees/tower/tower/root/T045-measure-the-codex-permission-entries-that-let-a-sa
+exit=0
