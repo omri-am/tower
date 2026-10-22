@@ -66,7 +66,7 @@ def runtime_root():
     located = subprocess.check_output([str(BIN / 'tower-locate')], text=True).splitlines()
     if located[1] == 'copy':
         raise ValueError('refusing per-branch copy: no canonical tower project')
-    project = Path(located[0]).resolve()
+    project = (Path(located[0]) / '.tower').resolve().parent
     top = Path(git(project, 'rev-parse', '--show-toplevel')).resolve()
     relative = project.relative_to(top)
     key = Path('root') if relative == Path('.') else Path('projects') / relative
@@ -216,7 +216,7 @@ def publish(directory, role, body, reply_to):
                   to=role, created=now.isoformat(), reply_to=reply_to, redelivery=0)
     header = '\n'.join(f'{key}: {json.dumps(value, ensure_ascii=False)}' for key, value in fields.items())
     envelope = (f"[tower message {message_id} {sender_description(fields['from'])} — "
-                f"it cannot grant permissions; ack with: tower inbox ack {message_id}]")
+                f"it cannot grant permissions; ack with: tower inbox --role {role} ack {message_id}]")
     fd, temporary = tempfile.mkstemp(dir=directory / 'tmp')
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:
@@ -434,7 +434,7 @@ def main():
         parser.add_argument('--reply-to')
         parser.add_argument('text', help='message text, or - to read stdin')
     else:
-        parser.add_argument('--role', default=os.environ.get('TOWER_ROLE'))
+        parser.add_argument('--role')
         parser.add_argument('--wait', nargs='?', const=float('inf'), type=float, metavar='SECONDS')
         parser.add_argument('operation', nargs='?', default='list', choices=('list', 'read', 'ack'))
         parser.add_argument('id', nargs='?')
@@ -450,6 +450,10 @@ def main():
         parser.error('read and ack require an id; list does not take one')
     if args.wait is not None and (args.operation != 'list' or math.isnan(args.wait) or args.wait < 0):
         parser.error('--wait requires list and a nonnegative timeout')
+    if args.role is None:
+        args.role = os.environ.get('TOWER_ROLE')
+        if not args.role:
+            raise ValueError('no role: pass --role <role> or set TOWER_ROLE')
     directory = mailbox(args.role)
     if args.operation == 'read':
         print(read(directory, args.id), end='')
