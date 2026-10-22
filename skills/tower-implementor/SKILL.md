@@ -83,8 +83,8 @@ hook will not let you finish without it.
    and the commit in the repository that holds the canonical state, as `commit_dispatch_card`
    in `lib/tower-dispatch.sh` does: `.tower/` when `.tower/.git` exists (a sidecar), otherwise
    the project directory that `tower-locate` prints on its first line (a committed `.tower/`).
-   Use paths relative to that repository: first `git -C <repo> add -- <handoff path>`, then
-   `git -C <repo> commit --only -- <card path> <handoff path>`. On `CLOSED`: record in the
+   Use paths relative to that directory: first `git -C <dir> add -- <handoff path>`, then
+   `git -C <dir> commit --only -- <card path> <handoff path>`. On `CLOSED`: record in the
    handoff that the PR was closed unmerged and what remains, leave the card `in-review`, and
    run `tower-notify`.
    Leave `ingested_handoff` untouched: only the orchestrator records what it has processed.
