@@ -61,22 +61,29 @@ hook will not let you finish without it.
 9. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
    a draft at this point. The merged state, not the opened PR, is what the orchestrator
    ingests, so the draft is a record, not yet the deliverable.
-10. Arm the merge watch, then hold. Run `tower-pr-wait` as a background command (in Claude
-   Code, the Bash tool's `run_in_background`): it polls your card's PR and exits the moment
-   the PR leaves OPEN, which re-invokes your session with `MERGED <pr>` or `CLOSED <pr>`.
-   End the turn saying the session is holding for the merge and its window must stay open.
-   Never poll in the foreground, and never ask the owner to tell you when the PR lands —
+10. Arm the merge watch, then hold. Run `tower-pr-wait --max-wait <seconds>` as a background
+   command (in Claude Code, the Bash tool's `run_in_background`), with `<seconds>` below your
+   harness's limit for a background command. Claude Code kills a background command after at
+   most 2 hours, so there use `--max-wait 6600`. A harness with no such limit may omit the
+   option. The watch polls your card's PR and exits the moment the PR leaves OPEN, which
+   re-invokes your session with `MERGED <pr>` or `CLOSED <pr>`. When it reaches the limit
+   first, it prints `OPEN <pr>` and exits 3: start the watch again at once, as a new
+   background command. That is a new watch that ended on its own, not a restart of a killed
+   command. End the turn saying the session is holding for the merge and its window must stay
+   open. Never poll in the foreground, and never ask the owner to tell you when the PR lands —
    that is the job this watch exists to remove. A session dispatched `--headless` exits when
    its turn ends, so nothing is left to wake: there, skip the hold and finish on the draft.
 11. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
    since you opened the PR (the PR's diff and its review threads), and finalize the handoff
    with it. Only then flip the card `in-review` -> `merged` — `merged` is the orchestrator's
-   ingest gate, so flipping it before finalizing offers a draft up as the deliverable. Commit
-   the card and handoff together using `git commit --only -- <card path> <handoff path>`. In a
-   sidecar `.tower/` (where `.tower/.git` exists), a new handoff is untracked and that commit
-   fails with `pathspec did not match`. Run both commands in the sidecar, with paths relative
-   to `.tower/`: first `git -C .tower add -- <handoff path>`, then
-   `git -C .tower commit --only -- <card path> <handoff path>`. On `CLOSED`: record in the
+   ingest gate, so flipping it before finalizing offers a draft up as the deliverable.
+   Commit the card and handoff together with `git commit --only`. The handoff is new and
+   untracked, so that commit fails with `pathspec did not match` until you add it. Run the add
+   and the commit in the repository that holds the canonical state, as `commit_dispatch_card`
+   in `lib/tower-dispatch.sh` does: `.tower/` when `.tower/.git` exists (a sidecar), otherwise
+   the project directory that `tower-locate` prints on its first line (a committed `.tower/`).
+   Use paths relative to that repository: first `git -C <repo> add -- <handoff path>`, then
+   `git -C <repo> commit --only -- <card path> <handoff path>`. On `CLOSED`: record in the
    handoff that the PR was closed unmerged and what remains, leave the card `in-review`, and
    run `tower-notify`.
    Leave `ingested_handoff` untouched: only the orchestrator records what it has processed.

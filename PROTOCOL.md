@@ -185,7 +185,9 @@ done, so the implementor updates the file once the merge lands.
 The implementor learns of that merge itself. After opening the PR it backgrounds
 `tower-pr-wait`, which reads the card's `pr:` field, polls it, and exits the moment the PR
 leaves OPEN — the process exit is what wakes the session, so the owner is never the
-notification channel. Finalizing comes before the card flips to `merged`, never after:
+notification channel. A harness that limits background commands runs the watch with
+`--max-wait` below that limit, and the implementor starts a new watch when the watch prints
+`OPEN <pr>`. Finalizing comes before the card flips to `merged`, never after:
 flipping first offers a draft up as the deliverable. The degraded case is unchanged — a
 `--headless` implementor exits when its turn ends and cannot be woken, and an owner may
 close the window early; in both, the draft plus the PR's final diff are what remains, and

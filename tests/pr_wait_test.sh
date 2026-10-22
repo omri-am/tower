@@ -35,4 +35,83 @@ assert_eq "two matches name every matching file" \
 assert_eq "two matches never reach the pr field" \
   "$(printf '%s\n' "$AMBIGUOUS_OUT" | grep -c 'pr: field')" "0"
 
+PR="https://github.com/owner/repo/pull/50"
+printf -- '---\nid: T050\nstatus: in-review\npr: "%s"\n---\nbody\n' "$PR" > "$TASKS/T050-single.md"
+
+FAKE_BIN="$PROJECT/fake-bin"
+mkdir -p "$FAKE_BIN"
+export FAKE_GH_STATES="$PROJECT/gh-states"
+export FAKE_GH_CALLS="$PROJECT/gh-calls"
+FAKE_GH_ERR="$PROJECT/gh-stderr"
+cat > "$FAKE_BIN/gh" <<'EOF'
+#!/usr/bin/env bash
+printf 'call\n' >> "$FAKE_GH_CALLS"
+state="$(sed -n '1p' "$FAKE_GH_STATES")"
+if [ "$(wc -l < "$FAKE_GH_STATES")" -gt 1 ]; then
+  sed '1d' "$FAKE_GH_STATES" > "$FAKE_GH_STATES.next"
+  mv "$FAKE_GH_STATES.next" "$FAKE_GH_STATES"
+fi
+if [ "$state" = FAIL ]; then
+  exit 1
+fi
+printf '%s\n' "$state"
+EOF
+chmod +x "$FAKE_BIN/gh"
+
+run_watch() {
+  printf '%s\n' "$1" > "$FAKE_GH_STATES"
+  : > "$FAKE_GH_CALLS"
+  shift
+  WATCH_OUT="$(PATH="$FAKE_BIN:$PATH" "$PR_WAIT" T050 --interval 1 "$@" 2> "$FAKE_GH_ERR")"
+  WATCH_STATUS=$?
+  WATCH_ERR="$(cat "$FAKE_GH_ERR")"
+}
+
+START_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
+run_watch OPEN --max-wait 3
+ELAPSED_MS=$(( $(python3 -c 'import time; print(int(time.time()*1000))') - START_MS ))
+assert_status "open PR reaches the wait limit" "$WATCH_STATUS" "3"
+assert_eq "wait limit reports the open PR" "$WATCH_OUT" "OPEN $PR"
+assert_true "wait limit polls more than once" test "$(wc -l < "$FAKE_GH_CALLS")" -ge 2
+assert_true "wait limit finishes within four seconds" test "$ELAPSED_MS" -le 4000
+
+run_watch FAIL --max-wait 2
+assert_status "failed gh calls reach the wait limit" "$WATCH_STATUS" "3"
+assert_eq "failed gh calls report the open PR" "$WATCH_OUT" "OPEN $PR"
+
+run_watch MERGED --max-wait 30
+assert_status "merged PR exits successfully with a limit" "$WATCH_STATUS" "0"
+assert_eq "merged PR is reported with a limit" "$WATCH_OUT" "MERGED $PR"
+
+run_watch CLOSED --max-wait 30
+assert_status "closed PR exits successfully with a limit" "$WATCH_STATUS" "0"
+assert_eq "closed PR is reported with a limit" "$WATCH_OUT" "CLOSED $PR"
+
+run_watch MERGED
+assert_status "merged PR exits successfully without a limit" "$WATCH_STATUS" "0"
+assert_eq "merged PR is reported without a limit" "$WATCH_OUT" "MERGED $PR"
+
+run_watch CLOSED
+assert_status "closed PR exits successfully without a limit" "$WATCH_STATUS" "0"
+assert_eq "closed PR is reported without a limit" "$WATCH_OUT" "CLOSED $PR"
+
+run_watch $'OPEN\nMERGED'
+assert_status "open PR later merges without a limit" "$WATCH_STATUS" "0"
+assert_eq "later merge is reported without a limit" "$WATCH_OUT" "MERGED $PR"
+assert_eq "later merge needs two polls" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "2"
+
+for value in 0 -5 abc 007; do
+  run_watch OPEN --max-wait "$value"
+  assert_status "invalid max-wait $value exits with usage error" "$WATCH_STATUS" "1"
+  assert_eq "invalid max-wait $value prints usage" \
+    "$(printf '%s\n' "$WATCH_ERR" | grep -c 'usage: tower-pr-wait')" "1"
+  assert_eq "invalid max-wait $value skips gh" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "0"
+done
+
+run_watch OPEN --max-wait
+assert_status "missing max-wait value exits with usage error" "$WATCH_STATUS" "1"
+assert_eq "missing max-wait value prints usage" \
+  "$(printf '%s\n' "$WATCH_ERR" | grep -c 'usage: tower-pr-wait')" "1"
+assert_eq "missing max-wait value skips gh" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "0"
+
 summary
