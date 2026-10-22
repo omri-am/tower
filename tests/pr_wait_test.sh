@@ -86,6 +86,12 @@ assert_status "a long interval still stops at the wait limit" "$WATCH_STATUS" "3
 assert_eq "a long interval reports the open PR at the wait limit" "$WATCH_OUT" "OPEN $PR"
 assert_true "a long interval does not sleep past the wait limit" test "$ELAPSED_MS" -le 3500
 
+run_watch $'OPEN\nMERGED' --interval 30 --max-wait 2
+assert_status "a merge during the last sleep is seen at the wait limit" "$WATCH_STATUS" "0"
+assert_eq "the final poll at the wait limit reports the merge" "$WATCH_OUT" "MERGED $PR"
+assert_eq "the wait limit polls once more before it stops" \
+  "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "2"
+
 run_watch MERGED --max-wait 30
 assert_status "merged PR exits successfully with a limit" "$WATCH_STATUS" "0"
 assert_eq "merged PR is reported with a limit" "$WATCH_OUT" "MERGED $PR"

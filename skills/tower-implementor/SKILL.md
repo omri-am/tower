@@ -68,11 +68,12 @@ hook will not let you finish without it.
    option. The watch polls your card's PR and exits the moment the PR leaves OPEN, which
    re-invokes your session with `MERGED <pr>` or `CLOSED <pr>`. When it reaches the limit
    first, it prints `OPEN <pr>` and exits 3: start the watch again at once, as a new
-   background command. That is a new watch that ended on its own, not a restart of a killed
-   command. End the turn saying the session is holding for the merge and its window must stay
-   open. Never poll in the foreground, and never ask the owner to tell you when the PR lands —
-   that is the job this watch exists to remove. A session dispatched `--headless` exits when
-   its turn ends, so nothing is left to wake: there, skip the hold and finish on the draft.
+   background command. The old watch ended on its own and was not killed, so the new one is
+   not a restart of a killed command. End the turn saying the session is holding for the merge
+   and its window must stay open. Never poll in the foreground, and never ask the owner to tell
+   you when the PR lands — that is the job this watch exists to remove. A session dispatched
+   `--headless` exits when its turn ends, so nothing is left to wake: there, skip the hold and
+   finish on the draft.
 11. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
    since you opened the PR (the PR's diff and its review threads), and finalize the handoff
    with it. Only then flip the card `in-review` -> `merged` — `merged` is the orchestrator's
