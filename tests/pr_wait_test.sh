@@ -79,6 +79,13 @@ run_watch FAIL --max-wait 2
 assert_status "failed gh calls reach the wait limit" "$WATCH_STATUS" "3"
 assert_eq "failed gh calls report the open PR" "$WATCH_OUT" "OPEN $PR"
 
+START_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
+run_watch OPEN --interval 30 --max-wait 2
+ELAPSED_MS=$(( $(python3 -c 'import time; print(int(time.time()*1000))') - START_MS ))
+assert_status "a long interval still stops at the wait limit" "$WATCH_STATUS" "3"
+assert_eq "a long interval reports the open PR at the wait limit" "$WATCH_OUT" "OPEN $PR"
+assert_true "a long interval does not sleep past the wait limit" test "$ELAPSED_MS" -le 3500
+
 run_watch MERGED --max-wait 30
 assert_status "merged PR exits successfully with a limit" "$WATCH_STATUS" "0"
 assert_eq "merged PR is reported with a limit" "$WATCH_OUT" "MERGED $PR"
