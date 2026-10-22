@@ -3,17 +3,17 @@
 # How each vendor's CLI takes tower's launch settings. The first row is the default vendor. "-" marks
 # an empty cell: the vendor takes no such argument, or its effort value has no prefix. Effort is
 # passed as <effort-flag> <effort-value-prefix><level>. Each cell is one word, and prepare_launch builds
-# the arguments in this order: session-name flag and name, mode form, model, effort.
+# the arguments in this order: session-name flag and name, mode form, model, effort, state-dir flag and directory.
 # codex-cli 0.160.0 --help has -m, --model but no --effort; -c model_reasoning_effort=<level> (verified 2026-10-06).
-#  vendor  interactive  headless  session-name-flag  model-flag  effort-flag  effort-value-prefix
+#  vendor  interactive  headless  session-name-flag  model-flag  effort-flag  effort-value-prefix       state-dir-flag
 LAUNCH_ADAPTERS='
-   claude  -            -p        -n                 --model     --effort     -
-   codex   -            exec      -                  --model     -c           model_reasoning_effort=
+   claude  -            -p        -n                 --model     --effort     -                         -
+   codex   -            exec      -                  --model     -c           model_reasoning_effort=   --add-dir
 '
 
 load_launch_adapter() {
   local row_vendor
-  while read -r row_vendor ADAPTER_INTERACTIVE ADAPTER_HEADLESS ADAPTER_SESSION_FLAG ADAPTER_MODEL_FLAG ADAPTER_EFFORT_FLAG ADAPTER_EFFORT_PREFIX; do
+  while read -r row_vendor ADAPTER_INTERACTIVE ADAPTER_HEADLESS ADAPTER_SESSION_FLAG ADAPTER_MODEL_FLAG ADAPTER_EFFORT_FLAG ADAPTER_EFFORT_PREFIX ADAPTER_STATE_DIR_FLAG; do
     [ -n "$row_vendor" ] || continue
     [ "$row_vendor" = "$1" ] || continue
     [ "$ADAPTER_INTERACTIVE" != - ] || ADAPTER_INTERACTIVE=""
@@ -22,6 +22,7 @@ load_launch_adapter() {
     [ "$ADAPTER_MODEL_FLAG" != - ] || ADAPTER_MODEL_FLAG=""
     [ "$ADAPTER_EFFORT_FLAG" != - ] || ADAPTER_EFFORT_FLAG=""
     [ "$ADAPTER_EFFORT_PREFIX" != - ] || ADAPTER_EFFORT_PREFIX=""
+    [ "$ADAPTER_STATE_DIR_FLAG" != - ] || ADAPTER_STATE_DIR_FLAG=""
     return 0
   done <<EOF
 $LAUNCH_ADAPTERS
@@ -188,6 +189,11 @@ prepare_launch() {
   fi
   append_launch_setting --model "$ADAPTER_MODEL_FLAG" "" "$MODEL"
   append_launch_setting --effort "$ADAPTER_EFFORT_FLAG" "$ADAPTER_EFFORT_PREFIX" "$EFFORT"
+  LAUNCH_STATE_DIR=""
+  if [ -n "$ADAPTER_STATE_DIR_FLAG" ]; then
+    LAUNCH_STATE_DIR="$(common_git_dir "$TOPLEVEL")/tower"
+    AGENT_ARGS+=("$ADAPTER_STATE_DIR_FLAG" "$LAUNCH_STATE_DIR")
+  fi
 }
 
 launch_command() {

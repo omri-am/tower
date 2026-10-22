@@ -163,6 +163,7 @@ if [ "$RESUME" = 0 ]; then
 fi
 commit_dispatch_card
 release_dispatch_lock
+[ "$MODE" = prep ] || [ -z "$LAUNCH_STATE_DIR" ] || mkdir -p "$LAUNCH_STATE_DIR"
 
 if [ "$MODE" = "prep" ]; then
   echo "tower-dispatch: prepared $TASK_ID in $WORK_DIR (branch $BRANCH, card in-flight)"
