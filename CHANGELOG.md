@@ -7,35 +7,39 @@ what the version gives them.
 
 ## v0.8.0 — 2026-10-26
 
+- Every link to the same `.tower` now shares one mailbox, keyed by the real `.tower` directory
+  after symlinks. Before, a worktree with two `.tower` links had two mailboxes, so messages sent
+  from one directory never reached a reader in the other. Messages stored under an old key are
+  not moved.
+- The envelope's ack hint names the recipient role (`tower inbox --role <role> ack <id>`), so it
+  works in a session without `TOWER_ROLE`. `tower inbox` without a role now reports
+  `no role: pass --role <role> or set TOWER_ROLE`.
+
 - `tower-dispatch` passes `--add-dir <git common dir>/tower` to Codex as the last argument before
-  the prompt, and creates that directory before a launch, so a sandboxed Codex implementor can
-  run `tower-register` and `tower send`. Claude launch commands do not change.
+  the prompt, and creates that directory before a launch. With a permission profile that allows
+  tower's reads, a sandboxed Codex implementor can then run `tower-register` and `tower send`.
+  Claude launch commands do not change. `--prep` passes nothing, so a platform that starts Codex
+  after `--prep` must pass `--add-dir` itself.
+- `tower-doctor --codex-sandbox <profile>` checks that a Codex permission profile allows the reads
+  that tower needs. It runs three `codex sandbox` commands from a linked worktree and reports each
+  failure as a finding. Findings are expected until the profile has the entries from the 7-step
+  rule in `docs/agent-messaging/sandbox-access.md`. Doctor never edits the profile, and without
+  the flag it runs no `codex` command and its output does not change.
 - The orchestrator skill and `docs/REFERENCE.md` now say that dispatch sets
   `TOWER_ROLE=implementor-<task-id>` on a session it launches. `docs/REFERENCE.md` lists
   `TOWER_ROLE` under Configuration.
 
-- `tower-doctor --codex-sandbox <profile>` checks that a Codex permission profile allows the reads
-  that tower needs. It runs three `codex sandbox` commands from a linked worktree and reports each
-  failure as a finding. Findings are expected until the profile has the entries from the 7-step
-  rule in `docs/agent-messaging/sandbox-access.md`. Doctor never edits the profile.
-- `tower-doctor` without the flag runs no `codex` command, and its output does not change.
-
 - `tower-pr-wait` takes `--max-wait <seconds>`. At the limit, it prints `OPEN <pr>` and exits 3.
-  Without the option, the watch has no limit.
-- In Claude Code, the implementor skill uses `--max-wait 6600` and starts a new watch on
-  `OPEN <pr>`. The merge watch no longer dies at the 2-hour background-command limit.
+  Without the option, the watch has no limit. In Claude Code, the implementor skill uses
+  `--max-wait 6600` and starts a new watch on `OPEN <pr>`, so the merge watch no longer dies at
+  the 2-hour background-command limit.
 - Skill step 11 tells the implementor to add and commit the handoff in the repository that
   holds the canonical state, for both a sidecar and a committed `.tower/`.
 
-- Links to the same `.tower` from different directories share one mailbox, keyed by the real `.tower`
-  after symlinks. Messages under an old key are not moved.
-- The envelope's ack hint names the recipient role.
-- `tower inbox` without a role reports `no role: pass --role <role> or set TOWER_ROLE`.
-
 - `tower territories` checks the optional territory charters in `.tower/territories/<name>.md`.
   It reports overlapping paths and invalid charters on stderr, and prints each card's territory
-  or `main`. It writes no file.
-- `lib/tower-paths.sh` has `tower_path_within <inner> <outer>`, a path containment test.
+  or `main`. It writes no file. No command starts a sub-orchestrator yet. `PROTOCOL.md` and
+  `docs/REFERENCE.md` document the charter format.
 
 ## v0.7.0 — 2026-10-20
 
