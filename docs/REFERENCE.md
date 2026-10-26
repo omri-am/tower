@@ -85,6 +85,11 @@ version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverab
 For model and effort, a non-empty flag overrides the recorded card value. `--resume` reuses
 recorded values without rewriting the card; flags passed again override only that launch.
 
+A Codex launch also gets `--add-dir <git common dir>/tower`, and dispatch creates that
+directory before the launch, so the sandboxed session can write tower's shared state.
+`--prep` launches nothing and passes no such flag, so a platform that starts Codex after
+`--prep` must pass `--add-dir <git common dir>/tower` itself.
+
 By default dispatch creates a per-task worktree at `<repo>-tower-worktrees/<project>/T###`
 on the card’s branch and symlinks the shared `.tower/` into it. `<project>` is `root` for
 a root project and `projects/<project-relative-path>` otherwise. Ownership validation
@@ -247,6 +252,7 @@ are in [PROTOCOL.md](../PROTOCOL.md#project-discovery).
 | `TOWER_CARD_WIDTH` | terminal width, else `80` | Render width for `tower-card` (floor 46) |
 | `TOWER_LEARNINGS_BUDGET` | `60` | Entry count `tower-learnings --check` measures against |
 | `TOWER_TASK` | set by dispatch | The implementor's task id |
+| `TOWER_ROLE` | set by dispatch | The sender label for `tower send` and the default role for `tower inbox`; dispatch sets `implementor-<task-id>` on a session it launches |
 | `TOWER_PROJECT_DIR` | unset | First link in the project-discovery chain |
 
 ## Staying current

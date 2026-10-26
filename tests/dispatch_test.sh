@@ -279,6 +279,76 @@ assert_true 'default command launches claude' grep -q ' claude -n ' "$TMP/defaul
 assert_false 'unknown vendor is rejected' dispatch "$PROJECT" T001 --vendor bogus --print-only
 assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "tower-dispatch: unknown vendor 'bogus'"
 
+PROJECT="$TMP/state-dir"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+new_card "$PROJECT" T002
+PROJECT="$(cd "$PROJECT" && pwd -P)"
+STATE="$(cd "$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)/tower"
+WORKTREE="$(cd "$TMP" && pwd -P)/state-dir-tower-worktrees/root/T001"
+PROMPT="$PROJECT/.tower/prompts/T001-prompt.md"
+(cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --vendor codex --model opus --effort high --print-only) > "$TMP/state-dir.stdout" 2> "$TMP/state-dir.stderr"
+assert_status 'codex print-only dispatch succeeds' "$?" 0
+assert_eq 'codex command grants the shared state directory' "$(cat "$TMP/state-dir.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 codex --model opus -c model_reasoning_effort=high --add-dir $STATE \"\$(cat $PROMPT)\""
+assert_empty 'codex print-only has no stderr' "$(cat "$TMP/state-dir.stderr")"
+(cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --vendor codex --headless --model opus --effort high --print-only) > "$TMP/state-dir.stdout" 2> "$TMP/state-dir.stderr"
+assert_status 'headless codex print-only dispatch succeeds' "$?" 0
+assert_eq 'headless codex command grants the shared state directory' "$(cat "$TMP/state-dir.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 codex exec --model opus -c model_reasoning_effort=high --add-dir $STATE \"\$(cat $PROMPT)\""
+assert_empty 'headless codex print-only has no stderr' "$(cat "$TMP/state-dir.stderr")"
+(cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --vendor codex --print-only) > "$TMP/state-dir.stdout" 2> "$TMP/state-dir.stderr"
+assert_status 'codex without model print-only dispatch succeeds' "$?" 0
+assert_eq 'codex without model grants the shared state directory' "$(cat "$TMP/state-dir.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 codex --add-dir $STATE \"\$(cat $PROMPT)\""
+assert_empty 'codex without model print-only has no stderr' "$(cat "$TMP/state-dir.stderr")"
+assert_false 'guard: codex print-only creates no state directory' test -e "$STATE"
+assert_true 'guard: codex preparation succeeds' dispatch "$PROJECT" T002 --vendor codex --prep
+assert_false 'guard: codex preparation prints no add-dir flag' grep -q -- --add-dir "$TMP/dispatch.out"
+assert_false 'guard: codex preparation creates no state directory' test -e "$STATE"
+
+PROJECT="$TMP/state-dir-nested"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+mkdir "$PROJECT/sub"
+new_project "$PROJECT/sub"
+new_card "$PROJECT/sub" T001
+STATE="$(cd "$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)/tower"
+dispatch "$PROJECT" T001 --vendor codex --print-only
+sed -n 's/.* --add-dir \([^ ]*\) .*/\1/p' "$TMP/dispatch.out" > "$TMP/root-state-dir"
+dispatch "$PROJECT/sub" T001 --vendor codex --print-only
+sed -n 's/.* --add-dir \([^ ]*\) .*/\1/p' "$TMP/dispatch.out" > "$TMP/nested-state-dir"
+assert_eq 'root project uses git common state directory' "$(cat "$TMP/root-state-dir")" "$STATE"
+assert_eq 'nested project uses git common state directory' "$(cat "$TMP/nested-state-dir")" "$STATE"
+
+cat > "$TMP/fakebin/codex" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$TOWER_TEST_ARGS"
+if [ -d "$TOWER_TEST_STATE" ]; then
+  printf '%s\n' present > "$TOWER_TEST_SEEN"
+else
+  printf '%s\n' absent > "$TOWER_TEST_SEEN"
+fi
+exit 1
+EOF
+chmod +x "$TMP/fakebin/codex"
+export TOWER_TEST_ARGS TOWER_TEST_SEEN TOWER_TEST_STATE
+for LAUNCH_MODE in --headless --here; do
+  PROJECT="$TMP/state-dir-${LAUNCH_MODE#--}"
+  new_repo "$PROJECT"
+  new_project "$PROJECT"
+  new_card "$PROJECT" T001
+  STATE="$(cd "$(git -C "$PROJECT" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)/tower"
+  TOWER_TEST_ARGS="$TMP/${LAUNCH_MODE#--}-codex-args"
+  TOWER_TEST_SEEN="$TMP/${LAUNCH_MODE#--}-codex-seen"
+  TOWER_TEST_STATE="$STATE"
+  assert_false "$LAUNCH_MODE starts without a state directory" test -e "$STATE"
+  assert_false "$LAUNCH_MODE reports the fake Codex failure" dispatch "$PROJECT" T001 --vendor codex "$LAUNCH_MODE"
+  assert_eq "$LAUNCH_MODE creates the state directory before Codex runs" "$(cat "$TOWER_TEST_SEEN")" present
+  grep -A1 -x -- --add-dir "$TOWER_TEST_ARGS" > "$TMP/${LAUNCH_MODE#--}-state-args"
+  printf '%s\n' --add-dir "$STATE" > "$TMP/${LAUNCH_MODE#--}-expected-state-args"
+  assert_true "$LAUNCH_MODE passes the state directory after add-dir" cmp -s "$TMP/${LAUNCH_MODE#--}-state-args" "$TMP/${LAUNCH_MODE#--}-expected-state-args"
+done
+
 (
   . "$ROOT/lib/tower-dispatch.sh"
   LAUNCH_ADAPTERS='fake - - -n - - -'
