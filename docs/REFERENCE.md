@@ -141,9 +141,10 @@ tower needs. After the card checks, doctor runs `codex sandbox -P <profile> -C <
 three commands: `tower-register --help` from your `PATH`, `git rev-parse --show-toplevel`
 through `/bin/bash`, and `tower_msg.runtime_root()` from doctor's own `lib/`. Each command
 must exit 0. The `runtime_root` output must also equal its output without the sandbox. The
-directory is the project in the first linked worktree that exists and does not hold `.tower`,
-as in dispatch. Doctor does not use the main checkout, because there the project-root write
-entry also covers `<main>/.git` and can hide a missing entry for the Git common dir.
+directory is the project directory in the first linked worktree where it exists, as in
+dispatch. Doctor skips the main checkout and the checkout that holds the canonical `.tower`.
+In the main checkout, the project-root write entry also covers `<main>/.git` and can hide a
+missing entry for the Git common dir.
 
 A failed command reports `sandbox-register`, `sandbox-git` or `sandbox-state-root`, with its
 exit status and the first line of its stderr. Without a linked worktree, doctor reports

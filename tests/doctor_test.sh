@@ -389,6 +389,18 @@ PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
 assert_eq 'monorepo sandbox probes pass' "$?:$(tail -1 "$TMP/doctor.out")" '0:tower-doctor: checked 1 card(s); no issues found'
 assert_eq 'monorepo commands use project subdirectory' "$(grep -Fc -- "-C $WT/services/api -- " "$FAKE_CODEX_LOG")" 3
 
+new_repo "$TMP/sandbox-monorepo-missing"
+mkdir -p "$TMP/sandbox-monorepo-missing/services/api"
+new_project "$TMP/sandbox-monorepo-missing/services/api"
+PROJECT="$TMP/sandbox-monorepo-missing/services/api"
+WT="$TMP/sandbox-monorepo-missing-linked"
+git -C "$TMP/sandbox-monorepo-missing" worktree add -q "$WT" -b sandbox-missing-project
+assert_false 'guard: linked worktree lacks the project directory' test -d "$WT/services/api"
+rm -f "$FAKE_CODEX_LOG"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_true 'missing monorepo project has sandbox-no-worktree' has_finding sandbox-no-worktree
+assert_false 'guard: missing monorepo project runs no codex' test -e "$FAKE_CODEX_LOG"
+
 new_repo "$TMP/sandbox-bare-source"
 git clone -q --bare "$TMP/sandbox-bare-source" "$TMP/sandbox-bare.git"
 git -C "$TMP/sandbox-bare.git" worktree add -q "$TMP/sandbox-bare-main" main

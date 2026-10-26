@@ -71,7 +71,7 @@ doctor_codex_sandbox() {
           continue
         fi
         worktree="${line#worktree }"
-        [ "$worktree" = "$TOPLEVEL" ] || [ ! -d "$worktree" ] || break
+        if [ "$worktree" != "$TOPLEVEL" ] && [ -d "$worktree${PROJECT_DIR#"$TOPLEVEL"}" ]; then break; fi
         worktree="" ;;
     esac
   done <<< "$WORKTREES"
