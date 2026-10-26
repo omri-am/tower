@@ -128,9 +128,9 @@ instead of recommending deletion of possibly valuable state. Exit `0` means no f
 `1` means attention is needed, and project-discovery failures retain `tower-locate`'s exit
 codes (`3` for no project, `4` for ambiguity).
 
-Without `--codex-sandbox`, doctor reads local files and Git metadata only. It does not run
-agents, poll GitHub, repair files, commit, or clear locks. Its shim invocation skips the
-background update check too.
+Without `--codex-sandbox`, doctor reads only local files and Git metadata. With or without
+the flag, it does not run agents, poll GitHub, repair files, commit, or clear locks. Its shim
+invocation skips the background update check too.
 The protocol has no session heartbeat or lock-owner record, so doctor cannot prove an
 agent has stopped or a lock is stale. It reports a present lock with conditional recovery
 advice and never infers failure from card age. A pending ingestion or blocked card can be
@@ -141,9 +141,9 @@ tower needs. After the card checks, doctor runs `codex sandbox -P <profile> -C <
 three commands: `tower-register --help` from your `PATH`, `git rev-parse --show-toplevel`
 through `/bin/bash`, and `tower_msg.runtime_root()` from doctor's own `lib/`. Each command
 must exit 0. The `runtime_root` output must also equal its output without the sandbox. The
-directory is the project in the first linked worktree that exists, as in dispatch. Doctor
-does not use the main checkout, because there the project-root write entry also covers
-`<main>/.git` and can hide a missing entry for the Git common dir.
+directory is the project in the first linked worktree that exists and does not hold `.tower`,
+as in dispatch. Doctor does not use the main checkout, because there the project-root write
+entry also covers `<main>/.git` and can hide a missing entry for the Git common dir.
 
 A failed command reports `sandbox-register`, `sandbox-git` or `sandbox-state-root`, with its
 exit status and the first line of its stderr. Without a linked worktree, doctor reports

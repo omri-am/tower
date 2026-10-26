@@ -62,10 +62,14 @@ doctor_sandbox_command() {
 }
 
 doctor_codex_sandbox() {
-  local profile="$1" worktree="" workdir line stderr failed=0 lib
+  local profile="$1" worktree="" workdir line stderr failed=0 lib main_seen=0
   while IFS= read -r line; do
     case "$line" in
       worktree\ *)
+        if [ "$main_seen" = 0 ]; then
+          main_seen=1
+          continue
+        fi
         worktree="${line#worktree }"
         [ "$worktree" = "$TOPLEVEL" ] || [ ! -d "$worktree" ] || break
         worktree="" ;;
@@ -82,6 +86,7 @@ doctor_codex_sandbox() {
     failed=1
   fi
   [ "$failed" = 0 ] || return 0
+  export PYTHONDONTWRITEBYTECODE=1
   workdir="$worktree${PROJECT_DIR#"$TOPLEVEL"}"
   lib="$(cd "$BIN_DIR/.." && pwd)/lib"
   stderr="$(mktemp)"
