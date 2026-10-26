@@ -92,22 +92,25 @@ assert_status 'overlap fails' "$STATUS" 1
 assert_eq 'overlap stderr' "$ERR" 'tower-territories: .tower/territories/api.md: path docs/api/** overlaps .tower/territories/docs.md path docs/'
 assert_eq 'overlap still assigns' "$OUT" "$(printf 'T001\tmain\tin-flight')"
 
-for KIND in name missing_approval invalid_approval role empty_paths invalid_path unknown stem; do
+for KIND in name missing_approval invalid_approval role empty_paths invalid_path unknown duplicate empty_path stem; do
   fixture "error-$KIND"
   card T001 draft docs/guide.md
   EXTRA_FIELD=''
-  STEM=docs NAME=docs ROLE=orchestrator-docs APPROVAL=owner PATH_VALUE=docs/
+  STEM=docs NAME=docs ROLE=orchestrator-docs APPROVAL=owner
+  PATH_VALUES=(docs/)
   case "$KIND" in
     name) NAME=other; EXPECTED_ERROR="name 'other' must equal the file stem 'docs'" ;;
     missing_approval) APPROVAL=__missing; EXPECTED_ERROR='approval is missing; use owner or delegated' ;;
     invalid_approval) APPROVAL=maybe; EXPECTED_ERROR="approval 'maybe' must be owner or delegated" ;;
     role) ROLE=a/b; EXPECTED_ERROR="role 'a/b' must be nonempty, not . or .., and contain no / or \\" ;;
-    empty_paths) PATH_VALUE=__none; EXPECTED_ERROR='## Paths lists no path' ;;
-    invalid_path) PATH_VALUE=docs//a.md; EXPECTED_ERROR='ownership path must be normalized and project-relative: docs//a.md' ;;
+    empty_paths) PATH_VALUES=(__none); EXPECTED_ERROR='## Paths lists no path' ;;
+    invalid_path) PATH_VALUES=(docs//a.md); EXPECTED_ERROR='ownership path must be normalized and project-relative: docs//a.md' ;;
     unknown) EXTRA_FIELD='report: .tower/elsewhere.md'; EXPECTED_ERROR="unknown frontmatter field 'report'" ;;
+    duplicate) EXTRA_FIELD='approval: delegated'; EXPECTED_ERROR="frontmatter field 'approval' appears more than once" ;;
+    empty_path) PATH_VALUES=(docs/ ./ web/); EXPECTED_ERROR='## Paths has an empty path' ;;
     stem) STEM=Docs NAME=Docs; EXPECTED_ERROR="charter name 'Docs' must match [a-z0-9][a-z0-9-]*" ;;
   esac
-  charter "$STEM" "$NAME" "$ROLE" "$APPROVAL" "$PATH_VALUE"
+  charter "$STEM" "$NAME" "$ROLE" "$APPROVAL" "${PATH_VALUES[@]}"
   run_check
   assert_status "$KIND fails" "$STATUS" 1
   assert_eq "$KIND stderr" "$ERR" "tower-territories: .tower/territories/$STEM.md: $EXPECTED_ERROR"

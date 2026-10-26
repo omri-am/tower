@@ -36,13 +36,14 @@ charter_paths() {
   ' "$1"
 }
 
-unknown_fields() {
-  awk '
+frontmatter_problems() {
+  awk -v q="'" '
     /^---$/ {delimiters++; next}
     delimiters==1 && NF {
       key=$0
       sub(/:.*/, "", key)
-      if (key!="name" && key!="role" && key!="approval") print key
+      if (key!="name" && key!="role" && key!="approval") print "unknown frontmatter field " q key q
+      else if (seen[key]++) print "frontmatter field " q key q " appears more than once"
     }
   ' "$1"
 }
@@ -60,7 +61,7 @@ RESULT=0
 export LC_ALL=C # Keep glob, regex, and sort order stable.
 
 check_charter() {
-  local file="$1" stem rel owner name role approval unknown paths key charter_path message
+  local file="$1" stem rel owner name role approval frontmatter_messages paths charter_path message
   stem="${file##*/}"
   stem="${stem%.md}"
   rel=".tower/territories/${file##*/}"
@@ -82,15 +83,18 @@ check_charter() {
     owner|delegated) ;;
     *) problem "$rel" "approval '$approval' must be owner or delegated" ;;
   esac
-  unknown="$(unknown_fields "$file")"
-  while IFS= read -r key; do
-    [ -n "$key" ] || continue
-    problem "$rel" "unknown frontmatter field '$key'"
-  done <<< "$unknown"
+  frontmatter_messages="$(frontmatter_problems "$file")"
+  while IFS= read -r message; do
+    [ -n "$message" ] || continue
+    problem "$rel" "$message"
+  done <<< "$frontmatter_messages"
   paths="$(charter_paths "$file")"
-  [ -n "$paths" ] || problem "$rel" '## Paths lists no path'
+  [ -n "$paths" ] || { problem "$rel" '## Paths lists no path'; return 0; }
   while IFS= read -r charter_path; do
-    [ -n "$charter_path" ] || continue
+    if [ -z "$charter_path" ]; then
+      problem "$rel" '## Paths has an empty path'
+      continue
+    fi
     CHARTER_PATHS+=("$charter_path")
     PATH_OWNERS+=("$owner")
     if ! message="$(validate_ownership_paths "$charter_path")"; then
