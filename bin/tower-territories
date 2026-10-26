@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[ $# -eq 0 ] || { echo 'usage: tower-territories (no arguments)' >&2; exit 1; }
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATED="$("$BIN_DIR/tower-locate")" || exit $?
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+. "$BIN_DIR/../lib/tower-paths.sh"
+. "$BIN_DIR/../lib/tower-dispatch.sh"
+
+# validate_ownership_paths reports through dispatch_die; return its message as a charter problem.
+dispatch_die() { printf '%s\n' "$*"; exit 1; }
+
+field() {
+  awk -v key="$2" '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && index($0,key ":")==1 {
+      value=substr($0,length(key)+2)
+      gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", value)
+      print value
+      exit
+    }
+  ' "$1"
+}
+
+charter_paths() {
+  awk '
+    /^## Paths/ {inside=1; next}
+    /^## / {inside=0}
+    inside && /^- / {
+      path=$2
+      gsub(/`/, "", path)
+      sub(/^\.\//, "", path)
+      print path
+    }
+  ' "$1"
+}
+
+frontmatter_problems() {
+  awk -v q="'" '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && NF {
+      key=$0
+      sub(/:.*/, "", key)
+      if (key!="name" && key!="role" && key!="approval") print "unknown frontmatter field " q key q
+      else if (seen[key]++) print "frontmatter field " q key q " appears more than once"
+    }
+  ' "$1"
+}
+
+problem() {
+  printf 'tower-territories: %s: %s\n' "$1" "$2" >&2
+  RESULT=1
+}
+
+CHARTER_FILES=()
+CHARTER_NAMES=()
+CHARTER_PATHS=()
+PATH_CHARTERS=()
+RESULT=0
+export LC_ALL=C # Keep glob, regex, and sort order stable.
+
+check_charter() {
+  local file="$1" stem rel charter_index name role approval frontmatter_messages paths charter_path message
+  stem="${file##*/}"
+  stem="${stem%.md}"
+  rel=".tower/territories/${file##*/}"
+  CHARTER_FILES+=("$rel")
+  CHARTER_NAMES+=("$stem")
+  charter_index=$((${#CHARTER_FILES[@]} - 1))
+  if ! [[ "$stem" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    problem "$rel" "charter name '$stem' must match [a-z0-9][a-z0-9-]*"
+  fi
+  name="$(field "$file" name)"
+  [ "$name" = "$stem" ] || problem "$rel" "name '$name' must equal the file stem '$stem'"
+  role="$(field "$file" role)"
+  case "$role" in
+    ''|.|..|*/*|*\\*) problem "$rel" "role '$role' must be nonempty, not . or .., and contain no / or \\" ;;
+  esac
+  approval="$(field "$file" approval)"
+  case "$approval" in
+    '') problem "$rel" 'approval is missing; use owner or delegated' ;;
+    owner|delegated) ;;
+    *) problem "$rel" "approval '$approval' must be owner or delegated" ;;
+  esac
+  frontmatter_messages="$(frontmatter_problems "$file")"
+  while IFS= read -r message; do
+    [ -n "$message" ] || continue
+    problem "$rel" "$message"
+  done <<< "$frontmatter_messages"
+  paths="$(charter_paths "$file")"
+  [ -n "$paths" ] || { problem "$rel" '## Paths lists no path'; return 0; }
+  while IFS= read -r charter_path; do
+    if [ -z "$charter_path" ]; then
+      problem "$rel" '## Paths has an empty path'
+      continue
+    fi
+    CHARTER_PATHS+=("$charter_path")
+    PATH_CHARTERS+=("$charter_index")
+    if ! message="$(validate_ownership_paths "$charter_path")"; then
+      problem "$rel" "$message"
+    fi
+  done <<< "$paths"
+}
+
+for FILE in "$PROJECT_DIR"/.tower/territories/*.md; do
+  [ -f "$FILE" ] || continue
+  check_charter "$FILE"
+done
+
+check_disjoint() {
+  local left right
+  for ((left=0; left<${#CHARTER_PATHS[@]}; left++)); do
+    for ((right=left+1; right<${#CHARTER_PATHS[@]}; right++)); do
+      [ "${PATH_CHARTERS[left]}" != "${PATH_CHARTERS[right]}" ] || continue
+      if tower_paths_overlap "${CHARTER_PATHS[left]}" "${CHARTER_PATHS[right]}"; then
+        problem "${CHARTER_FILES[${PATH_CHARTERS[left]}]}" "path ${CHARTER_PATHS[left]} overlaps ${CHARTER_FILES[${PATH_CHARTERS[right]}]} path ${CHARTER_PATHS[right]}"
+      fi
+    done
+  done
+}
+
+check_disjoint
+
+path_territory() {
+  local path="$1" index charter_index=""
+  for ((index=0; index<${#CHARTER_PATHS[@]}; index++)); do
+    tower_path_within "$path" "${CHARTER_PATHS[index]}" || continue
+    [ -z "$charter_index" ] || [ "$charter_index" = "${PATH_CHARTERS[index]}" ] || return 1
+    charter_index="${PATH_CHARTERS[index]}"
+  done
+  [ -n "$charter_index" ] || return 1
+  printf '%s\n' "$charter_index"
+}
+
+card_territory() {
+  local card="$1" id="$2" owned path charter_index card_charter=""
+  owned="$(tower_owned_paths "$card")"
+  while IFS= read -r path; do
+    case "$path" in
+      ''|"changelog.d/$id.md"|"protocol.d/$id.md"|"reference.d/$id.md") continue ;;
+    esac
+    charter_index="$(path_territory "$path")" || { echo main; return 0; }
+    [ -z "$card_charter" ] || [ "$card_charter" = "$charter_index" ] || { echo main; return 0; }
+    card_charter="$charter_index"
+  done <<< "$owned"
+  if [ -n "$card_charter" ]; then echo "${CHARTER_NAMES[card_charter]}"; else echo main; fi
+}
+
+for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
+  [ -f "$CARD" ] || continue
+  ID="$(field "$CARD" id)"
+  printf '%s\t%s\t%s\n' "$ID" "$(card_territory "$CARD" "$ID")" "$(field "$CARD" status)"
+done | sort
+exit "$RESULT"

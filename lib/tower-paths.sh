@@ -71,3 +71,18 @@ tower_paths_overlap() {
   tower_glob_covers "$2" "$right" "$left" && return 0
   return 1
 }
+
+tower_path_within() {
+  local inner="$1" outer="$2" inner_prefix outer_prefix
+  [ "$inner" != "$outer" ] || return 0
+  case "$outer" in
+    *\**|*\?*|*\[*|*/) ;;
+    *) return 1 ;;
+  esac
+  # Expand in-process, not through tower_path_prefix: the check calls this once per card path
+  # and territory path, and those subshells made an 807-card check with four charters take 2 minutes.
+  inner_prefix="${inner%%[*?[]*}"
+  outer_prefix="${outer%%[*?[]*}"
+  case "${inner_prefix%/}/" in "$outer_prefix"*) return 0 ;; esac
+  return 1
+}
