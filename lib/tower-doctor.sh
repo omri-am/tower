@@ -38,6 +38,68 @@ doctor_report() {
   if [ $# -gt 4 ]; then printf '  Command: %s\n' "$5"; fi
 }
 
+doctor_sandbox_probe() {
+  local code="$1" label="$2" profile="$3" workdir="$4" stderr="$5"
+  local output="" reference="" first="" status=0 message next rerun
+  shift 5
+  local sandbox=(codex sandbox -c check_for_update_on_startup=false -P "$profile" -C "$workdir" --)
+  if [ "$code" = sandbox-state-root ]; then
+    reference="$(cd "$workdir" 2>/dev/null && "$@" 2>/dev/null)" || reference=""
+  fi
+  rerun="$(doctor_command "${sandbox[@]}" "$@")"
+  output="$("${sandbox[@]}" "$@" 2>"$stderr")" || status=$?
+  if [ "$status" = 0 ] && { [ "$code" != sandbox-state-root ] || [ "$output" = "$reference" ]; }; then
+    return 0
+  fi
+  IFS= read -r first < "$stderr" || true
+  message="$label exited $status, stderr: ${first:-none}"
+  if [ "$status" = 0 ]; then
+    message="$message, but printed ${output%%$'\n'*} instead of the unsandboxed ${reference%%$'\n'*}"
+  fi
+  next="Add the missing read entries to profile $profile with the 7-step rule in docs/agent-messaging/sandbox-access.md, then rerun. Doctor never edits the profile."
+  doctor_report "$code" "codex sandbox ($profile)" "$message" "$next" "$rerun"
+  return 1
+}
+
+doctor_codex_sandbox() {
+  local profile="$1" worktree="" workdir line stderr failed=0 lib main_seen=0
+  while IFS= read -r line; do
+    case "$line" in
+      worktree\ *)
+        if [ "$main_seen" = 0 ]; then
+          main_seen=1
+          continue
+        fi
+        worktree="${line#worktree }"
+        if [ "$worktree" != "$TOPLEVEL" ] && [ -d "$worktree${PROJECT_DIR#"$TOPLEVEL"}" ]; then break; fi
+        worktree="" ;;
+    esac
+  done <<< "$WORKTREES"
+  if ! command -v codex >/dev/null 2>&1; then
+    doctor_report sandbox-no-codex "codex sandbox ($profile)" 'codex is not on PATH' \
+      'Install Codex or put it on PATH, then rerun.'
+    failed=1
+  fi
+  if [ -z "$worktree" ]; then
+    doctor_report sandbox-no-worktree "codex sandbox ($profile)" 'no linked worktree to run the check from' \
+      'Create one with tower-dispatch or git worktree add, then rerun.'
+    failed=1
+  fi
+  [ "$failed" = 0 ] || return 0
+  export PYTHONDONTWRITEBYTECODE=1
+  workdir="$worktree${PROJECT_DIR#"$TOPLEVEL"}"
+  lib="$(cd "$BIN_DIR/.." && pwd)/lib"
+  stderr="$(mktemp)"
+  doctor_sandbox_probe sandbox-register 'tower-register --help' "$profile" "$workdir" "$stderr" \
+    tower-register --help || failed=1
+  doctor_sandbox_probe sandbox-git "/bin/bash -c 'git rev-parse --show-toplevel'" "$profile" "$workdir" "$stderr" \
+    /bin/bash -c 'git rev-parse --show-toplevel' || failed=1
+  doctor_sandbox_probe sandbox-state-root 'python3 runtime_root' "$profile" "$workdir" "$stderr" \
+    python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import tower_msg; print(tower_msg.runtime_root())' "$lib" || failed=1
+  rm "$stderr"
+  [ "$failed" != 0 ] || printf 'codex sandbox (%s): tower-register, git and the state root are reachable\n' "$profile"
+}
+
 doctor_common_dir() {
   local dir
   dir="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1

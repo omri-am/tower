@@ -24,7 +24,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-pr-wait [id]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>` |
 | `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
 | `tower-handoffs` | orchestrator | Lists finalized handoffs whose content has not been ingested |
-| `tower-doctor [--from <dir>]` | you, orchestrator | Diagnoses local recovery issues and prints next steps without changing state |
+| `tower-doctor [--from <dir>] [--codex-sandbox <profile>]` | you, orchestrator | Diagnoses local recovery issues and prints next steps without changing state |
 | `tower-locate [--from\|--task]` | tooling | Resolves the project directory |
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
 | `tower-whoami` | tooling | Prints this session's own addressable name |
@@ -128,12 +128,36 @@ instead of recommending deletion of possibly valuable state. Exit `0` means no f
 `1` means attention is needed, and project-discovery failures retain `tower-locate`'s exit
 codes (`3` for no project, `4` for ambiguity).
 
-Doctor reads local files and Git metadata only. It does not run agents, poll GitHub, repair
-files, commit, or clear locks. Its shim invocation skips the background update check too.
+Without `--codex-sandbox`, doctor reads only local files and Git metadata. With or without
+the flag, it does not run agents, poll GitHub, repair files, commit, or clear locks. Its shim
+invocation skips the background update check too.
 The protocol has no session heartbeat or lock-owner record, so doctor cannot prove an
 agent has stopped or a lock is stale. It reports a present lock with conditional recovery
 advice and never infers failure from card age. A pending ingestion or blocked card can be
 normal work awaiting action; findings are not all corruption.
+
+`--codex-sandbox <profile>` checks that your Codex permission profile allows the reads that
+tower needs. After the card checks, doctor runs `codex sandbox -P <profile> -C <dir>` for
+three commands: `tower-register --help` from your `PATH`, `git rev-parse --show-toplevel`
+through `/bin/bash`, and `tower_msg.runtime_root()` from doctor's own `lib/`. Each command
+must exit 0. The `runtime_root` output must also equal its output without the sandbox. The
+directory is the project directory in the first linked worktree where it exists, as in
+dispatch. Doctor skips the main checkout and the checkout that holds the canonical `.tower`.
+In the main checkout, the project-root write entry also covers `<main>/.git` and can hide a
+missing entry for the Git common dir.
+
+A failed command reports `sandbox-register`, `sandbox-git` or `sandbox-state-root`, with its
+exit status and the first line of its stderr. Without a linked worktree, doctor reports
+`sandbox-no-worktree`. Without `codex` on `PATH`, it reports `sandbox-no-codex`. In both
+cases it runs no `codex` command. When all three commands pass, doctor prints one line:
+`codex sandbox (<profile>): tower-register, git and the state root are reachable`. You name
+the profile. Doctor does not read `~/.codex/config.toml` and never edits the profile. The
+7-step rule in [sandbox-access.md](agent-messaging/sandbox-access.md) derives the entries.
+
+The check has three limits. It does not test writes to the state root, which dispatch grants
+with `--add-dir`. It does not catch the plugin-cache case, where `tower --help` exits 0 but
+resolves a different root. It does not cover a tool call through `/bin/zsh -lc`, where
+`path_helper` can put `/usr/bin` first.
 
 ## `tower-handoffs`
 

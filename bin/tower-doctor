@@ -4,13 +4,22 @@ export GIT_OPTIONAL_LOCKS=0
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$BIN_DIR/../lib/tower-doctor.sh"
-case "$#" in
-  0) LOCATED="$("$BIN_DIR/tower-locate")" ;;
-  2)
-    [ "$1" = --from ] || { echo 'usage: tower-doctor [--from <dir>]' >&2; exit 1; }
-    LOCATED="$("$BIN_DIR/tower-locate" --from "$2")" ;;
-  *) echo 'usage: tower-doctor [--from <dir>]' >&2; exit 1 ;;
-esac
+usage() { echo 'usage: tower-doctor [--from <dir>] [--codex-sandbox <profile>]' >&2; exit 1; }
+DOCTOR_FROM_GIVEN=0 DOCTOR_SANDBOX_GIVEN=0 DOCTOR_FROM_ARG='' DOCTOR_SANDBOX_PROFILE=''
+case "$#" in 0|2|4) ;; *) usage ;; esac
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --from) [ "$DOCTOR_FROM_GIVEN" = 0 ] || usage; DOCTOR_FROM_GIVEN=1; DOCTOR_FROM_ARG="$2" ;;
+    --codex-sandbox) [ "$DOCTOR_SANDBOX_GIVEN" = 0 ] || usage; DOCTOR_SANDBOX_GIVEN=1; DOCTOR_SANDBOX_PROFILE="$2" ;;
+    *) usage ;;
+  esac
+  shift 2
+done
+if [ "$DOCTOR_FROM_GIVEN" = 1 ]; then
+  LOCATED="$("$BIN_DIR/tower-locate" --from "$DOCTOR_FROM_ARG")"
+else
+  LOCATED="$("$BIN_DIR/tower-locate")"
+fi
 
 PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
 FINDINGS=0 CARDS=0
@@ -34,6 +43,7 @@ for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
   CARDS=$((CARDS + 1))
   doctor_card "$CARD"
 done
+[ "$DOCTOR_SANDBOX_GIVEN" = 0 ] || doctor_codex_sandbox "$DOCTOR_SANDBOX_PROFILE"
 printf 'Session liveness and remote PR state were not checked.\n'
 if [ "$FINDINGS" = 0 ]; then
   printf 'tower-doctor: checked %s card(s); no issues found\n' "$CARDS"
