@@ -56,18 +56,18 @@ problem() {
 CHARTER_FILES=()
 CHARTER_NAMES=()
 CHARTER_PATHS=()
-PATH_OWNERS=()
+PATH_CHARTERS=()
 RESULT=0
 export LC_ALL=C # Keep glob, regex, and sort order stable.
 
 check_charter() {
-  local file="$1" stem rel owner name role approval frontmatter_messages paths charter_path message
+  local file="$1" stem rel charter_index name role approval frontmatter_messages paths charter_path message
   stem="${file##*/}"
   stem="${stem%.md}"
   rel=".tower/territories/${file##*/}"
   CHARTER_FILES+=("$rel")
   CHARTER_NAMES+=("$stem")
-  owner=$((${#CHARTER_FILES[@]} - 1))
+  charter_index=$((${#CHARTER_FILES[@]} - 1))
   if ! [[ "$stem" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
     problem "$rel" "charter name '$stem' must match [a-z0-9][a-z0-9-]*"
   fi
@@ -96,7 +96,7 @@ check_charter() {
       continue
     fi
     CHARTER_PATHS+=("$charter_path")
-    PATH_OWNERS+=("$owner")
+    PATH_CHARTERS+=("$charter_index")
     if ! message="$(validate_ownership_paths "$charter_path")"; then
       problem "$rel" "$message"
     fi
@@ -112,9 +112,9 @@ check_disjoint() {
   local left right
   for ((left=0; left<${#CHARTER_PATHS[@]}; left++)); do
     for ((right=left+1; right<${#CHARTER_PATHS[@]}; right++)); do
-      [ "${PATH_OWNERS[left]}" != "${PATH_OWNERS[right]}" ] || continue
+      [ "${PATH_CHARTERS[left]}" != "${PATH_CHARTERS[right]}" ] || continue
       if tower_paths_overlap "${CHARTER_PATHS[left]}" "${CHARTER_PATHS[right]}"; then
-        problem "${CHARTER_FILES[${PATH_OWNERS[left]}]}" "path ${CHARTER_PATHS[left]} overlaps ${CHARTER_FILES[${PATH_OWNERS[right]}]} path ${CHARTER_PATHS[right]}"
+        problem "${CHARTER_FILES[${PATH_CHARTERS[left]}]}" "path ${CHARTER_PATHS[left]} overlaps ${CHARTER_FILES[${PATH_CHARTERS[right]}]} path ${CHARTER_PATHS[right]}"
       fi
     done
   done
@@ -123,28 +123,28 @@ check_disjoint() {
 check_disjoint
 
 path_territory() {
-  local path="$1" index found=""
+  local path="$1" index charter_index=""
   for ((index=0; index<${#CHARTER_PATHS[@]}; index++)); do
     tower_path_within "$path" "${CHARTER_PATHS[index]}" || continue
-    [ -z "$found" ] || [ "$found" = "${PATH_OWNERS[index]}" ] || return 1
-    found="${PATH_OWNERS[index]}"
+    [ -z "$charter_index" ] || [ "$charter_index" = "${PATH_CHARTERS[index]}" ] || return 1
+    charter_index="${PATH_CHARTERS[index]}"
   done
-  [ -n "$found" ] || return 1
-  printf '%s\n' "$found"
+  [ -n "$charter_index" ] || return 1
+  printf '%s\n' "$charter_index"
 }
 
 card_territory() {
-  local card="$1" id="$2" owned path owner territory=""
+  local card="$1" id="$2" owned path charter_index card_charter=""
   owned="$(tower_owned_paths "$card")"
   while IFS= read -r path; do
     case "$path" in
       ''|"changelog.d/$id.md"|"protocol.d/$id.md"|"reference.d/$id.md") continue ;;
     esac
-    owner="$(path_territory "$path")" || { echo main; return 0; }
-    [ -z "$territory" ] || [ "$territory" = "$owner" ] || { echo main; return 0; }
-    territory="$owner"
+    charter_index="$(path_territory "$path")" || { echo main; return 0; }
+    [ -z "$card_charter" ] || [ "$card_charter" = "$charter_index" ] || { echo main; return 0; }
+    card_charter="$charter_index"
   done <<< "$owned"
-  if [ -n "$territory" ]; then echo "${CHARTER_NAMES[territory]}"; else echo main; fi
+  if [ -n "$card_charter" ]; then echo "${CHARTER_NAMES[card_charter]}"; else echo main; fi
 }
 
 for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do

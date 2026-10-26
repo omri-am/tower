@@ -52,6 +52,7 @@ within() {
 within 'equal path' lib/a.sh lib/a.sh 0
 within 'glob directory' docs/a/b.md 'docs/**' 0
 within 'trailing slash directory' docs/a.md docs/ 0
+within 'plain path names a directory territory' docs docs/ 0
 within 'plain file does not cover suffix' lib/a.sh.bak lib/a.sh 1
 within 'directory boundary' docs/agent-messaging/x.md docs/agent 1
 within 'glob prefix inside a segment' lib/tower-paths.sh 'lib/tower-*.sh' 0
