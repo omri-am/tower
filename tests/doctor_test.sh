@@ -248,4 +248,140 @@ PROJECT="$TMP/copy-worktree"
 assert_false 'per-branch state copy is rejected' doctor
 assert_true 'noncanonical copy has a distinct finding' has_finding state-copy
 
+mkdir "$TMP/fake-codex"
+REAL_MKTEMP="$(command -v mktemp)"
+cat > "$TMP/fake-codex/mktemp" <<EOF
+#!/bin/bash
+path="\$("$REAL_MKTEMP" "\$@")" || exit \$?
+printf '%s\n' "\$path"
+if [ "\$#" -eq 0 ]; then
+  printf '%s\n' "\$path" >> "$TMP/mktemp.log"
+fi
+EOF
+chmod +x "$TMP/fake-codex/mktemp"
+cat > "$TMP/fake-codex/codex" <<'EOF'
+#!/bin/bash
+printf '%s\n' "$*" >> "$FAKE_CODEX_LOG"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -C) workdir="$2"; shift 2 ;;
+    --) shift; break ;;
+    *) shift ;;
+  esac
+done
+case "$1" in tower-register) name=register ;; /bin/bash) name=git ;; python3) name=state-root ;; esac
+if [ "$name" = "${FAKE_CODEX_FAIL:-}" ]; then
+  printf '%s' "${FAKE_CODEX_STDOUT:-}"
+  [ -z "${FAKE_CODEX_STDERR:-}" ] || printf '%s\n' "$FAKE_CODEX_STDERR" >&2
+  exit "$FAKE_CODEX_STATUS"
+fi
+cd "$workdir" && exec "$@"
+EOF
+chmod +x "$TMP/fake-codex/codex"
+export FAKE_CODEX_LOG="$TMP/codex.log" PYTHONDONTWRITEBYTECODE=1
+SANDBOX_PATH="$TMP/fake-codex:$ROOT/bin:$PATH"
+sandbox_doctor() { "$ROOT/bin/tower-doctor" "$@" > "$TMP/doctor.out" 2>&1; }
+stderr_files() {
+  local created=0 left=0 path
+  if [ -f "$TMP/mktemp.log" ]; then
+    while IFS= read -r path; do
+      created=$((created + 1))
+      [ ! -e "$path" ] || left=$((left + 1))
+    done < "$TMP/mktemp.log"
+    rm "$TMP/mktemp.log"
+  fi
+  printf 'created %s, left %s\n' "$created" "$left"
+}
+
+fixture sandbox
+new_card "$PROJECT" T001
+dispatch "$PROJECT" T001 --prep
+WT="$(git -C "$PROJECT" worktree list --porcelain | sed -n 's/^worktree //p' | tail -1)"
+rm -f "$FAKE_CODEX_LOG"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT"
+assert_eq 'guard: no flag succeeds with healthy output' "$?:$(tail -1 "$TMP/doctor.out")" '0:tower-doctor: checked 1 card(s); no issues found'
+assert_false 'guard: no flag runs no codex' test -e "$FAKE_CODEX_LOG"
+
+rm -f "$TMP/mktemp.log"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'sandbox probes pass' "$?:$(tail -1 "$TMP/doctor.out")" '0:tower-doctor: checked 1 card(s); no issues found'
+assert_eq 'pass line appears once' "$(grep -c 'codex sandbox (workspace): tower-register, git and the state root are reachable' "$TMP/doctor.out")" 1
+assert_eq 'three sandbox commands run' "$(wc -l < "$FAKE_CODEX_LOG" | tr -d ' ')" 3
+assert_eq 'register command is first' "$(sed -n 1p "$FAKE_CODEX_LOG")" "sandbox -c check_for_update_on_startup=false -P workspace -C $WT -- tower-register --help"
+assert_eq 'git command is second' "$(sed -n 2p "$FAKE_CODEX_LOG")" "sandbox -c check_for_update_on_startup=false -P workspace -C $WT -- /bin/bash -c git rev-parse --show-toplevel"
+assert_eq 'state root command is third' "$(sed -n 3p "$FAKE_CODEX_LOG")" "sandbox -c check_for_update_on_startup=false -P workspace -C $WT -- python3 -c import sys; sys.path.insert(0, sys.argv[1]); import tower_msg; print(tower_msg.runtime_root()) $ROOT/lib"
+assert_eq 'passing check removes its stderr file' "$(stderr_files)" 'created 1, left 0'
+PATH="$SANDBOX_PATH" sandbox_doctor --codex-sandbox workspace --from "$PROJECT"
+assert_eq 'reverse flag order succeeds' "$?:$(tail -1 "$TMP/doctor.out")" '0:tower-doctor: checked 1 card(s); no issues found'
+assert_true 'reverse flag order prints pass line' grep -q 'state root are reachable' "$TMP/doctor.out"
+rm -f "$TMP/mktemp.log"
+
+for FAIL in register git state-root; do
+  case "$FAIL" in register|state-root) STATUS=126 ;; git) STATUS=1 ;; esac
+  export FAKE_CODEX_FAIL="$FAIL" FAKE_CODEX_STATUS="$STATUS"
+  export FAKE_CODEX_STDERR="first $FAIL error
+second $FAIL error"
+  rm -f "$FAKE_CODEX_LOG"
+  PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+  assert_eq "$FAIL failure exits one" "$?:$(tail -1 "$TMP/doctor.out")" '1:tower-doctor: checked 1 card(s); 1 finding(s) need attention'
+  assert_eq "$FAIL still runs all probes" "$(wc -l < "$FAKE_CODEX_LOG" | tr -d ' ')" 3
+  assert_true "$FAIL finding appears" has_finding "sandbox-$FAIL"
+  assert_eq "$FAIL is the only probe finding" "$(grep -c '^\[sandbox-' "$TMP/doctor.out")" 1
+  assert_false "guard: $FAIL has no pass line" grep -q 'state root are reachable' "$TMP/doctor.out"
+  assert_true "$FAIL reports first stderr line" grep -q "exited $STATUS, stderr: first $FAIL error" "$TMP/doctor.out"
+  assert_false "guard: $FAIL omits second stderr line" grep -q "second $FAIL error" "$TMP/doctor.out"
+  assert_true "$FAIL gives profile instructions" grep -q 'sandbox-access.md, then rerun. Doctor never edits the profile.' "$TMP/doctor.out"
+  assert_eq "$FAIL removes its stderr file" "$(stderr_files)" 'created 1, left 0'
+done
+export FAKE_CODEX_FAIL=state-root FAKE_CODEX_STATUS=0 FAKE_CODEX_STDOUT=/wrong/root FAKE_CODEX_STDERR=''
+REFERENCE="$(cd "$WT" && python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import tower_msg; print(tower_msg.runtime_root())' "$ROOT/lib")"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'state root mismatch exits one' "$?:$(tail -1 "$TMP/doctor.out")" '1:tower-doctor: checked 1 card(s); 1 finding(s) need attention'
+assert_true 'state root mismatch has finding' has_finding sandbox-state-root
+assert_true 'state root mismatch prints both roots' grep -Fq "/wrong/root instead of the unsandboxed $REFERENCE" "$TMP/doctor.out"
+unset FAKE_CODEX_FAIL FAKE_CODEX_STATUS FAKE_CODEX_STDOUT FAKE_CODEX_STDERR
+
+fixture sandbox-no-worktree
+rm -f "$FAKE_CODEX_LOG"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'missing worktree exits one' "$?:$(tail -1 "$TMP/doctor.out")" '1:tower-doctor: checked 0 card(s); 1 finding(s) need attention'
+assert_true 'missing worktree finding appears' has_finding sandbox-no-worktree
+assert_false 'guard: missing worktree runs no codex' test -e "$FAKE_CODEX_LOG"
+new_card "$PROJECT" T001
+dispatch "$PROJECT" T001 --prep
+WT="$(git -C "$PROJECT" worktree list --porcelain | sed -n 's/^worktree //p' | tail -1)"
+mv "$WT" "$WT-moved"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'missing registered directory exits one' "$?:$(tail -1 "$TMP/doctor.out")" '1:tower-doctor: checked 1 card(s); 2 finding(s) need attention'
+assert_true 'missing registered directory has sandbox finding' has_finding sandbox-no-worktree
+assert_false 'guard: missing registered directory runs no codex' test -e "$FAKE_CODEX_LOG"
+
+fixture sandbox-no-codex
+new_card "$PROJECT" T001
+dispatch "$PROJECT" T001 --prep
+mkdir "$TMP/no-codex"
+ln -s "$(command -v git)" "$TMP/no-codex/git"
+NO_CODEX_PATH="$TMP/no-codex:/usr/bin:/bin"
+assert_false 'guard: no-codex setup hides codex' env PATH="$NO_CODEX_PATH" /bin/bash -c 'command -v codex'
+PATH="$NO_CODEX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'missing codex exits one' "$?:$(tail -1 "$TMP/doctor.out")" '1:tower-doctor: checked 1 card(s); 1 finding(s) need attention'
+assert_true 'missing codex finding appears' has_finding sandbox-no-codex
+assert_false 'guard: linked worktree remains available' has_finding sandbox-no-worktree
+
+fixture sandbox-monorepo
+mkdir -p "$PROJECT/services/api"
+new_project "$PROJECT/services/api"
+PROJECT="$PROJECT/services/api"
+new_card "$PROJECT" T001
+dispatch "$PROJECT" T001 --prep
+WT="$(git -C "$PROJECT" worktree list --porcelain | sed -n 's/^worktree //p' | tail -1)"
+rm -f "$FAKE_CODEX_LOG"
+PATH="$SANDBOX_PATH" sandbox_doctor --from "$PROJECT" --codex-sandbox workspace
+assert_eq 'monorepo sandbox probes pass' "$?:$(tail -1 "$TMP/doctor.out")" '0:tower-doctor: checked 1 card(s); no issues found'
+assert_eq 'monorepo commands use project subdirectory' "$(grep -Fc -- "-C $WT/services/api -- " "$FAKE_CODEX_LOG")" 3
+PATH="$SANDBOX_PATH" sandbox_doctor --codex-sandbox
+assert_eq 'missing sandbox profile is usage error' "$?:$(cat "$TMP/doctor.out")" '1:usage: tower-doctor [--from <dir>] [--codex-sandbox <profile>]'
+PATH="$SANDBOX_PATH" sandbox_doctor --from a --from b
+assert_eq 'repeated from is usage error' "$?:$(cat "$TMP/doctor.out")" '1:usage: tower-doctor [--from <dir>] [--codex-sandbox <profile>]'
+
 summary
