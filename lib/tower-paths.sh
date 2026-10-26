@@ -83,7 +83,6 @@ tower_path_within() {
   # and territory path, and those subshells made an 807-card check with four charters take 2 minutes.
   inner_prefix="${inner%%[*?[]*}"
   outer_prefix="${outer%%[*?[]*}"
-  [ -n "$outer_prefix" ] || return 0
-  case "${inner_prefix%/}/" in "${outer_prefix%/}/"*) return 0 ;; esac
+  case "${inner_prefix%/}/" in "$outer_prefix"*) return 0 ;; esac
   return 1
 }
