@@ -2,14 +2,21 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: tower-pr-wait [<task-id>] [--interval seconds]" >&2
+  echo "usage: tower-pr-wait [<task-id>] [--interval seconds] [--max-wait seconds]" >&2
   exit 1
 }
 
-TASK_ID="${TOWER_TASK:-}" INTERVAL=120
+TASK_ID="${TOWER_TASK:-}" INTERVAL=120 MAX_WAIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --interval) [ $# -ge 2 ] || usage; INTERVAL="$2"; shift 2 ;;
+    --max-wait)
+      if [ $# -lt 2 ] || ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+        usage
+      fi
+      MAX_WAIT="$2"
+      shift 2
+      ;;
     -*) usage ;;
     *) TASK_ID="$1"; shift ;;
   esac
@@ -33,11 +40,23 @@ frontmatter_field() {
 PR="$(frontmatter_field "$CARD" pr | tr -d '"#')"
 [ -n "$PR" ] || { echo "tower-pr-wait: card $TASK_ID has no pr: field - open the PR and fill it before waiting" >&2; exit 1; }
 
+SECONDS=0
 while true; do
   STATE="$(cd "$PROJECT_DIR" && gh pr view "$PR" --json state -q .state 2>/dev/null || echo "")"
   case "$STATE" in
     MERGED) echo "MERGED $PR"; exit 0 ;;
     CLOSED) echo "CLOSED $PR"; exit 0 ;;
   esac
-  sleep "$INTERVAL"
+  SLEEP_FOR="$INTERVAL"
+  if [ -n "$MAX_WAIT" ]; then
+    TIME_LEFT=$((MAX_WAIT - SECONDS))
+    if [ "$TIME_LEFT" -le 0 ]; then
+      echo "OPEN $PR"
+      exit 3
+    fi
+    if [ "$TIME_LEFT" -lt "$SLEEP_FOR" ]; then
+      SLEEP_FOR="$TIME_LEFT"
+    fi
+  fi
+  sleep "$SLEEP_FOR"
 done
