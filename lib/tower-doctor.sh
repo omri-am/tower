@@ -38,7 +38,7 @@ doctor_report() {
   if [ $# -gt 4 ]; then printf '  Command: %s\n' "$5"; fi
 }
 
-doctor_sandbox_command() {
+doctor_sandbox_probe() {
   local code="$1" label="$2" profile="$3" workdir="$4" stderr="$5"
   local output="" reference="" first="" status=0 message next rerun
   shift 5
@@ -90,11 +90,11 @@ doctor_codex_sandbox() {
   workdir="$worktree${PROJECT_DIR#"$TOPLEVEL"}"
   lib="$(cd "$BIN_DIR/.." && pwd)/lib"
   stderr="$(mktemp)"
-  doctor_sandbox_command sandbox-register 'tower-register --help' "$profile" "$workdir" "$stderr" \
+  doctor_sandbox_probe sandbox-register 'tower-register --help' "$profile" "$workdir" "$stderr" \
     tower-register --help || failed=1
-  doctor_sandbox_command sandbox-git "/bin/bash -c 'git rev-parse --show-toplevel'" "$profile" "$workdir" "$stderr" \
+  doctor_sandbox_probe sandbox-git "/bin/bash -c 'git rev-parse --show-toplevel'" "$profile" "$workdir" "$stderr" \
     /bin/bash -c 'git rev-parse --show-toplevel' || failed=1
-  doctor_sandbox_command sandbox-state-root 'python3 runtime_root' "$profile" "$workdir" "$stderr" \
+  doctor_sandbox_probe sandbox-state-root 'python3 runtime_root' "$profile" "$workdir" "$stderr" \
     python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import tower_msg; print(tower_msg.runtime_root())' "$lib" || failed=1
   rm "$stderr"
   [ "$failed" != 0 ] || printf 'codex sandbox (%s): tower-register, git and the state root are reachable\n' "$profile"
