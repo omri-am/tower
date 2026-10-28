@@ -43,3 +43,12 @@ exit=1
 $ codex app-server daemon version
 {"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.165.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.165.0"}
 
+
+# 2026-10-28T09:29:44Z added for review round 2
+$ codex app-server daemon version
+{"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.165.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.165.0"}
+
+## h. 0.165.0, env -i, -c together with --remote unix://
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex queue -c check_for_update_on_startup=false --remote unix:// --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id <uuid> (code -32603)
+exit=1

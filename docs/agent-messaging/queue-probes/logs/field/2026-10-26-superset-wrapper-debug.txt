@@ -2,7 +2,7 @@
 #   grep -n "2026-10-26T14:0[5-8]" /tmp/superset-codex-hooks.log | cut -c1-250
 # The machine rebooted on 2026-10-28 at 08:36 local and /tmp/superset-codex-hooks.log no longer exists,
 # so this transcription is the only copy. Lines 386-404 of that file; long lines were cut at 250 columns
-# by the original command. The Superset wrapper writes this log because SUPERSET_ENV=development.
+# by the original command. The Superset wrapper writes this log when its development logging is on.
 # Line 386 is the T051 Codex TUI launch (wrapper pid 19069). Lines 390-404 are three short wrapper runs
 # from terminal B, at the second of both delivery.log failures (14:07:15Z, 14:07:57Z)
 # and of one exit-0 run between them (14:07:36Z). Terminal ids (SUPERSET_TERMINAL_ID values) and the
