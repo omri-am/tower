@@ -28,6 +28,14 @@ walk_up() {
   echo "$dir"
 }
 
+has_git_entry_at_or_above() {
+  local dir="$1"
+  while [ "$dir" != "/" ] && [ ! -e "$dir/.git" ]; do
+    dir="$(dirname "$dir")"
+  done
+  [ -e "$dir/.git" ]
+}
+
 if [ "$FROM_GIVEN" = 0 ] && [ -n "${TOWER_PROJECT_DIR:-}" ]; then
   if [ -d "$TOWER_PROJECT_DIR/.tower" ]; then
     resolve "$(cd "$TOWER_PROJECT_DIR" && pwd)" env
@@ -40,13 +48,15 @@ fi
 START="$(cd "$FROM" && pwd)"
 
 CUR_TOP="" MAIN_TOP="" WT_LIST="" MAIN_BARE=0
-if git -C "$START" rev-parse --show-toplevel >/dev/null 2>&1; then
+if GIT_ERR="$(git -C "$START" rev-parse --show-toplevel 2>&1 >/dev/null)"; then
   CUR_TOP="$(git -C "$START" rev-parse --show-toplevel)"
   WT_LIST="$(git -C "$START" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' || true)"
   MAIN_TOP="$(printf '%s\n' "$WT_LIST" | head -1)"
   if [ -n "$MAIN_TOP" ] && [ "$(git -C "$MAIN_TOP" rev-parse --is-bare-repository 2>/dev/null || echo false)" = true ]; then
     MAIN_BARE=1
   fi
+elif has_git_entry_at_or_above "$(cd "$START" && pwd -P)"; then
+  note "git failed in $START: $(printf '%s\n' "$GIT_ERR" | head -1); worktree mapping skipped"
 fi
 
 is_per_branch_copy() {
