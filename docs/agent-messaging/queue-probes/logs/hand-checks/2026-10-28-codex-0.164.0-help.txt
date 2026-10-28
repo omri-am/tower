@@ -1,3 +1,5 @@
+# Added 2026-10-28 during review: these commands ran at about 07:01Z, between the 07:00:52Z hand check, which
+# saw current/bin/codex at codex-cli 0.164.0, and the 07:12Z switch of current to 0.165.0. The help output itself prints no version.
 $ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex queue --help </dev/null
 Queue a message for an existing session
 

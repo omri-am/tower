@@ -1,0 +1,136 @@
+# Changes under ~/.codex from three `find ~/.codex -exec stat -f "%m %z %N"` listings taken by the
+# T053 Claude session (read-only). Paths only. A path counts as changed when its mtime or size changed.
+# Listings: A = 2026-10-28T07:31:43Z (before run 1), B = 2026-10-28T07:46:44Z (after run 4), C = 2026-10-28T08:30:06Z (just before the daemon start), D = 2026-10-28T08:35:20Z (after run 5).
+# Other Codex processes wrote to ~/.codex in the same windows; the attribution notes say which paths are the probe's.
+
+## A -> B: runs 1 to 4, no daemon
+added, by top-level entry: {'~/.codex/.tmp': 4680, '~/.codex/computer-use': 76, '~/.codex/packages': 69, '~/.codex/plugins': 939, '~/.codex/sessions': 5, '~/.codex/shell_snapshots': 2, '~/.codex/thread-writer-locks': 4}
+removed, by top-level entry: {'~/.codex/.tmp': 679, '~/.codex/computer-use': 52, '~/.codex/memories_1.sqlite-shm': 1, '~/.codex/memories_1.sqlite-wal': 1, '~/.codex/packages': 36, '~/.codex/plugins': 423, '~/.codex/tmp': 25}
+changed, by top-level entry: {'~/.codex': 1, '~/.codex/.codex-global-state.json': 1, '~/.codex/.codex-global-state.json.bak': 1, '~/.codex/.tmp': 2, '~/.codex/cache': 6, '~/.codex/cloud-config-bundle-cache.json': 1, '~/.codex/history.jsonl': 1, '~/.codex/logs_2.sqlite': 1, '~/.codex/logs_2.sqlite-wal': 1, '~/.codex/models_cache.json': 1, '~/.codex/plugins': 15, '~/.codex/queue_1.sqlite-wal': 1, '~/.codex/session_index.jsonl': 1, '~/.codex/sessions': 1, '~/.codex/shell_snapshots': 1, '~/.codex/skills': 72, '~/.codex/state_5.sqlite': 1, '~/.codex/state_5.sqlite-wal': 1, '~/.codex/thread-writer-locks': 1, '~/.codex/thread_history_1.sqlite': 1, '~/.codex/thread_history_1.sqlite-wal': 1, '~/.codex/tmp': 2}
+
+Daemon, queue, session, lock and package-pointer paths:
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T09-41-58-01a18175-6c77-7292-a03e-11cd036fa666.jsonl  [cwd=~/.superset/worktrees/tower/tower/root/T054-warn-when-tower-locate-cannot-run-git-inside-a-wor originator=Claude Code]
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T09-43-08-01a18176-7cbe-7031-836a-053962a7ae66.jsonl  [cwd=~/.superset/worktrees/tower/tower/root/T054-warn-when-tower-locate-cannot-run-git-inside-a-wor originator=Claude Code]
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T09-43-26-01a18176-c196-7e50-903c-7e9a6fff7578.jsonl  [cwd=~/.superset/worktrees/tower/tower/root/T052-reject-a-non-integer-tower-pr-wait-interval originator=Claude Code]
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T09-43-41-01a18176-fe8c-7530-bbe9-7281bf4e344b.jsonl  [cwd=~/.cache/tower-t038-probes/tmp.lyDjzIBc/wt originator=codex-tui]
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T09-44-08-01a18177-6726-74f1-bcfe-bc8cef7cf21e.jsonl  [cwd=~/.superset/worktrees/tower/tower/root/T052-reject-a-non-integer-tower-pr-wait-interval originator=Claude Code]
+  added ~/.codex/thread-writer-locks/01a18175-6c77-7292-a03e-11cd036fa666.lock
+  added ~/.codex/thread-writer-locks/01a18176-7cbe-7031-836a-053962a7ae66.lock
+  added ~/.codex/thread-writer-locks/01a18176-c196-7e50-903c-7e9a6fff7578.lock
+  added ~/.codex/thread-writer-locks/01a18177-6726-74f1-bcfe-bc8cef7cf21e.lock
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/codex-resources/zsh/bin/zsh
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/bin/codex-voice-host
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libffi.8.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgio-2.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libglib-2.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgmodule-2.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgobject-2.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstapp-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstaudio-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstbase-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstnet-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstpbutils-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstreamer-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstrtp-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgsttag-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libgstvideo-1.0.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libintl.8.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libopus.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libpcre2-8.0.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/lib/libz.1.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/LGPL-2.1.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/Opus.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/PCRE2.md
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/libffi.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/proxy-libintl.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/sljit.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/licenses/zlib.txt
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstapp.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstaudioconvert.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstaudioresample.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstcoreelements.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstopus.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstrtp.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/voice/plugins/libgstrtpmanager.dylib
+  removed ~/.codex/packages/app-server-daemon/releases/0.160.1-aarch64-apple-darwin/codex-resources/zsh/bin/zsh
+  removed ~/.codex/tmp/arg0/codex-arg0ZDrITb
+  removed ~/.codex/tmp/arg0/codex-arg0ZDrITb/.lock
+  removed ~/.codex/tmp/arg0/codex-arg0ZDrITb/apply_patch
+  removed ~/.codex/tmp/arg0/codex-arg0ZDrITb/applypatch
+  removed ~/.codex/tmp/arg0/codex-arg0ZDrITb/codex-execve-wrapper
+  removed ~/.codex/tmp/arg0/codex-arg0bw768S
+  removed ~/.codex/tmp/arg0/codex-arg0bw768S/.lock
+  removed ~/.codex/tmp/arg0/codex-arg0bw768S/apply_patch
+  removed ~/.codex/tmp/arg0/codex-arg0bw768S/applypatch
+  removed ~/.codex/tmp/arg0/codex-arg0bw768S/codex-execve-wrapper
+  removed ~/.codex/tmp/arg0/codex-arg0gfPLLw
+  removed ~/.codex/tmp/arg0/codex-arg0gfPLLw/.lock
+  removed ~/.codex/tmp/arg0/codex-arg0gfPLLw/apply_patch
+  removed ~/.codex/tmp/arg0/codex-arg0gfPLLw/applypatch
+  removed ~/.codex/tmp/arg0/codex-arg0gfPLLw/codex-execve-wrapper
+  removed ~/.codex/tmp/arg0/codex-arg0kEyfDY
+  removed ~/.codex/tmp/arg0/codex-arg0kEyfDY/.lock
+  removed ~/.codex/tmp/arg0/codex-arg0kEyfDY/apply_patch
+  removed ~/.codex/tmp/arg0/codex-arg0kEyfDY/applypatch
+  removed ~/.codex/tmp/arg0/codex-arg0kEyfDY/codex-execve-wrapper
+  removed ~/.codex/tmp/arg0/codex-arg0ocfoX3
+  removed ~/.codex/tmp/arg0/codex-arg0ocfoX3/.lock
+  removed ~/.codex/tmp/arg0/codex-arg0ocfoX3/apply_patch
+  removed ~/.codex/tmp/arg0/codex-arg0ocfoX3/applypatch
+  removed ~/.codex/tmp/arg0/codex-arg0ocfoX3/codex-execve-wrapper
+  changed ~/.codex/queue_1.sqlite-wal
+  changed ~/.codex/sessions/2026/10/28
+  changed ~/.codex/tmp/arg0
+  changed ~/.codex/tmp/arg0-macos
+
+## C -> D: the daemon start and run 5
+added, by top-level entry: {'~/.codex/.tmp': 3962, '~/.codex/app-server-control': 1, '~/.codex/app-server-daemon': 1, '~/.codex/goals_1.sqlite-shm': 1, '~/.codex/goals_1.sqlite-wal': 1, '~/.codex/memories_1.sqlite-shm': 1, '~/.codex/memories_1.sqlite-wal': 1, '~/.codex/plugins': 780, '~/.codex/sessions': 1, '~/.codex/state_5.sqlite-shm': 1, '~/.codex/state_5.sqlite-wal': 1, '~/.codex/thread_history_1.sqlite-shm': 1, '~/.codex/thread_history_1.sqlite-wal': 1, '~/.codex/tmp': 12}
+removed, by top-level entry: {'~/.codex/.tmp': 3, '~/.codex/app-server-daemon': 1, '~/.codex/plugins': 3}
+changed, by top-level entry: {'~/.codex': 1, '~/.codex/.tmp': 148, '~/.codex/app-server-control': 1, '~/.codex/app-server-daemon': 7, '~/.codex/cache': 6, '~/.codex/cloud-config-bundle-cache.json': 1, '~/.codex/history.jsonl': 1, '~/.codex/logs_2.sqlite': 1, '~/.codex/logs_2.sqlite-wal': 1, '~/.codex/models_cache.json': 1, '~/.codex/plugins': 248, '~/.codex/queue_1.sqlite-wal': 1, '~/.codex/session_index.jsonl': 1, '~/.codex/sessions': 1, '~/.codex/shell_snapshots': 1, '~/.codex/skills': 72, '~/.codex/thread-writer-locks': 1, '~/.codex/tmp': 2}
+
+Daemon, queue, session, lock and package-pointer paths:
+  added ~/.codex/app-server-control/app-server-control.sock
+  added ~/.codex/app-server-daemon/daemon-updater.stderr.log.previous
+  added ~/.codex/sessions/2026/10/28/rollout-2026-10-28T10-30-45-01a181a2-12ff-7330-9b94-ced2dcb1929d.jsonl  [cwd=~/.cache/tower-t038-probes/tmp.TkLL4K3I/wt originator=codex-tui]
+  added ~/.codex/tmp/arg0-macos/codex-arg0JsOhmH
+  added ~/.codex/tmp/arg0-macos/codex-arg0JsOhmH/.lock
+  added ~/.codex/tmp/arg0-macos/codex-arg0JsOhmH/apply_patch
+  added ~/.codex/tmp/arg0-macos/codex-arg0JsOhmH/applypatch
+  added ~/.codex/tmp/arg0-macos/codex-arg0KQ3mw3
+  added ~/.codex/tmp/arg0-macos/codex-arg0KQ3mw3/.lock
+  added ~/.codex/tmp/arg0-macos/codex-arg0KQ3mw3/apply_patch
+  added ~/.codex/tmp/arg0-macos/codex-arg0KQ3mw3/applypatch
+  added ~/.codex/tmp/arg0-macos/codex-arg0uBK6WV
+  added ~/.codex/tmp/arg0-macos/codex-arg0uBK6WV/.lock
+  added ~/.codex/tmp/arg0-macos/codex-arg0uBK6WV/apply_patch
+  added ~/.codex/tmp/arg0-macos/codex-arg0uBK6WV/applypatch
+  removed ~/.codex/app-server-daemon/loaded-threads.json
+  changed ~/.codex/app-server-control
+  changed ~/.codex/app-server-daemon/daemon-updater.pid
+  changed ~/.codex/app-server-daemon/daemon-updater.sock
+  changed ~/.codex/app-server-daemon/daemon-updater.stderr.log
+  changed ~/.codex/app-server-daemon/daemon.pid
+  changed ~/.codex/app-server-daemon/daemon.stderr.log
+  changed ~/.codex/app-server-daemon/daemon.stderr.log.previous
+  changed ~/.codex/queue_1.sqlite-wal
+  changed ~/.codex/sessions/2026/10/28
+  changed ~/.codex/tmp/arg0
+  changed ~/.codex/tmp/arg0-macos
+
+## Pointers and launchd, read 2026-10-28T09:12:30Z
+$ ls -la ~/.codex/packages/standalone/current ~/.codex/packages/app-server-daemon/current
+lrwxr-xr-x@ 1 omriam  staff  85 Oct 28 10:35 ~/.codex/packages/app-server-daemon/current -> ~/.codex/packages/app-server-daemon/releases/0.165.0-aarch64-apple-darwin
+lrwxr-xr-x@ 1 omriam  staff  78 Oct 28 09:12 ~/.codex/packages/standalone/current -> ~/.codex/packages/standalone/releases/0.165.0-aarch64-apple-darwin
+$ ls ~/.codex/packages/app-server-daemon/releases
+0.164.0-aarch64-apple-darwin
+0.165.0-aarch64-apple-darwin
+$ launchctl list | grep -i -E "codex|openai"
+8762	0	com.openai.codex-sparkle-progress
+773	0	application.com.openai.codex.452716290.452716296
+8761	0	com.openai.codex-sparkle-updater
+$ tail of ~/.codex/app-server-daemon/daemon-updater.stderr.log (package_selected events after the start)
+{"timestampMs":1793176531782,"processPid":48291,"event":"package_selected","details":{"release":"0.165.0-aarch64-apple-darwin","trigger":"scheduled"}}
+{"timestampMs":1793176833533,"processPid":48291,"event":"package_selected","details":{"release":"0.165.0-aarch64-apple-darwin","trigger":"scheduled"}}
+$ ps rows for the daemon and its updater
+48291     1 Wed Oct 28 10:30:17 2026     ~/.codex/packages/app-server-daemon/releases/0.165.0-aarch64-apple-darwin/bin/codex app-server daemon pid-update-loop
+83427 48291 Wed Oct 28 10:35:32 2026     ~/.codex/packages/app-server-daemon/releases/0.165.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --analytics-default-enabled --manag
