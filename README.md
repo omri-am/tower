@@ -52,7 +52,8 @@ Nothing in that diagram is a live connection. Every arrow is a file written to `
 and committed — the orchestrator reads handoffs, implementors read prompts, you read
 diffs. An implementor does not end at its PR: it holds on `tower-pr-wait`, wakes on the
 merge, and finalizes its own handoff. With `--max-wait <seconds>`, the watch stops at
-that limit, prints `OPEN <pr>` and exits 3. You never tell anyone that a PR landed.
+that limit, prints `OPEN <pr>` and exits 3, and the implementor starts a new watch. You
+never tell anyone that a PR landed.
 
 Task cards are decision-complete (an implementor never invents a decision), learnings are
 path-scoped (prompts stay small as the corpus grows), and there are exactly three points
