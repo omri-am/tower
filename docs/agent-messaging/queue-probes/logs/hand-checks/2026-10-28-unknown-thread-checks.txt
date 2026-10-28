@@ -1,0 +1,54 @@
+# 2026-10-28T09:12:03Z unknown-thread checks while a daemon runs (review round 1, findings 5 and 6)
+# Run tmp.TkLL4K3I showed that the daemon check runs before the thread lookup (caller_missing_thread).
+# So a call with an unknown thread prints either the daemon error or 'no rollout found', and queues nothing.
+$ codex app-server daemon version
+{"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.165.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.165.0"}
+
+
+## a. 0.164.0, env -i, no flags
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin/bin/codex queue --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id <uuid> (code -32603)
+exit=1
+
+## b. 0.164.0, env -i, -c (order control)
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin/bin/codex queue -c check_for_update_on_startup=false --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: cannot queue through an embedded app server while a local app-server daemon is running; remove configuration overrides or use --remote
+exit=1
+
+## c. 0.164.0, env -i, --dangerously-bypass-hook-trust
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin/bin/codex queue --dangerously-bypass-hook-trust --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: cannot queue through an embedded app server while a local app-server daemon is running; remove configuration overrides or use --remote
+exit=1
+
+## d. 0.164.0, env -i, the wrapper's flags in the wrapper's position
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin/bin/codex --enable hooks --dangerously-bypass-hook-trust queue --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: cannot queue through an embedded app server while a local app-server daemon is running; remove configuration overrides or use --remote
+exit=1
+
+## e. 0.165.0 real binary, this Claude session's inherited environment (values not recorded), no flags
+$ ~/.local/bin/codex queue --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id <uuid> (code -32603)
+exit=1
+
+## f. 0.165.0 real binary, inherited environment, the wrapper's flags
+$ ~/.local/bin/codex --enable hooks --dangerously-bypass-hook-trust queue --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: cannot queue through an embedded app server while a local app-server daemon is running; remove configuration overrides or use --remote
+exit=1
+
+## g. 0.165.0, env -i, no flags (control)
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex queue --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id <uuid> (code -32603)
+exit=1
+
+$ codex app-server daemon version
+{"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.165.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.165.0"}
+
+
+# 2026-10-28T09:29:44Z added for review round 2
+$ codex app-server daemon version
+{"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.165.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.165.0"}
+
+## h. 0.165.0, env -i, -c together with --remote unix://
+$ env -i HOME=~ PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex queue -c check_for_update_on_startup=false --remote unix:// --thread <random uuid> --message 'T053 hand check: unknown thread' </dev/null
+Error: failed to queue session message: thread/queue/add failed: failed to read thread: invalid thread-store request: no rollout found for thread id <uuid> (code -32603)
+exit=1

@@ -1,0 +1,219 @@
+# Added 2026-10-28 during review: these commands ran at about 07:01Z, between the 07:00:52Z hand check, which
+# saw current/bin/codex at codex-cli 0.164.0, and the 07:12Z switch of current to 0.165.0. The help output itself prints no version.
+$ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex queue --help </dev/null
+Queue a message for an existing session
+
+Usage: codex queue [OPTIONS] --thread <THREAD> --message <TEXT>
+
+Options:
+      --thread <THREAD>
+          Session UUID or exact session name
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --message <TEXT>
+          Message text to queue
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+      --remote <ADDR>
+          Connect the TUI to a remote app server endpoint.
+          
+          Accepted forms: `ws://host:port`, `wss://host:port`, `unix://`, or `unix://PATH`.
+
+      --remote-auth-token-env <ENV_VAR>
+          Name of the environment variable containing the bearer token to send to a remote app
+          server websocket
+
+  -i, --image <FILE>...
+          Optional image(s) to attach to the initial prompt
+
+  -m, --model <MODEL>
+          Model the agent should use
+
+      --oss
+          Use open-source provider
+
+      --local-provider <OSS_PROVIDER>
+          Specify which local provider to use (lmstudio or ollama). If not specified with --oss,
+          will use config default or show selection
+
+  -p, --profile <CONFIG_PROFILE_V2>
+          Layer $CODEX_HOME/<name>.config.toml on top of the base user config
+
+  -s, --sandbox <SANDBOX_MODE>
+          Select the sandbox policy to use when executing model-generated shell commands
+          
+          [possible values: read-only, workspace-write, danger-full-access]
+
+      --approve-for-me
+          Route approval requests through automatic review using the workspace-write sandbox
+
+      --dangerously-bypass-approvals-and-sandbox
+          Skip all confirmation prompts and execute commands without sandboxing. EXTREMELY
+          DANGEROUS. Intended solely for running in environments that are externally sandboxed
+
+      --dangerously-bypass-hook-trust
+          Run enabled hooks without requiring persisted hook trust for this invocation. DANGEROUS.
+          Intended only for automation that already vets hook sources
+
+  -C, --cd <DIR>
+          Tell the agent to use the specified directory as its working root
+
+      --worktree
+          Run the session in a new managed Git worktree
+
+      --add-dir <DIR>
+          Additional directories that should be writable alongside the primary workspace
+
+      --strict-config
+          Error out when config.toml contains fields that are not recognized by this version of
+          Codex
+
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.
+          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed
+          as TOML. If it fails to parse as TOML, the raw string is used as a literal.
+          
+          Examples: - `-c model="o3"` - `-c 'sandbox_permissions=["disk-full-read-access"]'` - `-c
+          shell_environment_policy.inherit=all`
+
+  -h, --help
+          Print help (see a summary with '-h')
+exit=0
+
+$ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex app-server --help </dev/null
+[experimental] Run the app server or related tooling
+
+Usage: codex app-server [OPTIONS] [COMMAND]
+
+Commands:
+  daemon                Manage the local app-server daemon
+  proxy                 Proxy stdio bytes to the running app-server control socket
+  generate-ts           [experimental] Generate TypeScript bindings for the app server protocol
+  generate-json-schema  [experimental] Generate JSON Schema for the app server protocol
+  help                  Print this message or the help of the given subcommand(s)
+
+Options:
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.
+          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed
+          as TOML. If it fails to parse as TOML, the raw string is used as a literal.
+          
+          Examples: - `-c model="o3"` - `-c 'sandbox_permissions=["disk-full-read-access"]'` - `-c
+          shell_environment_policy.inherit=all`
+
+      --startup-sign-out
+          Sign out using the managed auth path before loading fresh startup requirements
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --print-startup-config
+          Validate configuration and print requirements as JSON without starting the app server
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+      --startup-client-info <STARTUP_CLIENT_INFO>
+          ClientInfo JSON used for configuration/auth request identity
+
+      --cloud-skills-snapshot <PATH>
+          Load frozen cloud skills from a JSON snapshot instead of a live skill service
+
+      --code-mode-host <URL>
+          Connect to a remote code-mode host instead of starting a local host
+
+      --strict-config
+          Error out when config.toml contains fields that are not recognized by this version of
+          Codex
+
+      --listen <URL>
+          Transport endpoint URL. Supported values: `stdio://` (default), `unix://`, `unix://PATH`,
+          `ws://IP:PORT`, `off`
+          
+          [default: stdio://]
+
+      --stdio
+          Use stdio as the transport (equivalent to `--listen stdio://`)
+
+      --analytics-default-enabled
+          Controls whether analytics are enabled by default.
+          
+          Analytics are disabled by default for app-server. Users have to explicitly opt in via the
+          `analytics` section in the config.toml file.
+          
+          However, for first-party use cases like the VSCode IDE extension, we default analytics to
+          be enabled by default by setting this flag. Users can still opt out by setting this in
+          their config.toml:
+          
+          ```toml [analytics] enabled = false ```
+          
+          See https://developers.openai.com/codex/config-advanced/#metrics for more details.
+
+      --ws-auth <MODE>
+          Authentication mode for incoming WebSocket connections
+          
+          [possible values: capability-token, signed-bearer-token]
+
+      --ws-token-file <PATH>
+          Absolute path to the capability-token file
+
+      --ws-token-sha256 <HEX>
+          Hex-encoded SHA-256 digest of the capability token
+
+      --ws-shared-secret-file <PATH>
+          Absolute path to the shared secret file for signed JWT bearer tokens
+
+      --ws-issuer <ISSUER>
+          Expected issuer for signed JWT bearer tokens
+
+      --ws-audience <AUDIENCE>
+          Expected audience for signed JWT bearer tokens
+
+      --ws-max-clock-skew-seconds <SECONDS>
+          Maximum clock skew when validating signed JWT bearer tokens
+
+  -h, --help
+          Print help (see a summary with '-h')
+exit=0
+
+$ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex app-server daemon --help </dev/null
+Manage the local app-server daemon
+
+Usage: codex app-server daemon [OPTIONS] <COMMAND>
+
+Commands:
+  bootstrap               Install durable local app-server management for SSH-driven use
+  start                   Start the local app server daemon if it is not already running
+  restart                 Restart the local app server daemon
+  update                  Update the daemon package (may interrupt running work)
+  enable-remote-control   Enable remote control for future starts and a currently running managed
+                          daemon
+  disable-remote-control  Disable remote control for future starts and a currently running managed
+                          daemon
+  stop                    Stop the local app server daemon
+  version                 Print local CLI and running app-server versions as JSON
+  help                    Print this message or the help of the given subcommand(s)
+
+Options:
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`.
+          Use a dotted path (`foo.bar.baz`) to override nested values. The `value` portion is parsed
+          as TOML. If it fails to parse as TOML, the raw string is used as a literal.
+          
+          Examples: - `-c model="o3"` - `-c 'sandbox_permissions=["disk-full-read-access"]'` - `-c
+          shell_environment_policy.inherit=all`
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+  -h, --help
+          Print help (see a summary with '-h')
+exit=0
+

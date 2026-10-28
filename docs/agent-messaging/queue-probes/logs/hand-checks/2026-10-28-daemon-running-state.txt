@@ -1,0 +1,17 @@
+# 2026-10-28T08:30:24Z state after the start, read-only
+$ env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin ~/.codex/packages/standalone/current/bin/codex app-server daemon version </dev/null
+{"status":"running","backend":"pid","managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.164.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.164.0"}
+exit=0
+$ ps -o pid,ppid,pgid,lstart,command -p 48111,48291
+  PID  PPID  PGID STARTED                      COMMAND
+48111     1 48111 Wed Oct 28 10:30:16 2026     ~/.codex/packages/app-server-daemon/releases/0.164.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+48291     1 48291 Wed Oct 28 10:30:17 2026     ~/.codex/packages/app-server-daemon/releases/0.164.0-aarch64-apple-darwin/bin/codex app-server daemon pid-update-loop
+$ ls -la ~/.codex/app-server-control
+total 0
+drwx------@  4 omriam  staff   128 Oct 28 10:30 .
+drwxr-xr-x  64 omriam  staff  2048 Oct 28 10:30 ..
+lrwxr-xr-x@  1 omriam  staff    94 Oct 28 10:30 app-server-control.sock -> /private/tmp/codex-daemon-501/6c71a701827fccaa313d9005b323da3807da642c468d5a354b9836ce3b1d8313
+-rw-------@  1 omriam  staff     0 Oct  1 18:57 app-server-startup.lock
+$ lsof -a -U -p 48111 (rows with a path)
+COMMAND   PID   USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+codex   48111 omriam   31u  unix 0x366e9f572bc9b017      0t0      /private/tmp/codex-daemon-501/6c71a701827fccaa313d9005b323da3807da642c468d5a354b9836ce3b1d8313

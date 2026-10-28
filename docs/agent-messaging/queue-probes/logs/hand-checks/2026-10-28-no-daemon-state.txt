@@ -1,0 +1,22 @@
+# 2026-10-28T07:00:52Z hand check, Claude session, read-only
+$ readlink ~/.codex/packages/standalone/current
+~/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin
+$ readlink ~/.codex/packages/app-server-daemon/current
+~/.codex/packages/app-server-daemon/releases/0.164.0-aarch64-apple-darwin
+$ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex --version
+codex-cli 0.164.0
+$ env -i HOME=$HOME PATH=/usr/bin:/bin ~/.codex/packages/standalone/current/bin/codex app-server daemon version
+Error: failed to connect to ~/.codex/app-server-control/app-server-control.sock
+
+Caused by:
+    No such file or directory (os error 2)
+exit=1
+$ sysctl -n kern.boottime
+{ sec = 1793169395, usec = 79467 } Wed Oct 28 08:36:35 2026
+$ ps -axo pid,lstart,command, rows whose executable ends in /codex and that run app-server
+(none)
+$ ls -la ~/.codex/app-server-control
+total 0
+drwx------@  3 omriam  staff    96 Oct 28 08:36 .
+drwxr-xr-x  66 omriam  staff  2112 Oct 28 08:59 ..
+-rw-------@  1 omriam  staff     0 Oct  1 18:57 app-server-startup.lock
