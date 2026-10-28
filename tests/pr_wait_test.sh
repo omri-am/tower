@@ -114,10 +114,13 @@ run_watch CLOSED
 assert_status "closed PR exits successfully without a limit" "$WATCH_STATUS" "0"
 assert_eq "closed PR is reported without a limit" "$WATCH_OUT" "CLOSED $PR"
 
+START_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
 run_watch $'OPEN\nMERGED'
+ELAPSED_MS=$(( $(python3 -c 'import time; print(int(time.time()*1000))') - START_MS ))
 assert_status "open PR later merges without a limit" "$WATCH_STATUS" "0"
 assert_eq "later merge is reported without a limit" "$WATCH_OUT" "MERGED $PR"
 assert_eq "later merge needs two polls" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "2"
+assert_true "guard: interval 1 sleeps one second, not the default 120" test "$ELAPSED_MS" -le 3000
 
 for value in 0 -5 abc 007; do
   run_watch OPEN --max-wait "$value"
