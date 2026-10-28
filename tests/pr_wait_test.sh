@@ -58,13 +58,19 @@ printf '%s\n' "$state"
 EOF
 chmod +x "$FAKE_BIN/gh"
 
-run_watch() {
+run_pr_wait() {
   printf '%s\n' "$1" > "$FAKE_GH_STATES"
   : > "$FAKE_GH_CALLS"
   shift
-  WATCH_OUT="$(PATH="$FAKE_BIN:$PATH" "$PR_WAIT" T050 --interval 1 "$@" 2> "$FAKE_GH_ERR")"
+  WATCH_OUT="$(PATH="$FAKE_BIN:$PATH" "$PR_WAIT" T050 "$@" 2> "$FAKE_GH_ERR")"
   WATCH_STATUS=$?
   WATCH_ERR="$(cat "$FAKE_GH_ERR")"
+}
+
+run_watch() {
+  local states="$1"
+  shift
+  run_pr_wait "$states" --interval 1 "$@"
 }
 
 START_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
@@ -126,5 +132,35 @@ assert_status "missing max-wait value exits with usage error" "$WATCH_STATUS" "1
 assert_eq "missing max-wait value prints usage" \
   "$(printf '%s\n' "$WATCH_ERR" | grep -c 'usage: tower-pr-wait')" "1"
 assert_eq "missing max-wait value skips gh" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "0"
+
+USAGE_LINE="usage: tower-pr-wait [<task-id>] [--interval seconds] [--max-wait seconds]"
+
+for value in 1.5 0 -2 abc 007; do
+  run_pr_wait OPEN --interval "$value" --max-wait 2
+  assert_eq "invalid interval $value exits 1 with the usage line" \
+    "$WATCH_STATUS $(printf '%s\n' "$WATCH_ERR" | tail -1)" "1 $USAGE_LINE"
+  assert_eq "invalid interval $value skips gh" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "0"
+done
+
+run_pr_wait OPEN --max-wait 2 --interval
+assert_eq "guard: missing interval value exits 1 with the usage line" \
+  "$WATCH_STATUS $(printf '%s\n' "$WATCH_ERR" | tail -1)" "1 $USAGE_LINE"
+assert_eq "guard: missing interval value skips gh" "$(wc -l < "$FAKE_GH_CALLS" | tr -d ' ')" "0"
+
+run_pr_wait MERGED
+assert_eq "guard: the default interval reports the merge without a limit" \
+  "$WATCH_STATUS $WATCH_OUT" "0 MERGED $PR"
+
+run_pr_wait MERGED --max-wait 30
+assert_eq "guard: the default interval reports the merge with a limit" \
+  "$WATCH_STATUS $WATCH_OUT" "0 MERGED $PR"
+
+run_pr_wait MERGED --interval 5
+assert_eq "guard: interval 5 reports the merge without a limit" \
+  "$WATCH_STATUS $WATCH_OUT" "0 MERGED $PR"
+
+run_pr_wait MERGED --interval 5 --max-wait 30
+assert_eq "guard: interval 5 reports the merge with a limit" \
+  "$WATCH_STATUS $WATCH_OUT" "0 MERGED $PR"
 
 summary
