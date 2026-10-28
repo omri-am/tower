@@ -1,0 +1,28 @@
+# Transcribed 2026-10-28 from the T053 Claude session's output of 2026-10-26, which ran:
+#   grep -n "2026-10-26T14:0[5-8]" /tmp/superset-codex-hooks.log | cut -c1-250
+# The machine rebooted on 2026-10-28 at 08:36 local and /tmp/superset-codex-hooks.log no longer exists,
+# so this transcription is the only copy. Lines 386-404 of that file; long lines were cut at 250 columns
+# by the original command. The Superset wrapper writes this log because SUPERSET_ENV=development.
+# Line 386 is the T051 Codex TUI launch (wrapper pid 19069). Lines 390-404 are three short wrapper runs
+# from terminal B, at the second of both delivery.log failures (14:07:15Z, 14:07:57Z)
+# and of one exit-0 run between them (14:07:36Z). Terminal ids (SUPERSET_TERMINAL_ID values) and the
+# TMPDIR value were replaced by placeholders on 2026-10-28; A is the T051 TUI, B the orchestrator.
+386:2026-10-26T14:05:57Z [codex-wrapper] session watcher starting terminalId=<terminal A> tabId= paneId= log=$TMPDIR/superset-codex-session-19069_1793023557.jsonl notify=/Users/omriam/
+387:2026-10-26T14:05:57Z [codex-wrapper] session watcher pid=19108
+388:2026-10-26T14:05:58Z [codex-wrapper] watching session=$TMPDIR/superset-codex-session-19069_1793023557.jsonl
+389:2026-10-26T14:06:00Z [codex-wrapper] emitting Start via /Users/omriam/.superset/hooks/notify.sh
+390:2026-10-26T14:07:15Z [codex-wrapper] session watcher starting terminalId=<terminal B> tabId= paneId= log=$TMPDIR/superset-codex-session-42560_1793023635.jsonl notify=/Users/omriam/
+391:2026-10-26T14:07:15Z [codex-wrapper] session watcher pid=42567
+392:2026-10-26T14:07:15Z [codex-wrapper] codex exited status=1
+393:2026-10-26T14:07:15Z [codex-wrapper] session watcher cleanup signaled pid=42567
+394:2026-10-26T14:07:15Z [codex-wrapper] emitting SessionEnd status=1
+395:2026-10-26T14:07:36Z [codex-wrapper] session watcher starting terminalId=<terminal B> tabId= paneId= log=$TMPDIR/superset-codex-session-45951_1793023656.jsonl notify=/Users/omriam/
+396:2026-10-26T14:07:36Z [codex-wrapper] session watcher pid=45961
+397:2026-10-26T14:07:36Z [codex-wrapper] codex exited status=0
+398:2026-10-26T14:07:36Z [codex-wrapper] session watcher cleanup signaled pid=45961
+399:2026-10-26T14:07:36Z [codex-wrapper] emitting SessionEnd status=0
+400:2026-10-26T14:07:57Z [codex-wrapper] session watcher starting terminalId=<terminal B> tabId= paneId= log=$TMPDIR/superset-codex-session-49475_1793023677.jsonl notify=/Users/omriam/
+401:2026-10-26T14:07:57Z [codex-wrapper] session watcher pid=49483
+402:2026-10-26T14:07:57Z [codex-wrapper] codex exited status=1
+403:2026-10-26T14:07:57Z [codex-wrapper] session watcher cleanup signaled pid=49483
+404:2026-10-26T14:07:57Z [codex-wrapper] emitting SessionEnd status=1

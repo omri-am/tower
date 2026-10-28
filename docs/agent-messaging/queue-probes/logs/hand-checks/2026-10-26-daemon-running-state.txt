@@ -1,0 +1,34 @@
+# Transcribed 2026-10-28 from the T053 Claude session's output of 2026-10-26 (about 15:28-15:40Z),
+# while the managed daemon ran. The raw output was not saved to a file at the time. All commands were
+# read-only. Long ps lines were cut by the original command.
+
+$ ps -axo pid,ppid,pgid,lstart,etime,command | grep -i '[c]odex' | cut -c1-260   (daemon rows only)
+42922     1 42922 Sun Oct 25 10:51:27 2026     01-06:37:37 /Users/omriam/.codex/packages/app-server-daemon/releases/0.164.0-aarch64-apple-darwin/bin/codex app-server daemon pid-update-loop
+55648 42922 55648 Sun Oct 25 10:56:38 2026     01-06:32:26 /Users/omriam/.codex/packages/app-server-daemon/releases/0.164.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --managed-daemon
+
+$ ls -la ~/.codex/app-server-control
+lrwxr-xr-x@  1 omriam  staff    94 Oct 25 10:56 app-server-control.sock -> /private/tmp/codex-daemon-501/6c71a701827fccaa313d9005b323da3807da642c468d5a354b9836ce3b1d8313
+-rw-------@  1 omriam  staff     0 Oct  1 18:57 app-server-startup.lock
+
+$ lsof -a -p 55648 -U | head -20   (listening socket row)
+codex   55648 omriam   31u  unix 0x2f0ed5664ed63ee5      0t0      /private/tmp/codex-daemon-501/6c71a701827fccaa313d9005b323da3807da642c468d5a354b9836ce3b1d8313
+
+$ cat ~/.codex/app-server-daemon/daemon.pid
+{"pid":55648,"processStartTime":"Sun Oct 25 10:56:38 2026", ...}
+
+$ env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin ~/.codex/packages/standalone/current/bin/codex app-server daemon version
+{"status":"running","backend":"pid","managedCodexPath":"/Users/omriam/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.164.0","socketPath":"/Users/omriam/.codex/app-server-control/app-server-control.sock","cliVersion":"0.164.0","appServerVersion":"0.164.0"}
+exit=0
+
+$ readlink ~/.codex/packages/standalone/current   (symlink mtime Oct 25 10:51)
+/Users/omriam/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin
+
+$ type -a codex   (Claude session PATH)
+codex is /Users/omriam/.superset/bin/codex
+codex is /Users/omriam/.local/bin/codex
+$ ls -la ~/.local/bin/codex
+/Users/omriam/.local/bin/codex -> /Users/omriam/.codex/packages/standalone/current/bin/codex   (link mtime Oct 25 10:51)
+
+# T051's own Codex TUI (launched 2026-10-26 16:05:57 local = 14:05:57Z) ran through the wrapper:
+19114 ... /Users/omriam/.local/bin/codex --enable hooks --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --model gpt-6-astra -c model_reasoning_effort=high -- # Dispatch prompt — T051
+27718 19114 ... /Users/omriam/.codex/packages/standalone/releases/0.164.0-aarch64-apple-darwin/bin/codex-code-mode-host
