@@ -1,4 +1,4 @@
-# Changes under ~/.codex from three `find ~/.codex -exec stat -f "%m %z %N"` listings taken by the
+# Changes under ~/.codex from four `find ~/.codex -exec stat -f "%m %z %N"` listings taken by the
 # T053 Claude session (read-only). Paths only. A path counts as changed when its mtime or size changed.
 # Listings: A = 2026-10-28T07:31:43Z (before run 1), B = 2026-10-28T07:46:44Z (after run 4), C = 2026-10-28T08:30:06Z (just before the daemon start), D = 2026-10-28T08:35:20Z (after run 5).
 # Other Codex processes wrote to ~/.codex in the same windows; the attribution notes say which paths are the probe's.

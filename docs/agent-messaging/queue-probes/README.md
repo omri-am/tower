@@ -19,7 +19,7 @@ The log records environment variable names only, never values, because the calle
 
 The probe signals only its own process groups. It never starts, stops, or restarts the daemon, and it never runs `codex agents`.
 
-Codex itself writes the session rollout and state under `~/.codex`. The reused `finish` function logs paths modified there during the run.
+Codex itself writes the session rollout and state under `~/.codex`. The reused `finish` function logs paths modified there during the run. It skips hidden directories such as `.tmp/` and `skills/.system/` and cannot see removals, so a complete record needs a before-and-after listing of `~/.codex`.
 
 The caller cases run the Superset wrapper with the caller's environment. In a Superset terminal, the wrapper reports `SessionEnd` for that terminal to Superset, as every `tower send` from such a session does.
 
