@@ -1,0 +1,15 @@
+# 2026-10-28T08:30:16Z the one daemon start the owner allowed (card correction, 2026-10-28)
+$ env -i HOME=$HOME PATH=/usr/bin:/bin:/usr/sbin:/sbin ~/.codex/packages/standalone/current/bin/codex app-server daemon start </dev/null
+{"timestampMs":1793176216966,"processPid":48102,"stage":"process_spawn","outcome":"succeeded","elapsedMs":4,"failure":null}
+{"timestampMs":1793176216966,"processPid":48102,"event":"process_spawned","details":{"pid":48111}}
+{"timestampMs":1793176216973,"processPid":48102,"stage":"process_identity","outcome":"succeeded","elapsedMs":7,"failure":null}
+{"timestampMs":1793176216974,"processPid":48102,"stage":"pid_write","outcome":"succeeded","elapsedMs":0,"failure":null}
+{"timestampMs":1793176216974,"processPid":48102,"stage":"pid_publish","outcome":"succeeded","elapsedMs":0,"failure":null}
+{"timestampMs":1793176217255,"processPid":48102,"stage":"process_spawn","outcome":"succeeded","elapsedMs":1,"failure":null}
+{"timestampMs":1793176217255,"processPid":48102,"event":"process_spawned","details":{"pid":48291}}
+{"timestampMs":1793176217260,"processPid":48102,"stage":"process_identity","outcome":"succeeded","elapsedMs":5,"failure":null}
+{"timestampMs":1793176217261,"processPid":48102,"stage":"pid_write","outcome":"succeeded","elapsedMs":0,"failure":null}
+{"timestampMs":1793176217261,"processPid":48102,"stage":"pid_publish","outcome":"succeeded","elapsedMs":0,"failure":null}
+{"status":"started","backend":"pid","pid":48111,"managedCodexPath":"~/.codex/packages/app-server-daemon/current/bin/codex","managedCodexVersion":"0.164.0","socketPath":"~/.codex/app-server-control/app-server-control.sock","cliVersion":"0.165.0","appServerVersion":"0.164.0"}
+exit=0
+# finished 2026-10-28T08:30:17Z

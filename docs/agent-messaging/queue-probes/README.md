@@ -11,7 +11,7 @@ cd "$(mktemp -d ~/.cache/tower-t038-probes/tmp.XXXXXXXX)"
 env -i HOME=$HOME USER=$USER LOGNAME=$USER SHELL=/bin/zsh TERM=xterm-256color LANG=en_US.UTF-8 PATH=/usr/bin:/bin:/usr/sbin:/sbin CODEX_HOME=$HOME/.codex CODEX_BIN=$HOME/.codex/packages/standalone/current/bin/codex /usr/bin/python3 <probe>/p1_queue_matrix.py --caller-env <scratch>/caller.env
 ```
 
-Run with the Claude sandbox disabled. As soon as the run ends, copy only `p1_queue_matrix.jsonl` and `notify.jsonl` into `logs/<run directory name>/`.
+Run with the Claude sandbox disabled. As soon as the run ends, copy only `p1_queue_matrix.jsonl` and `wt/notify.jsonl` into `logs/<run directory name>/`.
 
 No dialog is answered. Queue calls get no `-c` except `clean_config_override`, because a configuration override is part of the behavior measured here. The throwaway TUI starts with `--disable hooks`: Codex 0.165.0 otherwise opens a hook-trust selector at startup (run tmp.kShL1tDS), and the probe must not answer it.
 
