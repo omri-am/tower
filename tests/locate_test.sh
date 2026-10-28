@@ -40,6 +40,9 @@ assert_eq 'worktree git failure warns with the first stderr line' "$LOCATE_ERR" 
 assert_eq 'guard: failing git keeps the per-branch ancestor resolution' "$LOCATE_OUT" "$WT"$'\n'ancestor
 assert_status 'guard: failing git keeps the successful exit status' "$LOCATE_STATUS" 0
 
+run_locate "$FAILING_GIT_PATH" --from "$MAIN"
+assert_eq 'main checkout git failure warns when .git is a directory' "$LOCATE_ERR" "tower-locate: git failed in $MAIN: fatal: fake git failure; worktree mapping skipped"
+
 run_locate "$FAILING_GIT_PATH" --from "$WT/src" --quiet
 assert_empty 'guard: quiet suppresses the git failure warning' "$LOCATE_ERR"
 assert_eq 'guard: quiet keeps the per-branch ancestor resolution' "$LOCATE_OUT" "$WT"$'\n'ancestor

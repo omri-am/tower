@@ -28,7 +28,7 @@ walk_up() {
   echo "$dir"
 }
 
-has_git_entry() {
+has_git_entry_at_or_above() {
   local dir="$1"
   while [ "$dir" != "/" ] && [ ! -e "$dir/.git" ]; do
     dir="$(dirname "$dir")"
@@ -55,7 +55,7 @@ if GIT_ERR="$(git -C "$START" rev-parse --show-toplevel 2>&1 >/dev/null)"; then
   if [ -n "$MAIN_TOP" ] && [ "$(git -C "$MAIN_TOP" rev-parse --is-bare-repository 2>/dev/null || echo false)" = true ]; then
     MAIN_BARE=1
   fi
-elif has_git_entry "$START"; then
+elif has_git_entry_at_or_above "$START"; then
   note "git failed in $START: $(printf '%s\n' "$GIT_ERR" | head -1); worktree mapping skipped"
 fi
 
