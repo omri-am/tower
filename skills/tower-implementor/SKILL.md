@@ -56,7 +56,10 @@ hook will not let you finish without it.
 7. If your agent instructions define a completion or review workflow, run it exactly as
    defined before opening the PR. In the handoff under *What was done*, record which
    workflow ran, how many rounds it took, and every finding you rejected with the reason.
-   If no workflow is defined, say so there in one line.
+   Also record the commit that each review round read, one line per round, in the form
+   `- Round <N> reviewed <40-hex commit>`. If a round read uncommitted changes, record the
+   commit they were based on. The orchestrator's fix check then covers those changes too,
+   which is the safe direction. If no workflow is defined, say so there in one line.
 8. Open the PR (fill the card's `pr:` field), set card status `in-review`.
 9. Write `handoffs/T###-handoff.md` from the template in `.tower/templates/handoff.md` —
    a draft at this point. The merged state, not the opened PR, is what the orchestrator
@@ -114,7 +117,13 @@ hook will not let you finish without it.
   wrong — escalate, do not touch it.
 - **Corrections in-flight.** If the orchestrator messages you a correction mid-task, treat
   it as part of the card. Record it under `## Corrections` in the card if it is not already
-  there.
+  there. A fix-check record that the orchestrator sends as a correction is part of review,
+  so answer each critical or important finding as for your own rounds: fix it with a commit,
+  or reject it with the reason. Answer the record in the handoff under *What was done*, with
+  one line for each record:
+  `- fix-<N> answer: finding 1 fixed in <40-hex commit>; finding 2 rejected: <reason>`.
+  Number the findings by their order under `## Findings` in the record, and cover every
+  critical or important finding.
 - **Role inbox.** When dispatch launches the session (`--here`, `--headless`, or the printed
   or Terminal command), it sets `TOWER_TASK` and `TOWER_ROLE=implementor-<task-id>`. A session
   started by hand after `--prep` gets neither. `tower inbox` defaults to `TOWER_ROLE`, so a
