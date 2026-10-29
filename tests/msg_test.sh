@@ -441,6 +441,7 @@ sys.exit(code)
                         daemon_calls = base / (mode + '-daemon-calls')
                         child = ("import runpy, sys\n"
                                  "m = runpy.run_path(sys.argv[1])\n"
+                                 "if sys.argv[3] == 'without-retry-entry':\n    m['ADAPTERS']['codex'].pop('retry', None)\n"
                                  "directory = m['mailbox'](sys.argv[2])\n"
                                  "message_id = m['publish'](directory, sys.argv[2], sys.argv[3], None)\n"
                                  "print(message_id, flush=True)\n"
@@ -450,6 +451,7 @@ sys.exit(code)
                                 ('retry-failure', 1, None, 1),
                                 ('other-error', 1, 'Error: no rollout found for thread id exact session name', 0),
                                 ('other-exit', 2, None, 0),
+                                ('without-retry-entry', 1, None, 0),
                                 ('plain-success', 0, None, 1)):
                             daemon_calls.unlink(missing_ok=True)
                             case_env = dict(env, PATH=str(daemon_dir) + os.pathsep + env['PATH'],
@@ -494,6 +496,12 @@ sys.exit(code)
                                 assert result.returncode == 1 and 'Traceback' not in result.stderr, 'guard: other exit result'
                                 assert len(calls) == 1 and '--remote' not in calls[0], 'guard: other exit calls'
                                 assert len(failures) == 1 and 'exit=2' in failures[0], 'guard: other exit log'
+                            elif name == 'without-retry-entry':
+                                assert result.returncode == 1 and 'Traceback' not in result.stderr, 'guard: without retry exit'
+                                assert len(calls) == 1 and '--remote' not in calls[0], 'guard: without retry calls'
+                                assert (len(failures) == 1
+                                        and f'{message_id} exit=1 Error: cannot queue through an embedded app server' in failures[0]
+                                        and 'retry with --remote unix://' not in failures[0]), 'guard: without retry log'
                             else:
                                 assert result.returncode == 0, 'guard: plain success exit'
                                 assert (box / 'submitted' / message_id).is_file(), 'guard: plain success submitted'
