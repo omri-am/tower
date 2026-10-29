@@ -120,16 +120,16 @@ rounds, and `PROTOCOL.md` has the record format.
    Claude Code), and otherwise a headless session (`claude -p`, `codex exec`). It is
    read-only. It changes no file, pushes nothing and posts nothing.
 4. *Context pack,* in the reviewer's prompt: the card path; the range and the command that
-   shows it; the PR's full diff for context; the findings that the new commits answer, from
-   the previous record or the handoff, without the implementor's claims that they are fixed;
-   the implementor's `- fix-<N> answer:` line for the previous record, if any; the output of
-   `tower-learnings --for <id>`; and the review procedure that your agent instructions name
-   (when they name none: correctness, tests, and fit with the card). Severity is `critical`,
-   `important` or `suggestion`. The reviewer judges each rejection reason in an answer line
-   as an argument and checks each `fixed in` commit. It accepts neither as a claim that a
-   finding is fixed.
+   shows it; the PR's full diff for context; the findings that the new commits or the answer
+   line address, from the previous record or the handoff, without the implementor's claims
+   that they are fixed; the implementor's `- fix-<N> answer:` line for the previous record,
+   if any; the output of `tower-learnings --for <id>`; and the review procedure that your
+   agent instructions name (when they name none: correctness, tests, and fit with the card).
+   Severity is `critical`, `important` or `suggestion`. The reviewer judges each rejection
+   reason in an answer line as an argument and checks each `fixed in` commit. It takes
+   neither as proof that a finding is fixed.
 5. *Record.* Write `reviews/<id>/fix-<N>.md`, with N from 1, in the format in `PROTOCOL.md`.
-   Commit it with a `tower:` message and `git commit --only`.
+   Add it with `git add`, then commit it with a `tower:` message and `git commit --only`.
 6. *Outcome.* `clean` means no critical or important finding. Suggestions are recorded and
    do not block. On `changes`, add a `## Corrections` entry to the card that names the
    record, and message the implementor by the route in "Correct in-flight work" below. After
