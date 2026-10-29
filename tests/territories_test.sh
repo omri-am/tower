@@ -57,6 +57,8 @@ within 'plain file does not cover suffix' lib/a.sh.bak lib/a.sh 1
 within 'directory boundary' docs/agent-messaging/x.md docs/agent 1
 within 'glob prefix inside a segment' lib/tower-paths.sh 'lib/tower-*.sh' 0
 within 'inner glob prefix' 'docs/**/*.md' docs/ 0
+within 'glob prefix ends inside a segment' 'web*' web/ 1
+within 'guard: glob prefix inside the directory' 'docs/a*' docs/ 0
 within 'empty glob prefix' docs/a.md '**' 0
 
 fixture assignment
@@ -92,6 +94,15 @@ run_check
 assert_status 'overlap fails' "$STATUS" 1
 assert_eq 'overlap stderr' "$ERR" 'tower-territories: .tower/territories/api.md: path docs/api/** overlaps .tower/territories/docs.md path docs/'
 assert_eq 'overlap still assigns' "$OUT" "$(printf 'T001\tmain\tin-flight')"
+
+fixture segment-glob
+charter web web orchestrator-web owner 'web/**'
+charter web-api web-api orchestrator-web-api owner 'web-api/**'
+card T001 ready 'web*'
+run_check
+assert_status 'segment glob succeeds' "$STATUS" 0
+assert_eq 'segment glob spans two territories' "$OUT" "$(printf 'T001\tmain\tready')"
+assert_eq 'segment glob stderr' "$ERR" ''
 
 for KIND in name missing_approval invalid_approval role empty_paths invalid_path unknown duplicate empty_path stem; do
   fixture "error-$KIND"
