@@ -423,7 +423,7 @@ with tempfile.TemporaryDirectory() as scratch:
                         daemon_dir = base / (mode + '-daemon-bin')
                         daemon_dir.mkdir()
                         daemon_stub = daemon_dir / 'codex'
-                        daemon_stub.write_text(f'#!{sys.executable}\n' + """import json, os, sys
+                        daemon_stub.write_text(f'#!{sys.executable}\n' + """import json, os, sys, time
 with open(os.environ['DAEMON_CALLS'], 'a') as calls:
     calls.write(json.dumps(sys.argv[1:]) + '\\n')
 if '--remote' not in sys.argv:
@@ -432,6 +432,8 @@ if '--remote' not in sys.argv:
         print(os.environ.get('DAEMON_PLAIN_ERROR',
               'Error: cannot queue through an embedded app server while a local app-server daemon is running; remove configuration overrides or use --remote'), file=sys.stderr)
 else:
+    if 'DAEMON_REMOTE_SLEEP' in os.environ:
+        time.sleep(float(os.environ['DAEMON_REMOTE_SLEEP']))
     code = int(os.environ['DAEMON_REMOTE_EXIT'])
     if code:
         print('Error: failed to connect to remote app server at `unix://`: No such file or directory (os error 2)', file=sys.stderr)
@@ -445,10 +447,12 @@ sys.exit(code)
                                  "directory = m['mailbox'](sys.argv[2])\n"
                                  "message_id = m['publish'](directory, sys.argv[2], sys.argv[3], None)\n"
                                  "print(message_id, flush=True)\n"
-                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id))")
+                                 "timeout = 3 if sys.argv[3] == 'retry-timeout' else 30\n"
+                                 "sys.exit(m['deliver'](directory, sys.argv[2], message_id, timeout=timeout))")
                         for name, plain_exit, plain_error, remote_exit in (
                                 ('retry-success', 1, None, 0),
                                 ('retry-failure', 1, None, 1),
+                                ('retry-timeout', 1, None, 1),
                                 ('other-error', 1, 'Error: no rollout found for thread id exact session name', 0),
                                 ('other-exit', 2, None, 0),
                                 ('without-retry-entry', 1, None, 0),
@@ -459,9 +463,11 @@ sys.exit(code)
                                             DAEMON_REMOTE_EXIT=str(remote_exit))
                             if plain_error is not None:
                                 case_env['DAEMON_PLAIN_ERROR'] = plain_error
+                            if name == 'retry-timeout':
+                                case_env['DAEMON_REMOTE_SLEEP'] = '10'
                             result = subprocess.run([sys.executable, '-c', child, str(root / 'lib/tower_msg.py'),
                                                      role, name], cwd=project, env=case_env, text=True,
-                                                    capture_output=True, timeout=5)
+                                                    capture_output=True, timeout=10)
                             message_id = result.stdout.strip()
                             assert daemon_calls.exists(), ('guard: daemon stub not called', result.returncode, result.stderr, result.stdout)
                             calls = [json.loads(line) for line in daemon_calls.read_text().splitlines()]
@@ -488,6 +494,16 @@ sys.exit(code)
                                         < line.find('retry with --remote unix://:')
                                         < line.find('failed to connect to remote app server')), 'retry failure log order'
                                 assert len(calls) == 2 and calls[1][:3] == ['queue', '--remote', 'unix://'], 'retry failure argv'
+                            elif name == 'retry-timeout':
+                                assert result.returncode == 1, 'guard: retry timeout exit'
+                                assert 'Traceback' not in result.stderr, 'guard: retry timeout traceback'
+                                assert 'redelivery: 1' in (box / 'queued' / message_id).read_text(), 'guard: retry timeout redelivery'
+                                assert len(failures) == 1, 'guard: retry timeout log count'
+                                line = failures[0]
+                                assert (0 <= line.find(f'{message_id} exit=124 Error: cannot queue through an embedded app server')
+                                        < line.find('retry with --remote unix://:')
+                                        < line.find('Codex delivery timed out after 3 seconds')), 'retry timeout log order'
+                                assert len(calls) == 2 and calls[1][:3] == ['queue', '--remote', 'unix://'], 'retry timeout argv'
                             elif name == 'other-error':
                                 assert result.returncode == 1 and 'Traceback' not in result.stderr, 'guard: other error exit'
                                 assert len(calls) == 1 and '--remote' not in calls[0], 'guard: other error calls'
