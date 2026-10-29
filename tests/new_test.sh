@@ -96,6 +96,24 @@ for INVALID in empty missing extra parent; do
   assert_false "$INVALID prints no success path" test -s "$PROJECT/out"
 done
 
+OUT="$("$NEW" 'Fix the re-run')"
+assert_eq 'guard: a title with an inner dash creates a card' "$OUT" "$TASKS/T1004-fix-the-re-run.md"
+assert_true 'guard: a title with an inner dash keeps its title' grep -qFx 'title: Fix the re-run' "$OUT"
+
+USAGE='usage: tower-new <title> (one nonempty, quoted argument)'
+for OPTION in --help -h -x; do
+  ls -A "$TASKS" > "$PROJECT/tasks-before"
+  ls -A "$TASKS/.claims" > "$PROJECT/claims-before"
+  "$NEW" "$OPTION" > "$PROJECT/out" 2> "$PROJECT/error"
+  assert_status "rejects option $OPTION" "$?" 1
+  assert_eq "$OPTION prints usage" "$(cat "$PROJECT/error")" "$USAGE"
+  assert_false "$OPTION prints no success path" test -s "$PROJECT/out"
+  ls -A "$TASKS" > "$PROJECT/tasks-after"
+  ls -A "$TASKS/.claims" > "$PROJECT/claims-after"
+  assert_true "$OPTION writes no card" cmp -s "$PROJECT/tasks-before" "$PROJECT/tasks-after"
+  assert_true "$OPTION claims no id" cmp -s "$PROJECT/claims-before" "$PROJECT/claims-after"
+done
+
 printf '%s\n' '---' 'id: T2000' '---' > "$TASKS/unreadable.md"
 chmod 000 "$TASKS/unreadable.md"
 "$NEW" 'Unreadable input' > "$PROJECT/out" 2> "$PROJECT/error"

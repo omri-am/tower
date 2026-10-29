@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ $# -ne 1 ] || [ -z "$1" ]; then
+if [ $# -ne 1 ] || [ -z "$1" ] || [[ "$1" == -* ]]; then
   echo 'usage: tower-new <title> (one nonempty, quoted argument)' >&2
   exit 1
 fi
