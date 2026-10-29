@@ -21,9 +21,10 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-dispatch <id>` | orchestrator | Creates the worktree, marks the card in-flight, launches the implementor |
 | `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
 | `tower-learnings --for\|--check\|--scopes` | orchestrator | Selects, audits, or lists scoped learnings |
-| `tower-pr-wait [id]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>` |
+| `tower-pr-wait [id] [--interval <seconds>] [--max-wait <seconds>]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>`; at the `--max-wait` limit, prints `OPEN <pr>` and exits 3 |
 | `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
 | `tower-handoffs` | orchestrator | Lists finalized handoffs whose content has not been ingested |
+| `tower-territories` | orchestrator | Checks the territory charters and prints each card's territory |
 | `tower-doctor [--from <dir>] [--codex-sandbox <profile>]` | you, orchestrator | Diagnoses local recovery issues and prints next steps without changing state |
 | `tower-locate [--from\|--task]` | tooling | Resolves the project directory |
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
