@@ -49,6 +49,12 @@ ADAPTERS = {
         'qualifies': lambda record: bool(record['thread']),
         'command': lambda record, text: ['codex', 'queue', '--thread', record['thread'], '--message', text],
         'name': 'Codex',
+        'retry': {
+            'trigger': 'cannot queue through an embedded app server while a local app-server daemon is running',
+            'command': lambda record, text: ['codex', 'queue', '--remote', 'unix://', '--thread', record['thread'],
+                                             '--message', text],
+            'label': 'retry with --remote unix://',
+        },
     },
 }
 
@@ -307,6 +313,28 @@ def deliver(directory, role, message_id, timeout=DELIVERY_TIMEOUT):
         return 1
 
 
+def run_adapter_command(argv, timeout):
+    command = [sys.executable, '-I', '-c', DELIVERY_WRAPPER, str(timeout), *argv]
+    started = time.monotonic()
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, errors='replace', start_new_session=True)
+    try:
+        _, error = process.communicate(timeout=timeout)
+    except BaseException:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            # macOS reports EPERM when the group's only member is an unreaped zombie.
+            pass
+        process.wait()
+        raise
+    code = process.returncode
+    # The wrapper's deadline kills its group with SIGKILL; elapsed time excludes an unrelated adapter SIGKILL.
+    if code == -signal.SIGKILL and time.monotonic() - started >= timeout:
+        raise subprocess.TimeoutExpired(command, timeout, stderr=error)
+    return code, error
+
+
 def deliver_queued(directory, role, record, timeout):
     outcomes = {}
     for message_id in message_ids(directory, ('queued',)):
@@ -323,26 +351,14 @@ def deliver_queued(directory, role, record, timeout):
         except FileNotFoundError:
             continue
         interrupted = None
+        prefix = ''
         try:
             claim.write_text(f"claimant={record['session']}\nat={datetime.now(timezone.utc).isoformat()}\n")
-            command = [sys.executable, '-I', '-c', DELIVERY_WRAPPER, str(timeout), *adapter['command'](record, text)]
-            started = time.monotonic()
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                       text=True, errors='replace', start_new_session=True)
-            try:
-                _, error = process.communicate(timeout=timeout)
-            except BaseException:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    # macOS reports EPERM when the group's only member is an unreaped zombie.
-                    pass
-                process.wait()
-                raise
-            code = process.returncode
-            # The wrapper's deadline kills its group with SIGKILL; elapsed time excludes an unrelated adapter SIGKILL.
-            if code == -signal.SIGKILL and time.monotonic() - started >= timeout:
-                raise subprocess.TimeoutExpired(command, timeout, stderr=error)
+            code, error = run_adapter_command(adapter['command'](record, text), timeout)
+            retry = adapter.get('retry')
+            if retry is not None and code == 1 and retry['trigger'] in error:
+                prefix = f"{error.rstrip()}\n{retry['label']}: "
+                code, error = run_adapter_command(retry['command'](record, text), timeout)
             if code == 0:
                 submitted.with_suffix('.submitted').write_text(f'at={datetime.now(timezone.utc).isoformat()}\n')
                 claimed.rename(submitted)
@@ -360,7 +376,7 @@ def deliver_queued(directory, role, record, timeout):
         if code != 0:
             submitted.with_suffix('.submitted').unlink(missing_ok=True)
             return_failed_claim(directory, message_id, header, text)
-            record_delivery_failure(directory, message_id, code, error)
+            record_delivery_failure(directory, message_id, code, prefix + error)
         claim.unlink(missing_ok=True)
         if interrupted is not None:
             raise interrupted
