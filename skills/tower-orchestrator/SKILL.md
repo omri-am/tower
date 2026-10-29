@@ -107,7 +107,7 @@ rounds, and `PROTOCOL.md` has the record format.
    `reviewed_commit` of the card's newest record in `reviews/<id>/`, or, with no record, the
    commit of the handoff's last `- Round <N> reviewed` line. The head is **reviewed** when it
    equals the last reviewed commit and the newest record, if any, has `verdict: clean`.
-   Otherwise run a fix check. The one exception is a head that equals the `reviewed_commit`
+   Otherwise run a fix check. One exception is a head that equals the `reviewed_commit`
    of the newest record when that record says `changes`: run no fix check, and wait until the
    head changes or the handoff has the `- fix-<N> answer:` line for that record. The head is
    not reviewed while you wait.
