@@ -58,6 +58,7 @@ within 'directory boundary' docs/agent-messaging/x.md docs/agent 1
 within 'glob prefix inside a segment' lib/tower-paths.sh 'lib/tower-*.sh' 0
 within 'inner glob prefix' 'docs/**/*.md' docs/ 0
 within 'glob prefix ends inside a segment' 'web*' web/ 1
+within 'guard: glob prefix inside the directory' 'docs/a*' docs/ 0
 within 'empty glob prefix' docs/a.md '**' 0
 
 fixture assignment
