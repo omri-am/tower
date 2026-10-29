@@ -4,7 +4,7 @@ For messaging, yes: `register()` and `deliver_queued()` accept a channel that on
 
 ## Registration already carries any one-string address
 
-`register()` stores `thread` unchanged. Only the adapter's `qualifies` and `command` interpret it. `--thread` is `bin/tower-register`'s only vendor-specific flag, but it accepts any string. `tests/msg_test.sh` registers `exact session name`. By inference, another adapter could use the string as a socket path or port.
+`register()` stores `thread` unchanged. Only the adapter's `qualifies`, `command`, and the optional `retry.command` interpret it. `--thread` is `bin/tower-register`'s only vendor-specific flag, but it accepts any string. `tests/msg_test.sh` registers `exact session name`. By inference, another adapter could use the string as a socket path or port.
 
 `native-channels.md` measured Claude stream-JSON input through its hosted `--print` process's stdin pipe. The Codex probe hosted app-server over `--stdio`. Neither pipe belongs to a later `tower send` process. Both fail reach into an existing TUI and change who owns the human interface. By inference, tower would need to own a host process exposing a local endpoint. Its path fits the existing string. `contract.md` proposed `socket` for a PTY relay, but M0 gave shared-terminal typing **no-go**.
 
@@ -12,7 +12,7 @@ The smallest naming change is an opaque `address` field and `--address` flag, wi
 
 ## Delivery fits one command but not every transport
 
-`deliver_queued()` runs any argv returned by `adapter['command']`. Exit 0 moves `claimed` to `submitted`. It maps timeout to 124, interruption to 130, and `OSError` or `ValueError` to 127. Failure requeues or retires the claim.
+`deliver_queued()` runs any argv returned by `adapter['command']`. Exit 0 moves `claimed` to `submitted`. It maps timeout to 124, interruption to 130, and `OSError` or `ValueError` to 127. Failure requeues or retires the claim. An adapter may carry an optional `retry` entry with `trigger`, `command`, and `label`. When the first command exits 1 and its stderr contains `trigger`, `deliver_queued()` runs `retry.command` once in the same attempt, and the attempt's result is the retry's. Codex uses it for the local daemon error (T055, `queue-delivery.md`).
 
 By inference, a helper executable could convert a socket write, HTTP or JSON-RPC call, or file drop to one argv command. A file drop needs a defined successful submission, such as atomic publish. `native-channels.md` says Claude stream-JSON can wake its own hosted print/SDK session. By inference, an in-process transport would call that SDK as a library inside `tower send`. It needs a callable with a submission outcome and error.
 
@@ -20,7 +20,7 @@ Codex app-server `turn/start` and `turn/steer` are measured JSON-RPC examples in
 
 By inference, an argv helper reports only exit status. Even if it waits for `item/started`, `deliver_queued()` can only mark `submitted`. It has no path for receipt handling. Codex `queue` exit 0 means enqueued, not received. Mapping exit 0 to `submitted` matches `contract.md`, which requires separate acknowledgement.
 
-`tests/msg_test.sh` runs real `bin/tower send` with a stub `codex` on `PATH`. It checks four argv fields exactly and the message's envelope prefix and body suffix. By inference, an in-process callable needs a fake transport or local endpoint, equivalent state checks, and bounded I/O. By inference, it loses the executable-boundary test. The delivery wrapper (`DELIVERY_WRAPPER`) and `tower send` both kill the adapter's process group at `DELIVERY_TIMEOUT` (30 seconds), bounding one command's hold on `delivery.lock`. The wrapper's deadline still holds after the sender is killed with SIGKILL. `deliver()` holds the batch lock. `CHANGELOG.md` documents that a killed sender can leave an adapter command running after recovery requeues the claim. That adapter can run until the wrapper's deadline, not after it. By inference, an in-process transport dies with its sender unless it starts independent work.
+`tests/msg_test.sh` runs real `bin/tower send` with a stub `codex` on `PATH`. It checks four argv fields exactly and the message's envelope prefix and body suffix. By inference, an in-process callable needs a fake transport or local endpoint, equivalent state checks, and bounded I/O. By inference, it loses the executable-boundary test. The delivery wrapper (`DELIVERY_WRAPPER`) and `tower send` both kill the adapter's process group at `DELIVERY_TIMEOUT` (30 seconds), bounding one command's hold on `delivery.lock`. With a retry, one attempt can run two commands, so it can hold the lock for up to two timeouts. The wrapper's deadline still holds after the sender is killed with SIGKILL. `deliver()` holds the batch lock. `CHANGELOG.md` documents that a killed sender can leave an adapter command running after recovery requeues the claim. That adapter can run until the wrapper's deadline, not after it. By inference, an in-process transport dies with its sender unless it starts independent work.
 
 ## A second vendor channel can require changes outside the table
 

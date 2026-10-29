@@ -40,7 +40,9 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 
 `tower new "Fix the thing"` (also `tower-new`) copies the project's task-card template to
 `tasks/T012-fix-the-thing.md` when the highest flat ID is T011. The title must be one
-nonempty argument. Allocation considers card filenames, frontmatter IDs, and persistent
+nonempty argument. With a title that starts with `-`, such as `--help`, the command prints
+the usage line to stderr and exits 1. It writes no card and claims no ID.
+Allocation considers card filenames, frontmatter IDs, and persistent
 `.claims/` directories; letter-suffixed IDs are ignored. Atomic claims prevent concurrent
 callers from receiving the same ID. The command prints the created path and does not commit.
 
