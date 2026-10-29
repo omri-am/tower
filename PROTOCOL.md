@@ -440,12 +440,14 @@ no territory, or its paths are within two territories. A card whose ownership sp
 territories belongs to `main`, never to one of them.
 
 A card path is within a territory path when the two are equal. It is also within when the
-territory path ends with `/` or holds a glob, and the literal prefix of the card path,
-followed by `/`, starts with the literal prefix of the territory path. The literal prefix is
-the part before the first `*`, `?` or `[`. Thus `docs` is within `docs/`, and
-`lib/tower-paths.sh` is within `lib/tower-*.sh`. A plain file path contains only itself, so
-`docs/agent` does not contain `docs/agent-messaging/x.md`. The prefix test is approximate,
-so `docs/*.md` also contains `docs/build.sh`.
+territory path ends with `/` or holds a glob, and the literal prefix of the card path starts
+with the literal prefix of the territory path. The literal prefix is the part before the
+first `*`, `?` or `[`. Only when the card path holds no glob does a `/` follow its literal
+prefix in this test. Thus `docs` is within `docs/`, and `lib/tower-paths.sh` is within
+`lib/tower-*.sh`. A card glob gets no `/`, so `web*` is not within `web/`: `web*` also
+matches `web-api/`. A plain file path contains only itself, so `docs/agent` does not contain
+`docs/agent-messaging/x.md`. The prefix test is approximate, so `docs/*.md` also contains
+`docs/build.sh`.
 
 **Approval.** Unless the owner delegates, a charter carries `approval: owner`. Under it, a
 sub-orchestrator writes and refines draft cards in its territory, and only the owner moves
