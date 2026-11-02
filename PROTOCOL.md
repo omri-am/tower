@@ -24,6 +24,7 @@ repo-wide.
   tasks/               one card per task: T###-slug.md
   handoffs/            one handoff per finished task: T###-handoff.md
   prompts/             finalized dispatch prompts: T###-prompt.md
+  reviews/             fix-check records: T###/fix-<N>.md
   templates/           card and handoff templates (copied here by tower-init)
 ```
 
@@ -198,7 +199,9 @@ finalization; when session liveness is uncertain, leave the card `in-review`.
 
 The orchestrator ingests a handoff only once its card's PR is `merged` — except blocked
 escalations, which it reads immediately. Sections: What was done, Decisions made during work, Discoveries,
-Suggested follow-up tasks, Candidate learnings, Learnings that were wrong or violated. The Stop hook blocks an implementor session
+Suggested follow-up tasks, Candidate learnings, Learnings that were wrong or violated.
+*What was done* names the review workflow, its rounds, and the commit that each round
+reviewed. The Stop hook blocks an implementor session
 from finishing while its handoff is missing.
 
 **Ingestion receipts.** `merged` means the PR merged and the handoff is finalized; it does

@@ -97,6 +97,50 @@ session has stopped, recover from the draft, merged diff and review threads, fin
 the handoff, and only then set the card `merged` and ingest it. When you cannot establish
 that the implementor stopped, leave `in-review` and avoid racing its finalization.
 
+**Check fixes made after the last review round.** An implementor runs at most three review
+rounds, so a fix for a round-3 finding has no round left. A fix check has a fresh reviewer read
+every commit after the last reviewed commit before the PR merges. The implementor keeps its own
+rounds, and `PROTOCOL.md` has the record format.
+
+1. *When.* For each `in-review` card with an open PR, read the PR head
+   (`gh pr view <pr> --json headRefOid`). The **last reviewed commit** is the
+   `reviewed_commit` of the card's newest record in `reviews/<id>/`, or, with no record, the
+   commit of the handoff's last `- Round <N> reviewed` line. The head is **reviewed** when it
+   equals the last reviewed commit and the newest record, if any, has `verdict: clean`.
+   Otherwise run a fix check. One exception is a head that equals the `reviewed_commit`
+   of the newest record when that record says `changes`: run no fix check, and wait until the
+   head changes or the handoff has the `- fix-<N> answer:` line for that record. The head is
+   not reviewed while you wait.
+2. *Range.* From the last reviewed commit to the head. Use the PR's full diff from its merge
+   base instead in two cases: the handoff names no reviewed commit, or the range holds a
+   merge commit. Then the range starts at the merge base. When the answer to a `changes`
+   record rejects every finding and the head did not change, run one fix check over that
+   record's range, from its `from_commit` to its `reviewed_commit`.
+3. *Reviewer.* A fresh context: a sub-agent where the host supports one (the Agent tool in
+   Claude Code), and otherwise a headless session (`claude -p`, `codex exec`). It is
+   read-only. It changes no file, pushes nothing and posts nothing.
+4. *Context pack,* in the reviewer's prompt: the card path; the range and the command that
+   shows it; the PR's full diff for context; the findings that the new commits or the answer
+   line address, from the previous record or the handoff, without the implementor's claims
+   that they are fixed; the implementor's `- fix-<N> answer:` line for the previous record,
+   if any; the output of `tower-learnings --for <id>`; and the review procedure that your
+   agent instructions name (when they name none: correctness, tests, and fit with the card).
+   Severity is `critical`, `important` or `suggestion`. The reviewer judges each rejection
+   reason in an answer line as an argument and checks each `fixed in` commit. It takes
+   neither as proof that a finding is fixed.
+5. *Record.* Write `reviews/<id>/fix-<N>.md`, with N from 1, in the format in `PROTOCOL.md`.
+   Add it with `git add`, then commit it with a `tower:` message and `git commit --only`.
+6. *Outcome.* `clean` means no critical or important finding. Suggestions are recorded and
+   do not block. On `changes`, add a `## Corrections` entry to the card that names the
+   record, and message the implementor by the route in "Correct in-flight work" below. After
+   its new commits, the next fix check starts from this record's `reviewed_commit`.
+7. *Cap.* At most three fix checks for each PR, outside the implementor's three rounds. When
+   the third returns `changes`, run `tower-notify` and run no more fix checks for that PR.
+   Do the same when a fix check returns `changes` on a finding that the implementor already
+   rejected. The merge gate notice then names that finding and the rejection.
+8. *Merge gate.* At the merge gate, name the record or the round that reviewed the head. A PR
+   whose head is not reviewed is not ready to merge, and the notice says so.
+
 **Confirm card sizing once.** If `.tower/card-sizing.md` has `confirmed: no`, settle it
 before writing any draft card. First look for an existing size instruction in the project's
 `AGENTS.md` or `CLAUDE.md` (project dir first, then repo root) — an owner instruction outranks
@@ -224,7 +268,9 @@ owner comments in `.tower/comments/` and address feedback against the current ca
 repeat completed revisions solely because a historical comment remains on disk. Poll the
 in-review cards’ PRs with `gh pr view --json state` if no watcher is reporting them;
 recover unfinished handoffs only after their implementors stop. Run the ingest duty for
-every pending handoff; read blocked cards’ handoffs immediately; extend the draft
+every pending handoff; read blocked cards’ handoffs immediately; run a fix check for each
+in-review PR whose head is not reviewed, except while it waits for an answer to a
+`changes` record; extend the draft
 frontier if it is thinner than 2-3 decision-complete cards per branch; finalize prompts
 for owner-approved ready cards; notify only at HITL gates; otherwise report nothing
 changed. A `FileChanged` hook on `.tower/handoffs/` (see the tower repo's hooks/README.md)
