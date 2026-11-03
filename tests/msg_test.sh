@@ -16,6 +16,9 @@ import sys
 import tempfile
 import time
 
+# A shell without job control starts & jobs with SIGINT ignored, and this handler makes each Python child, including the "interrupt me" sender, start with SIGINT at its default.
+signal.signal(signal.SIGINT, signal.default_int_handler)
+
 root = Path(sys.argv[1])
 env = dict(os.environ, TOWER_ROOT=str(root), TOWER_NO_VERSION_CHECK='1', TOWER_ROLE='reader')
 env.pop('TOWER_PROJECT_DIR', None)
