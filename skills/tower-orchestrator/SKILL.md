@@ -110,12 +110,15 @@ rounds, and `PROTOCOL.md` has the record format.
    Otherwise run a fix check. One exception is a head that equals the `reviewed_commit`
    of the newest record when that record says `changes`: run no fix check, and wait until the
    head changes or the handoff has the `- fix-<N> answer:` line for that record. The head is
-   not reviewed while you wait.
+   not reviewed while you wait. Run no fix check for a card whose handoff draft does not exist
+   yet. The first tick after the draft appears applies this point as written.
 2. *Range.* From the last reviewed commit to the head. Use the PR's full diff from its merge
-   base instead in two cases: the handoff names no reviewed commit, or the range holds a
-   merge commit. Then the range starts at the merge base. When the answer to a `changes`
-   record rejects every finding and the head did not change, run one fix check over that
-   record's range, from its `from_commit` to its `reviewed_commit`.
+   base instead in three cases: there is no last reviewed commit (no record and no round
+   line), the range holds a merge commit, or the last reviewed commit is not an ancestor of
+   the head (`git merge-base --is-ancestor <last> <head>` exits nonzero). Then the range
+   starts at the merge base. When the handoff has the answer line for a `changes` record and
+   the head did not change, run one fix check over that record's range, from its
+   `from_commit` to its `reviewed_commit`.
 3. *Reviewer.* A fresh context: a sub-agent where the host supports one (the Agent tool in
    Claude Code), and otherwise a headless session (`claude -p`, `codex exec`). It is
    read-only. It changes no file, pushes nothing and posts nothing.
@@ -127,13 +130,20 @@ rounds, and `PROTOCOL.md` has the record format.
    agent instructions name (when they name none: correctness, tests, and fit with the card).
    Severity is `critical`, `important` or `suggestion`. The reviewer judges each rejection
    reason in an answer line as an argument and checks each `fixed in` commit. It takes
-   neither as proof that a finding is fixed.
+   neither as proof that a finding is fixed. The pack of a PR's first fix check also holds
+   every finding that the implementor rejected in its own rounds, with the reason, from the
+   handoff. The reviewer judges each of those reasons as an argument too. The reviewer reads
+   only the pack and the repository's files. It does not read the handoff or any `.tower/`
+   file other than the card.
 5. *Record.* Write `reviews/<id>/fix-<N>.md`, with N from 1, in the format in `PROTOCOL.md`.
    Add it with `git add`, then commit it with a `tower:` message and `git commit --only`.
 6. *Outcome.* `clean` means no critical or important finding. Suggestions are recorded and
    do not block. On `changes`, add a `## Corrections` entry to the card that names the
    record, and message the implementor by the route in "Correct in-flight work" below. After
-   its new commits, the next fix check starts from this record's `reviewed_commit`.
+   its new commits, the next fix check starts from this record's `reviewed_commit`. When that
+   route reaches no live session (a Codex or `--headless` implementor, or a session that has
+   ended), also run `tower-notify` at once. The owner decides the next step. The wait in
+   point 1 still applies.
 7. *Cap.* At most three fix checks for each PR, outside the implementor's three rounds. When
    the third returns `changes`, run `tower-notify` and run no more fix checks for that PR.
    Do the same when a fix check returns `changes` on a finding that the implementor already
