@@ -418,4 +418,68 @@ EOF
   assert_true "$MODE detects duplicates before attempting the existing lock" cmp -s "$TMP/expected-duplicates" "$TMP/dispatch.out"
 done
 
+NO_OSASCRIPT="$TMP/no-osascript"
+mkdir "$NO_OSASCRIPT"
+for TOOL in bash git env cat sed awk mkdir rmdir mktemp mv ln dirname basename head tr paste find sort grep shasum cut wc sh; do
+  TOOLPATH="$(type -P "$TOOL" 2>/dev/null)"
+  [ -n "$TOOLPATH" ] && ln -sf "$TOOLPATH" "$NO_OSASCRIPT/$TOOL"
+done
+
+PROJECT="$TMP/no-terminal-tool"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+cp "$PROJECT/.tower/tasks/T001-test.md" "$TMP/terminal-card-before"
+BEFORE_STATE_HEAD="$(git -C "$PROJECT/.tower" rev-parse HEAD)"
+BEFORE_BRANCHES="$(git -C "$PROJECT" for-each-ref refs/heads)"
+BEFORE_WORKTREES="$(git -C "$PROJECT" worktree list --porcelain)"
+printf '%s\n' 'tower-dispatch: the default mode opens a macOS Terminal window and needs osascript - use --headless, --here or --prep' > "$TMP/expected-no-osascript"
+(cd "$PROJECT" && PATH="$NO_OSASCRIPT" "$ROOT/bin/tower-dispatch" T001) > "$TMP/no-osascript.stdout" 2> "$TMP/no-osascript.stderr"
+assert_status 'default mode without osascript exits 1' "$?" 1
+assert_true 'default mode without osascript reports the exact refusal' cmp -s "$TMP/expected-no-osascript" "$TMP/no-osascript.stderr"
+assert_empty 'default mode without osascript has no stdout' "$(cat "$TMP/no-osascript.stdout")"
+assert_true 'default mode without osascript preserves card bytes' cmp -s "$TMP/terminal-card-before" "$PROJECT/.tower/tasks/T001-test.md"
+assert_eq 'default mode without osascript preserves state HEAD' "$(git -C "$PROJECT/.tower" rev-parse HEAD)" "$BEFORE_STATE_HEAD"
+assert_eq 'default mode without osascript creates no branch' "$(git -C "$PROJECT" for-each-ref refs/heads)" "$BEFORE_BRANCHES"
+assert_eq 'default mode without osascript creates no worktree' "$(git -C "$PROJECT" worktree list --porcelain)" "$BEFORE_WORKTREES"
+assert_false 'default mode without osascript leaves no dispatch lock' test -e "$PROJECT/.tower/.git/tower-dispatch.lock"
+
+FAILED_OSASCRIPT="$TMP/failed-osascript"
+mkdir "$FAILED_OSASCRIPT"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$FAILED_OSASCRIPT/osascript"
+chmod +x "$FAILED_OSASCRIPT/osascript"
+PROJECT="$TMP/terminal-launch-fails"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+printf '%s\n' 'tower-dispatch: could not open a Terminal window (osascript exit 1); after confirming no session started, use --resume to reuse its worktree' > "$TMP/expected-failed-osascript"
+(cd "$PROJECT" && PATH="$FAILED_OSASCRIPT:$NO_OSASCRIPT" "$ROOT/bin/tower-dispatch" T001) > "$TMP/failed-osascript.stdout" 2> "$TMP/failed-osascript.stderr"
+assert_status 'failed Terminal launch exits with osascript status' "$?" 1
+assert_true 'failed Terminal launch reports the exact recovery message' cmp -s "$TMP/expected-failed-osascript" "$TMP/failed-osascript.stderr"
+assert_empty 'failed Terminal launch has no stdout' "$(cat "$TMP/failed-osascript.stdout")"
+
+RECORDED_OSASCRIPT="$TMP/recorded-osascript"
+mkdir "$RECORDED_OSASCRIPT"
+cat > "$RECORDED_OSASCRIPT/osascript" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$TOWER_TEST_OSASCRIPT_ARGS"
+exit 0
+EOF
+chmod +x "$RECORDED_OSASCRIPT/osascript"
+export TOWER_TEST_OSASCRIPT_ARGS="$TMP/osascript-args"
+PROJECT="$TMP/terminal-launch-succeeds"
+new_repo "$PROJECT"
+new_project "$PROJECT"
+new_card "$PROJECT" T001
+(cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --print-only) > "$TMP/terminal-command.stdout" 2> "$TMP/terminal-command.stderr"
+LAUNCH="$(cat "$TMP/terminal-command.stdout")"
+EXPECTED_ESCAPED="${LAUNCH//\\/\\\\}"
+EXPECTED_ESCAPED="${EXPECTED_ESCAPED//\"/\\\"}"
+printf '%s\n' -e "tell application \"Terminal\" to do script \"$EXPECTED_ESCAPED\"" -e 'tell application "Terminal" to activate' > "$TMP/expected-osascript-args"
+(cd "$PROJECT" && PATH="$RECORDED_OSASCRIPT:$NO_OSASCRIPT" "$ROOT/bin/tower-dispatch" T001) > "$TMP/recorded-osascript.stdout" 2> "$TMP/recorded-osascript.stderr"
+assert_status 'successful Terminal launch exits 0' "$?" 0
+BRANCH="$(card_field "$PROJECT" T001 branch)"
+assert_eq 'successful Terminal launch reports the task branch' "$(cat "$TMP/recorded-osascript.stdout")" "tower-dispatch: launched claude for T001 in a new Terminal window (branch $BRANCH)"
+assert_true 'successful Terminal launch passes the exact osascript arguments' cmp -s "$TMP/expected-osascript-args" "$TOWER_TEST_OSASCRIPT_ARGS"
+
 summary
