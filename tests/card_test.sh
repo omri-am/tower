@@ -31,13 +31,25 @@ inside the box at every supported width.
 ## Interfaces & decisions
 
 - first decision
-- second decision
+- second decision, long enough that its text runs past the end of one source line and then
+  continues on an indented line
+- third decision, with an indented example:
+  ```
+  example line one
+      example line two, indented further and long enough that it wraps inside the box at width 80
+  ```
+  a note after the example, long enough that its text runs past the end of one source line
+  and continues on a second line
+
+A closing paragraph that names a pull request where the source line breaks before
+#15804 and the number stays inside the paragraph.
 
 ## Acceptance criteria
 
 - [x] done one
 - [ ] pending two
-- [ ] pending three
+- [ ] pending three, whose text runs past the end of one source line in the card and
+      continues on an indented line
 
 ## Verification
 
@@ -116,6 +128,13 @@ card_body_of() {
   awk 'NR==1 && $0=="---" {n=1; next} n==1 && $0=="---" {n=2; next} n==2' "$1" | sed '/./,$!d'
 }
 
+rows_from() {
+  printf '%s\n' "$1" | awk -v needle="$2" -v count="$3" '
+    !found && index($0, needle) { found=1; left=count }
+    left > 0 { print; left-- }
+  '
+}
+
 for WIDTH in 80 72 60 52 46; do
   for ID in T001 T002 T003 T004a; do
     OUT="$(TOWER_CARD_WIDTH="$WIDTH" "$CARD" "$ID")"
@@ -138,6 +157,53 @@ assert_eq "unchecked criteria render as empty boxes" "$(printf '%s\n' "$FULL" | 
 assert_eq "a pull url renders as its number" "$(printf '%s\n' "$FULL" | grep -c 'pr: #15425')" "1"
 assert_eq "fenced verification keeps its line intact" \
   "$(printf '%s\n' "$FULL" | grep -c "tower-card T001 --plain | diff - <(sed -n '/\^## Goal/,\$p' .tower/tasks/T001-full-card.md)")" "1"
+
+FULL80="$(TOWER_CARD_WIDTH=80 "$CARD" T001)"
+assert_eq "the goal fills its rows" \
+  "$(rows_from "$FULL80" "One paragraph of prose" 3)" \
+  "$(printf '%s\n' \
+    '│   One paragraph of prose long enough that it must wrap across more than a    │' \
+    '│   single rendered row inside the box at every supported width.               │' \
+    '├──────────────────────────────────────────────────────────────────────────────┤')"
+assert_eq "a bullet block start stays a row of its own" \
+  "$(rows_from "$FULL80" "• first decision" 3)" \
+  "$(printf '%s\n' \
+    '│   • first decision                                                           │' \
+    '│   • second decision, long enough that its text runs past the end of one      │' \
+    '│     source line and then continues on an indented line                       │')"
+assert_eq "a hard-wrapped bullet fills its rows" \
+  "$(rows_from "$FULL80" "• second decision" 3)" \
+  "$(printf '%s\n' \
+    '│   • second decision, long enough that its text runs past the end of one      │' \
+    '│     source line and then continues on an indented line                       │' \
+    '│   • third decision, with an indented example:                                │')"
+assert_eq "a hard-wrapped criterion fills its rows" \
+  "$(rows_from "$FULL80" "☐ pending three" 3)" \
+  "$(printf '%s\n' \
+    '│   ☐ pending three, whose text runs past the end of one source line in the    │' \
+    '│     card and continues on an indented line                                   │' \
+    '├──────────────────────────────────────────────────────────────────────────────┤')"
+assert_eq "guard: an indented fence renders as on origin/main" \
+  "$(rows_from "$FULL80" "• third decision" 6)" \
+  "$(printf '%s\n' \
+    '│   • third decision, with an indented example:                                │' \
+    '│     ```                                                                      │' \
+    '│     example line one                                                         │' \
+    '│         example line two, indented further and long enough that it wraps     │' \
+    '│   inside the box at width 80                                                 │' \
+    '│     ```                                                                      │')"
+assert_eq "the line after an indented fence starts its own block and keeps its indent" \
+  "$(rows_from "$FULL80" "a note after the example" 3)" \
+  "$(printf '%s\n' \
+    '│     a note after the example, long enough that its text runs past the end    │' \
+    '│     of one source line and continues on a second line                        │' \
+    '│                                                                              │')"
+assert_eq "a line that starts with #<number> joins its paragraph" \
+  "$(rows_from "$FULL80" "A closing paragraph" 3)" \
+  "$(printf '%s\n' \
+    '│   A closing paragraph that names a pull request where the source line        │' \
+    '│   breaks before #15804 and the number stays inside the paragraph.            │' \
+    '├──────────────────────────────────────────────────────────────────────────────┤')"
 
 PREAMBLE="$("$CARD" T002)"
 assert_eq "content before the first heading is rendered" \
