@@ -84,9 +84,11 @@ assert_true 'first owner claims its paths' dispatch "$PROJECT" T001 --prep
 assert_false 'overlapping owner is rejected' dispatch "$PROJECT" T002 --prep
 assert_eq 'rejected overlap remains ready' "$(card_field "$PROJECT" T002 status)" ready
 assert_true 'sibling directory is not an overlap' dispatch "$PROJECT" T003 --prep
-sed -i '' 's/status: in-flight/status: in-review/' "$PROJECT/.tower/tasks/T001-test.md"
+sed -i.bak 's/status: in-flight/status: in-review/' "$PROJECT/.tower/tasks/T001-test.md"
+rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 assert_false 'review still reserves owned paths' dispatch "$PROJECT" T002 --prep
-sed -i '' 's/status: in-review/status: merged/' "$PROJECT/.tower/tasks/T001-test.md"
+sed -i.bak 's/status: in-review/status: merged/' "$PROJECT/.tower/tasks/T001-test.md"
+rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 assert_true 'merged owner releases its paths' dispatch "$PROJECT" T002 --prep
 
 PROJECT="$TMP/parent-relative"
@@ -110,8 +112,10 @@ new_repo "$PROJECT"
 new_project "$PROJECT"
 new_card "$PROJECT" T001 'src/a.sh'
 new_card "$PROJECT" T002 'src/b.sh'
-sed -i '' 's/^- `src\/b.sh`$/To be filled in at promotion./' "$PROJECT/.tower/tasks/T002-test.md"
-sed -i '' 's/status: ready/status: blocked/' "$PROJECT/.tower/tasks/T002-test.md"
+sed -i.bak 's/^- `src\/b.sh`$/To be filled in at promotion./' "$PROJECT/.tower/tasks/T002-test.md"
+rm "$PROJECT/.tower/tasks/T002-test.md.bak"
+sed -i.bak 's/status: ready/status: blocked/' "$PROJECT/.tower/tasks/T002-test.md"
+rm "$PROJECT/.tower/tasks/T002-test.md.bak"
 assert_true "a blocked card's unfilled ownership does not block another dispatch" dispatch "$PROJECT" T001 --prep
 
 PROJECT="$TMP/concurrent"
@@ -236,7 +240,8 @@ assert_false 'an overridden model is not also passed' grep -qx opus "$TOWER_TEST
 assert_eq 'resume with a new model leaves the recorded model' "$(card_field "$PROJECT" T001 model)" opus
 assert_true 'overriding the model on resume keeps the recorded effort' grep -qx high "$TOWER_TEST_ARGS"
 new_card "$PROJECT" T002
-sed -i '' 's/^vendor: claude$/vendor: claude\nmodel: ""\neffort: ""/' "$PROJECT/.tower/tasks/T002-test.md"
+sed -i.bak 's/^vendor: claude$/vendor: claude\nmodel: ""\neffort: ""/' "$PROJECT/.tower/tasks/T002-test.md"
+rm "$PROJECT/.tower/tasks/T002-test.md.bak"
 git -C "$PROJECT/.tower" commit -q -am 'tower: add model fields to T002'
 assert_true 'card with empty model fields dispatches' dispatch "$PROJECT" T002 --model opus --prep
 assert_eq 'empty model field is filled in place' "$(grep -c '^model:' "$PROJECT/.tower/tasks/T002-test.md")" 1
@@ -272,7 +277,8 @@ assert_claude_command 'headless claude with model' "-n $SESSION -p --model opus"
 assert_claude_command 'headless claude with effort' "-n $SESSION -p --effort high" --headless --effort high
 assert_claude_command 'headless claude with model and effort' "-n $SESSION -p --model opus --effort high" --headless --model opus --effort high
 
-sed -i '' 's/^vendor: claude$/vendor: any/' "$PROJECT/.tower/tasks/T001-test.md"
+sed -i.bak 's/^vendor: claude$/vendor: any/' "$PROJECT/.tower/tasks/T001-test.md"
+rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 assert_true 'any vendor uses the table default' dispatch "$PROJECT" T001 --print-only
 grep '^cd ' "$TMP/dispatch.out" > "$TMP/default-command"
 assert_true 'default command launches claude' grep -q ' claude -n ' "$TMP/default-command"
@@ -383,9 +389,10 @@ for MODE in --print-only --prep --resume --headless; do
   cp "$PROJECT/.tower/tasks/T002-test.md" "$PROJECT/.tower/tasks/Z002-other.md"
   cp "$PROJECT/.tower/tasks/T003-test.md" "$PROJECT/.tower/tasks/A003-other.md"
   printf 'id: T999\n' >> "$PROJECT/.tower/tasks/T002-test.md"
-  sed -i '' '/^id: T002$/a\
+  sed -i.bak '/^id: T002$/a\
 id: T999
 ' "$PROJECT/.tower/tasks/Z002-other.md"
+  rm "$PROJECT/.tower/tasks/Z002-other.md.bak"
   printf '%s\n' '---' 'title: No id' '---' 'id: T002' > "$PROJECT/.tower/tasks/no-id.md"
   mkdir "$PROJECT/.tower/tasks/nested"
   cp "$PROJECT/.tower/tasks/T002-test.md" "$PROJECT/.tower/tasks/nested/ignored.md"
