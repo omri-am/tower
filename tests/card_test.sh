@@ -74,6 +74,13 @@ pr: ""
 ## Goal
 
 Prove the preamble is rendered.
+* a star item
+continues on a second line
+# A top heading
+### A sub heading
+> a quote
+| a | b |
+1. a numbered step
 CARD
 
 cat > "$TASKS/T003-no-headings.md" <<'CARD'
@@ -204,6 +211,26 @@ assert_eq "a line that starts with #<number> joins its paragraph" \
     '│   A closing paragraph that names a pull request where the source line        │' \
     '│   breaks before #15804 and the number stays inside the paragraph.            │' \
     '├──────────────────────────────────────────────────────────────────────────────┤')"
+
+FULL60="$(TOWER_CARD_WIDTH=60 "$CARD" T001)"
+assert_eq "an indented block's first row fills as wide as before" \
+  "$(rows_from "$FULL60" "a note after the example" 4)" \
+  "$(printf '%s\n' \
+    '│     a note after the example, long enough that its text  │' \
+    '│     runs past the end of one source line and continues   │' \
+    '│     on a second line                                     │' \
+    '│                                                          │')"
+assert_eq "each block start begins its own row" \
+  "$(rows_from "$(TOWER_CARD_WIDTH=80 "$CARD" T002)" "Prove the preamble is rendered." 8)" \
+  "$(printf '%s\n' \
+    '│   Prove the preamble is rendered.                                            │' \
+    '│   • a star item continues on a second line                                   │' \
+    '│   # A top heading                                                            │' \
+    '│   ### A sub heading                                                          │' \
+    '│   > a quote                                                                  │' \
+    '│   | a | b |                                                                  │' \
+    '│   1. a numbered step                                                         │' \
+    '╰──────────────────────────────────────────────────────────────────────────────╯')"
 
 PREAMBLE="$("$CARD" T002)"
 assert_eq "content before the first heading is rendered" \

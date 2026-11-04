@@ -270,7 +270,7 @@ render_section() {
     fi
   fi
 
-  local in_code=0 in_indented_fence=0 seen=0 blanks=0 text lead next_line next_lead indented_fence_line cont
+  local in_code=0 in_indented_fence=0 seen=0 blanks=0 text lead next_line next_lead indented_fence_line first_line indent
   i="$start"
   while [ "$i" -lt "$end" ]; do
     line="${LINES[$i]}"
@@ -299,7 +299,7 @@ render_section() {
           if [ "$in_indented_fence" = 0 ]; then in_indented_fence=1; else in_indented_fence=0; fi ;;
       esac
     fi
-    cont="  "
+    first_line="$line" indent=""
     if [ "$in_indented_fence" = 0 ] && [ "$indented_fence_line" = 0 ]; then
       while [ "$i" -lt "$end" ]; do
         next_line="${LINES[$i]}"
@@ -309,15 +309,15 @@ render_section() {
         line="$line ${next_line#"$next_lead"}"
         i=$((i + 1))
       done
-      cont="  $lead"
+      indent="$lead"
     fi
-    case "$line" in
+    case "$first_line" in
       "- [ ]"*) text="${line#- \[ \]}"; emit_wrapped "${text# }" "  ☐ " "    " ;;
       "- [x]"*) text="${line#- \[x\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
       "- [X]"*) text="${line#- \[X\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
       "- "*)    emit_wrapped "${line#- }" "  • " "    " ;;
       "* "*)    emit_wrapped "${line#\* }" "  • " "    " ;;
-      *)        emit_wrapped "$line" "  " "$cont" ;;
+      *)        emit_wrapped "${line#"$indent"}" "  $indent" "  $indent" ;;
     esac
   done
 }
