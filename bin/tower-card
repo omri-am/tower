@@ -300,16 +300,18 @@ render_section() {
       esac
     fi
     first_line="$line" indent=""
-    if [ "$in_indented_fence" = 0 ] && [ "$indented_fence_line" = 0 ]; then
+    if [ "$in_indented_fence" = 0 ] && [ "$indented_fence_line" = 0 ] && [ "$lead" != "$line" ]; then
       while [ "$i" -lt "$end" ]; do
         next_line="${LINES[$i]}"
-        [ -n "$next_line" ] || break
-        starts_block "$next_line" && break
         next_lead="${next_line%%[! ]*}"
+        [ "$next_lead" != "$next_line" ] || break
+        starts_block "$next_line" && break
+        while [ "${line% }" != "$line" ]; do line="${line% }"; done
         line="$line ${next_line#"$next_lead"}"
         i=$((i + 1))
       done
       indent="$lead"
+      [ "${#indent}" -le $((INNER - 10)) ] || indent=""
     fi
     case "$first_line" in
       "- [ ]"*) text="${line#- \[ \]}"; emit_wrapped "${text# }" "  ☐ " "    " ;;

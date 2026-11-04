@@ -289,4 +289,30 @@ assert_eq "ambiguous id names every matching file" \
   "$(printf '%s\n' "$AMBIGUOUS_OUT" | grep -c 'T900-a.md\|T900-b.md')" "2"
 rm -rf "$AMBIGUOUS_PROJECT"
 
+EDGE_PROJECT="$(mktemp -d)"
+mkdir -p "$EDGE_PROJECT/.tower/tasks"
+printf -- '---\nid: T950\ntitle: Edge cases\nstatus: draft\n---\n\n## Goal\n\n%s\n%s\n\n%s\n%s\n%s\n\n%s\n' \
+  'A line that ends with a space ' 'joins the next line with one space.' \
+  'First paragraph ends here.' '   ' 'Second paragraph starts here.' \
+  "$(printf '%40s' '')deeply indented words stay visible" > "$EDGE_PROJECT/.tower/tasks/T950-edge.md"
+EDGE80="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=80 "$CARD" T950)"
+EDGE46="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=46 "$CARD" T950)"
+assert_eq "a trailing space joins with one space" \
+  "$(rows_from "$EDGE80" "A line that ends with a space" 2)" \
+  "$(printf '%s\n' \
+    '│   A line that ends with a space joins the next line with one space.          │' \
+    '│                                                                              │')"
+assert_eq "guard: a line of spaces separates paragraphs as on origin/main" \
+  "$(rows_from "$EDGE80" "First paragraph ends here." 3)" \
+  "$(printf '%s\n' \
+    '│   First paragraph ends here.                                                 │' \
+    '│                                                                              │' \
+    '│   Second paragraph starts here.                                              │')"
+assert_eq "guard: an indent too deep for the box renders as on origin/main" \
+  "$(rows_from "$EDGE46" "deeply indented words stay visible" 2)" \
+  "$(printf '%s\n' \
+    '│   deeply indented words stay visible       │' \
+    '╰────────────────────────────────────────────╯')"
+rm -rf "$EDGE_PROJECT"
+
 summary
