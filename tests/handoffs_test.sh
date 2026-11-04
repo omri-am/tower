@@ -10,7 +10,8 @@ new_repo "$PROJECT"
 new_project "$PROJECT"
 new_card "$PROJECT" T001
 new_card "$PROJECT" T002
-sed -i '' 's/status: ready/status: merged/' "$PROJECT/.tower/tasks/T001-test.md"
+sed -i.bak 's/status: ready/status: merged/' "$PROJECT/.tower/tasks/T001-test.md"
+rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 echo final > "$PROJECT/.tower/handoffs/T001-handoff.md"
 echo draft > "$PROJECT/.tower/handoffs/T002-handoff.md"
 git -C "$PROJECT/.tower" add .

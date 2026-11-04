@@ -9,7 +9,8 @@ PROJECT="$TMP/project"
 new_repo "$PROJECT"
 new_project "$PROJECT"
 new_card "$PROJECT" T001
-sed -i '' -e 's/status: ready/status: in-review/' -e 's/pr: ""/pr: "42"/' "$PROJECT/.tower/tasks/T001-test.md"
+sed -i.bak -e 's/status: ready/status: in-review/' -e 's/pr: ""/pr: "42"/' "$PROJECT/.tower/tasks/T001-test.md"
+rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 git -C "$PROJECT/.tower" add .
 git -C "$PROJECT/.tower" commit -q -m 'tower: review'
 BEFORE="$(git -C "$PROJECT/.tower" rev-parse HEAD)"
@@ -26,10 +27,10 @@ watch_once() {
 
 watch_once
 assert_eq 'PR merge alone does not finalize task' "$(card_field "$PROJECT" T001 status)" in-review
-assert_eq 'watcher never commits incomplete handoff state' "$(git -C "$PROJECT/.tower" rev-parse HEAD)" "$BEFORE"
+assert_eq 'watcher never commits incomplete handoff state' "$(tail -1 "$TMP/watch.out"):$(git -C "$PROJECT/.tower" rev-parse HEAD)" "tower-watch: T001 (PR 42) merged:$BEFORE"
 assert_eq 'merge callback receives task and PR' "$(cat "$PROJECT/callback.txt")" 'T001 42'
 echo draft > "$PROJECT/.tower/handoffs/T001-handoff.md"
 watch_once
 assert_eq 'draft handoff does not authorize merged status' "$(card_field "$PROJECT" T001 status)" in-review
-assert_eq 'draft remains untouched' "$(cat "$PROJECT/.tower/handoffs/T001-handoff.md")" draft
+assert_eq 'draft remains untouched' "$(tail -1 "$TMP/watch.out"):$(cat "$PROJECT/.tower/handoffs/T001-handoff.md")" 'tower-watch: T001 (PR 42) merged:draft'
 summary
