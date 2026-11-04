@@ -36,7 +36,7 @@ make_stub "$CASE/forward" 3
 make_stub "$CASE/osascript" 4
 make_stub "$CASE/notify-send" 5
 run_notice DISPLAY=:0 TOWER_NOTIFY_COMMAND="$CASE/forward" "$ROOT/bin/tower-notify" t m
-assert_eq 'channel 1 wins over osascript and notify-send' "$STATUS:$(record "$CASE/forward"):$(record "$CASE/osascript"):$(record "$CASE/notify-send")" "$(printf '3:tower: t\nm\nx:none:none')"
+assert_eq 'channel 1 wins over osascript, notify-send and stderr' "$STATUS:$(record "$CASE/forward"):$(record "$CASE/osascript"):$(record "$CASE/notify-send"):$(cat "$CASE/err"; printf x)" "$(printf '3:tower: t\nm\nx:none:none:x')"
 
 new_case quoted
 make_stub "$CASE/forward" 0
@@ -81,6 +81,17 @@ make_stub "$CASE/notify-send" 5
 run_notice DISPLAY= "$ROOT/bin/tower-notify" t m
 assert_eq 'channel 3 treats an empty DISPLAY as no display' "$STATUS:$(record "$CASE/notify-send")" '0:none'
 assert_fallback 'empty display uses channel 4'
+
+new_case empty_wayland
+make_stub "$CASE/notify-send" 5
+run_notice WAYLAND_DISPLAY= "$ROOT/bin/tower-notify" t m
+assert_eq 'channel 3 treats an empty WAYLAND_DISPLAY as no display' "$STATUS:$(record "$CASE/notify-send")" '0:none'
+assert_fallback 'empty WAYLAND_DISPLAY uses channel 4'
+
+new_case no_notify_send
+run_notice DISPLAY=:0 "$ROOT/bin/tower-notify" t m
+assert_eq 'channel 3 needs notify-send on PATH' "$STATUS:$(cat "$CASE/out"; printf x)" '0:x'
+assert_fallback 'a display without notify-send uses channel 4'
 
 new_case fallback
 run_notice "$ROOT/bin/tower-notify" t '100% \n done'
