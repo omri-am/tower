@@ -443,6 +443,9 @@ assert_eq 'default mode without osascript preserves state HEAD' "$(git -C "$PROJ
 assert_eq 'default mode without osascript creates no branch' "$(git -C "$PROJECT" for-each-ref refs/heads)" "$BEFORE_BRANCHES"
 assert_eq 'default mode without osascript creates no worktree' "$(git -C "$PROJECT" worktree list --porcelain)" "$BEFORE_WORKTREES"
 assert_false 'default mode without osascript leaves no dispatch lock' test -e "$PROJECT/.tower/.git/tower-dispatch.lock"
+mkdir "$PROJECT/.tower/.git/tower-dispatch.lock"
+(cd "$PROJECT" && PATH="$NO_OSASCRIPT" "$ROOT/bin/tower-dispatch" T001) > "$TMP/no-osascript.stdout" 2> "$TMP/no-osascript.stderr"
+assert_true 'default mode without osascript refuses before attempting the existing lock' cmp -s "$TMP/expected-no-osascript" "$TMP/no-osascript.stderr"
 
 FAILED_OSASCRIPT="$TMP/failed-osascript"
 mkdir "$FAILED_OSASCRIPT"
