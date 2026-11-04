@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# A test that reaches tower-notify must never run the forwarder of the shell that started it.
+unset TOWER_NOTIFY_COMMAND
 TESTS_RUN=0
 TESTS_FAILED=0
 
