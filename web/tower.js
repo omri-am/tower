@@ -189,11 +189,11 @@ function inline(text) {
 function flushText(state) {
   if (state.paragraph.length) {
     const node = element(state.list ? 'li' : 'p');
-    node.append(inline(state.paragraph.join(state.quote ? '\n' : ' ')));
+    node.append(inline(state.paragraph.join(state.keepLineBreaks ? '\n' : ' ')));
     (state.list || state.container).append(node);
     state.paragraph = [];
   }
-  state.quote = false;
+  state.keepLineBreaks = false;
 }
 
 function flushParagraph(state) {
@@ -236,17 +236,17 @@ function appendMarkdownLine(state, line) {
     return;
   }
   if (/^\s*[>|]/.test(line)) {
-    if (!state.quote) flushParagraph(state);
-    state.quote = true;
+    if (!state.keepLineBreaks) flushParagraph(state);
+    state.keepLineBreaks = true;
     state.paragraph.push(line);
     return;
   }
-  if (state.quote) flushParagraph(state);
+  if (state.keepLineBreaks) flushParagraph(state);
   state.paragraph.push(state.paragraph.length ? line.trimStart() : line);
 }
 
 function markdown(body) {
-  const state = { container: element('div', undefined, 'card-body'), paragraph: [], quote: false, code: null, fence: '', list: null, listType: null };
+  const state = { container: element('div', undefined, 'card-body'), paragraph: [], keepLineBreaks: false, code: null, fence: '', list: null, listType: null };
   for (const line of body.split('\n')) appendMarkdownLine(state, line);
   flushParagraph(state);
   if (state.code !== null) state.container.append(element('pre', state.code.join('\n')));

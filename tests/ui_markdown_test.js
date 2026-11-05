@@ -59,11 +59,18 @@ function loadMarkdownRenderer() {
   return context.markdown;
 }
 
+function itemTexts(list) {
+  return list.children.map((item) => {
+    assert.strictEqual(item.tagName, 'LI', `<${list.tagName.toLowerCase()}> holds <${item.tagName.toLowerCase()}>`);
+    return item.textContent;
+  });
+}
+
 function blocksOf(container) {
   return container.children.map((node) => {
     const tag = node.tagName.toLowerCase();
-    if (tag === 'ul') return ['ul', node.children.map((item) => item.textContent)];
-    if (tag === 'ol') return ['ol', node.getAttribute('start'), node.children.map((item) => item.textContent)];
+    if (tag === 'ul') return ['ul', itemTexts(node)];
+    if (tag === 'ol') return ['ol', node.getAttribute('start'), itemTexts(node)];
     return [tag, node.textContent];
   });
 }
