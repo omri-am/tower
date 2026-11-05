@@ -296,7 +296,7 @@ printf -- '---\nid: T950\ntitle: Edge cases\nstatus: draft\n---\n\n## Goal\n\n%s
   'A line that ends with a space ' 'joins the next line with one space.' \
   'First paragraph ends here.' '   ' 'Second paragraph starts here.' \
   'These join:' '**bold** text' '--plain text.' \
-  "${DEEP32}kept indent" "${DEEP33}deeply indented words stay visible" > "$EDGE_PROJECT/.tower/tasks/T950-edge.md"
+  "${DEEP32}kept at the limit" "${DEEP33}deeply indented words stay visible" > "$EDGE_PROJECT/.tower/tasks/T950-edge.md"
 EDGE80="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=80 "$CARD" T950)"
 EDGE46="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=46 "$CARD" T950)"
 assert_eq "a trailing space joins with one space" \
@@ -316,8 +316,8 @@ assert_eq "a line that starts with ** or -- continues its paragraph" \
     '│   These join: **bold** text --plain text.                                    │' \
     '│                                                                              │')"
 assert_eq "an indent that leaves 8 columns of text is kept" \
-  "$(rows_from "$EDGE46" "kept" 3)" \
-  "$(printf '│ %-42s │\n' "  ${DEEP32}kept" "  ${DEEP32}indent" '')"
+  "$(rows_from "$EDGE46" "kept" 4)" \
+  "$(printf '│ %-42s │\n' "  ${DEEP32}kept at" "  ${DEEP32}the" "  ${DEEP32}limit" '')"
 assert_eq "guard: an indent that leaves 7 columns of text renders as on origin/main" \
   "$(rows_from "$EDGE46" "deeply" 3)" \
   "$(printf '│ %-42s │\n' "  ${DEEP33}deeply" '  indented words stay visible'
