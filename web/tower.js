@@ -186,14 +186,20 @@ function inline(text) {
   return fragment;
 }
 
-function flushParagraph(state) {
+function flushText(state) {
   if (state.paragraph.length) {
-    const paragraph = element('p');
-    paragraph.append(inline(state.paragraph.join('\n')));
-    state.container.append(paragraph);
+    const node = element(state.list ? 'li' : 'p');
+    node.append(inline(state.paragraph.join(state.quote ? '\n' : ' ')));
+    (state.list || state.container).append(node);
     state.paragraph = [];
   }
+  state.quote = false;
+}
+
+function flushParagraph(state) {
+  flushText(state);
   state.list = null;
+  state.listType = null;
 }
 
 function appendMarkdownLine(state, line) {
@@ -215,20 +221,32 @@ function appendMarkdownLine(state, line) {
     state.container.append(node);
     return;
   }
-  const item = line.match(/^\s*[-*+]\s+(.*)$/);
-  if (item) {
-    if (!state.list) { flushParagraph(state); state.list = element('ul'); state.container.append(state.list); }
-    const node = element('li');
-    node.append(inline(item[1]));
-    state.list.append(node);
+  const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+  const numbered = line.match(/^\s*(\d+)\. \s*(.*)$/);
+  if (bullet || numbered) {
+    const type = bullet ? 'ul' : 'ol';
+    if (state.listType !== type) {
+      flushParagraph(state);
+      state.list = element(type);
+      if (numbered) state.list.setAttribute('start', numbered[1]);
+      state.container.append(state.list);
+      state.listType = type;
+    } else flushText(state);
+    state.paragraph.push(bullet ? bullet[1] : numbered[2]);
     return;
   }
-  state.list = null;
-  state.paragraph.push(line);
+  if (/^\s*[>|]/.test(line)) {
+    if (!state.quote) flushParagraph(state);
+    state.quote = true;
+    state.paragraph.push(line);
+    return;
+  }
+  if (state.quote) flushParagraph(state);
+  state.paragraph.push(state.paragraph.length ? line.trimStart() : line);
 }
 
 function markdown(body) {
-  const state = { container: element('div', undefined, 'card-body'), paragraph: [], code: null, fence: '', list: null };
+  const state = { container: element('div', undefined, 'card-body'), paragraph: [], quote: false, code: null, fence: '', list: null, listType: null };
   for (const line of body.split('\n')) appendMarkdownLine(state, line);
   flushParagraph(state);
   if (state.code !== null) state.container.append(element('pre', state.code.join('\n')));
