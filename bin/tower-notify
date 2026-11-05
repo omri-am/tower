@@ -8,4 +8,12 @@ fi
 
 TITLE="tower: $1"
 MESSAGE="$2"
-osascript -e "display notification \"${MESSAGE//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"Glass\""
+if [ -n "${TOWER_NOTIFY_COMMAND:-}" ]; then
+  "$TOWER_NOTIFY_COMMAND" "$TITLE" "$MESSAGE"
+elif command -v osascript >/dev/null; then
+  osascript -e "display notification \"${MESSAGE//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"Glass\""
+elif command -v notify-send >/dev/null && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
+  notify-send "$TITLE" "$MESSAGE"
+else
+  printf '%s: %s\a\n' "$TITLE" "$MESSAGE" >&2
+fi
