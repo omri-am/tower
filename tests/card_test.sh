@@ -291,10 +291,12 @@ rm -rf "$AMBIGUOUS_PROJECT"
 
 EDGE_PROJECT="$(mktemp -d)"
 mkdir -p "$EDGE_PROJECT/.tower/tasks"
-printf -- '---\nid: T950\ntitle: Edge cases\nstatus: draft\n---\n\n## Goal\n\n%s\n%s\n\n%s\n%s\n%s\n\n%s\n' \
+DEEP32="$(printf '%32s' '')" DEEP33="$(printf '%33s' '')"
+printf -- '---\nid: T950\ntitle: Edge cases\nstatus: draft\n---\n\n## Goal\n\n%s\n%s\n\n%s\n%s\n%s\n\n%s\n%s\n%s\n\n%s\n\n%s\n' \
   'A line that ends with a space ' 'joins the next line with one space.' \
   'First paragraph ends here.' '   ' 'Second paragraph starts here.' \
-  "$(printf '%40s' '')deeply indented words stay visible" > "$EDGE_PROJECT/.tower/tasks/T950-edge.md"
+  'These join:' '**bold** text' '--plain text.' \
+  "${DEEP32}kept indent" "${DEEP33}deeply indented words stay visible" > "$EDGE_PROJECT/.tower/tasks/T950-edge.md"
 EDGE80="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=80 "$CARD" T950)"
 EDGE46="$(TOWER_PROJECT_DIR="$EDGE_PROJECT" TOWER_CARD_WIDTH=46 "$CARD" T950)"
 assert_eq "a trailing space joins with one space" \
@@ -308,11 +310,18 @@ assert_eq "guard: a line of spaces separates paragraphs as on origin/main" \
     '│   First paragraph ends here.                                                 │' \
     '│                                                                              │' \
     '│   Second paragraph starts here.                                              │')"
-assert_eq "guard: an indent too deep for the box renders as on origin/main" \
-  "$(rows_from "$EDGE46" "deeply indented words stay visible" 2)" \
+assert_eq "a line that starts with ** or -- continues its paragraph" \
+  "$(rows_from "$EDGE80" "These join:" 2)" \
   "$(printf '%s\n' \
-    '│   deeply indented words stay visible       │' \
-    '╰────────────────────────────────────────────╯')"
+    '│   These join: **bold** text --plain text.                                    │' \
+    '│                                                                              │')"
+assert_eq "an indent that leaves 8 columns of text is kept" \
+  "$(rows_from "$EDGE46" "kept" 3)" \
+  "$(printf '│ %-42s │\n' "  ${DEEP32}kept" "  ${DEEP32}indent" '')"
+assert_eq "guard: an indent that leaves 7 columns of text renders as on origin/main" \
+  "$(rows_from "$EDGE46" "deeply" 3)" \
+  "$(printf '│ %-42s │\n' "  ${DEEP33}deeply" '  indented words stay visible'
+    printf '%s\n' '╰────────────────────────────────────────────╯')"
 rm -rf "$EDGE_PROJECT"
 
 summary

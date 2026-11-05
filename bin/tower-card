@@ -311,7 +311,7 @@ render_section() {
         i=$((i + 1))
       done
       indent="$lead"
-      [ "${#indent}" -le $((INNER - 10)) ] || indent=""
+      [ $((INNER - 2 - ${#indent})) -ge 8 ] || indent=""
     fi
     case "$first_line" in
       "- [ ]"*) text="${line#- \[ \]}"; emit_wrapped "${text# }" "  ☐ " "    " ;;
