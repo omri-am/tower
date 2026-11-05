@@ -67,6 +67,9 @@ frontmatter_field() {
   sed -n '/^---$/,/^---$/p' "$1" | sed -n "s/^$2: *//p" | head -1
 }
 
+if [ "$MODE" = terminal ] && [ "$PRINT_ONLY" = 0 ]; then
+  command -v osascript >/dev/null 2>&1 || { echo "tower-dispatch: the default mode opens a macOS Terminal window and needs osascript - use --headless, --here or --prep" >&2; exit 1; }
+fi
 [ "$PRINT_ONLY" = 1 ] || take_dispatch_lock
 if [ -n "$EXPECT_REVISION" ]; then
   [ "$(dispatch_revision)" = "$EXPECT_REVISION" ] || dispatch_die 'card or prompt changed; refresh and review before dispatching'
@@ -173,6 +176,7 @@ elif [ "$MODE" = "headless" ] || [ "$MODE" = "here" ]; then
 else
   ESCAPED="${LAUNCH//\\/\\\\}"
   ESCAPED="${ESCAPED//\"/\\\"}"
-  osascript -e "tell application \"Terminal\" to do script \"$ESCAPED\"" -e 'tell application "Terminal" to activate' >/dev/null
+  osascript -e "tell application \"Terminal\" to do script \"$ESCAPED\"" -e 'tell application "Terminal" to activate' >/dev/null ||
+    { RESULT=$?; echo "tower-dispatch: could not open a Terminal window (osascript exit $RESULT); after confirming no session started, use --resume to reuse its worktree" >&2; exit "$RESULT"; }
   echo "tower-dispatch: launched $VENDOR for $TASK_ID in a new Terminal window (branch $BRANCH)"
 fi
