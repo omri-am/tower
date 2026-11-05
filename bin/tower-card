@@ -166,6 +166,15 @@ $(printf '%s\n' "$text" | fold -s -w "$avail" | sed 's/[[:space:]]*$//')
 EOF
 }
 
+starts_block() {
+  local lead="${1%%[! ]*}" content numbered_re='^[0-9]+\. '
+  content="${1#"$lead"}"
+  case "$content" in
+    '- '*|'* '*|'##'*|'# '*|'>'*|'|'*|'```'*) return 0 ;;
+  esac
+  [[ $content =~ $numbered_re ]]
+}
+
 render_card() {
   local file="$1" fm id title status depends vendor branch pr
   fm="$(frontmatter "$file")"
@@ -261,7 +270,7 @@ render_section() {
     fi
   fi
 
-  local in_code=0 seen=0 blanks=0 text
+  local in_code=0 in_indented_fence=0 seen=0 blanks=0 text lead next_line next_lead indented_fence_line first_line indent
   i="$start"
   while [ "$i" -lt "$end" ]; do
     line="${LINES[$i]}"
@@ -281,13 +290,36 @@ render_section() {
     fi
     while [ "$blanks" -gt 0 ]; do row; blanks=$((blanks - 1)); done
     seen=1
-    case "$line" in
+    lead="${line%%[! ]*}"
+    indented_fence_line=0
+    if [ -n "$lead" ]; then
+      case "${line#"$lead"}" in
+        '```'*)
+          indented_fence_line=1
+          if [ "$in_indented_fence" = 0 ]; then in_indented_fence=1; else in_indented_fence=0; fi ;;
+      esac
+    fi
+    first_line="$line" indent=""
+    if [ "$in_indented_fence" = 0 ] && [ "$indented_fence_line" = 0 ] && [ "$lead" != "$line" ]; then
+      while [ "$i" -lt "$end" ]; do
+        next_line="${LINES[$i]}"
+        next_lead="${next_line%%[! ]*}"
+        [ "$next_lead" != "$next_line" ] || break
+        starts_block "$next_line" && break
+        while [ "${line% }" != "$line" ]; do line="${line% }"; done
+        line="$line ${next_line#"$next_lead"}"
+        i=$((i + 1))
+      done
+      indent="$lead"
+      [ $((INNER - 2 - ${#indent})) -ge 8 ] || indent=""
+    fi
+    case "$first_line" in
       "- [ ]"*) text="${line#- \[ \]}"; emit_wrapped "${text# }" "  ☐ " "    " ;;
       "- [x]"*) text="${line#- \[x\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
       "- [X]"*) text="${line#- \[X\]}"; emit_wrapped "${text# }" "  ☑ " "    " ;;
       "- "*)    emit_wrapped "${line#- }" "  • " "    " ;;
       "* "*)    emit_wrapped "${line#\* }" "  • " "    " ;;
-      *)        emit_wrapped "$line" "  " "  " ;;
+      *)        emit_wrapped "${line#"$indent"}" "  $indent" "  $indent" ;;
     esac
   done
 }
