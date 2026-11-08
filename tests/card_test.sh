@@ -3,7 +3,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 . "$ROOT/tests/lib.sh"
 
-export LC_CTYPE=UTF-8
+export LC_ALL=C.UTF-8
 CARD="$ROOT/bin/tower-card"
 
 PROJECT="$(mktemp -d)"
@@ -113,6 +113,21 @@ pr: "https://github.com/owner/repo/pull/1, https://github.com/owner/repo/pull/2,
 Long headings must wrap rather than widen the box.
 CARD
 
+NON_ASCII_PROJECT="$PROJECT/non-ascii"
+NON_ASCII_TASKS="$NON_ASCII_PROJECT/.tower/tasks"
+mkdir -p "$NON_ASCII_TASKS"
+cat > "$NON_ASCII_TASKS/T005-non-ascii.md" <<'CARD'
+---
+id: T005
+title: Card with an em dash — and a title long enough to clip at both eighty and sixty columns
+status: ready
+---
+
+## Goal
+
+Keep the em dash — in this card.
+CARD
+
 overflowing_rows() {
   local want="$1" text="$2" line bad=0
   while IFS= read -r line; do
@@ -129,6 +144,22 @@ EOF
 
 non_ascii_lines() {
   printf '%s\n' "$1" | LC_ALL=C tr -d '\t' | LC_ALL=C grep -c '[^ -~]'
+}
+
+run_bounded_card() {
+  TOWER_PROJECT_DIR="$NON_ASCII_PROJECT" python3 - "$CARD" "$1" "$2" <<'PY'
+import pathlib
+import subprocess
+import sys
+
+try:
+    result = subprocess.run([sys.argv[1], "T005"], capture_output=True, timeout=10)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+pathlib.Path(sys.argv[2]).write_bytes(result.stdout)
+pathlib.Path(sys.argv[3]).write_bytes(result.stderr)
+sys.exit(result.returncode)
+PY
 }
 
 card_body_of() {
@@ -156,6 +187,38 @@ $BOARD
 EOF
   assert_true "board fits $WIDTH" test "$WIDEST" -le "$WIDTH"
 done
+
+for WIDTH in 80 60; do
+  BOX_OUT="$PROJECT/boxed-$WIDTH.out" BOX_ERR="$PROJECT/boxed-$WIDTH.err"
+  LC_ALL=C TOWER_CARD_WIDTH="$WIDTH" run_bounded_card "$BOX_OUT" "$BOX_ERR"
+  BOX_STATUS=$?
+  assert_status "non-UTF-8 locale renders boxed card within 10 seconds at $WIDTH" "$BOX_STATUS" "0"
+  if [ "$BOX_STATUS" = 0 ]; then
+    assert_eq "every non-UTF-8 locale box row is $WIDTH wide" \
+      "$(overflowing_rows "$WIDTH" "$(cat "$BOX_OUT")")" "0"
+  fi
+done
+
+mkdir -p "$PROJECT/stub-bin"
+cat > "$PROJECT/stub-bin/locale" <<'LOCALE'
+#!/usr/bin/env bash
+[ "$1" = charmap ] || exit 1
+printf '%s\n' ANSI_X3.4-1968
+LOCALE
+chmod +x "$PROJECT/stub-bin/locale"
+BOX_OUT="$PROJECT/unavailable.out" BOX_ERR="$PROJECT/unavailable.err"
+LC_ALL=C.UTF-8 PATH="$PROJECT/stub-bin:$PATH" run_bounded_card "$BOX_OUT" "$BOX_ERR"
+BOX_STATUS=$?
+assert_status "missing UTF-8 locale exits with an error" "$BOX_STATUS" "1"
+if [ "$BOX_STATUS" != 124 ]; then
+  assert_eq "missing UTF-8 locale explains the requirement" "$(cat "$BOX_ERR")" \
+    "tower-card: the boxed view needs a UTF-8 locale and none is available - install C.UTF-8 or use --plain"
+  assert_empty "missing UTF-8 locale prints no box" "$(cat "$BOX_OUT")"
+fi
+
+assert_true "plain body keeps non-ASCII bytes with LC_ALL=C" cmp -s \
+  <(LC_ALL=C TOWER_PROJECT_DIR="$NON_ASCII_PROJECT" "$CARD" T005 --plain | tail -n +4) \
+  <(card_body_of "$NON_ASCII_TASKS/T005-non-ascii.md")
 
 FULL="$("$CARD" T001)"
 assert_eq "acceptance criteria carry a done count" "$(printf '%s\n' "$FULL" | grep -c 'ACCEPTANCE CRITERIA  1/3')" "1"
