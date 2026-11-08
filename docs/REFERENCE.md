@@ -30,7 +30,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
 | `tower-whoami` | tooling | Prints this session's own addressable name |
 | `tower-version-check [--notice]` | you | Checks for a newer tagged version now |
-| `tower-notify <title> <message>` | tooling | macOS notification |
+| `tower-notify <title> <message>` | tooling | Notification: `TOWER_NOTIFY_COMMAND`, then macOS, then `notify-send`, then stderr |
 | `tower-send <role> [--reply-to <id>] <text\|->` | you, any role | Stores a role message, then tries delivery |
 | `tower-inbox [--role <role>] [list\|read <id>\|ack <id>] [--wait [SECONDS]]` | any role | Lists, reads, waits for, or acknowledges role messages |
 | `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` | you | Holds a role registration while running |
@@ -281,6 +281,7 @@ are in [PROTOCOL.md](../PROTOCOL.md#project-discovery).
 | `TOWER_TASK` | set by dispatch | The implementor's task id |
 | `TOWER_ROLE` | set by dispatch | The sender label for `tower send` and the default role for `tower inbox`; dispatch sets `implementor-<task-id>` on a session it launches |
 | `TOWER_PROJECT_DIR` | unset | First link in the project-discovery chain |
+| `TOWER_NOTIFY_COMMAND` | unset | An executable that `tower-notify` runs with the title and the message, instead of a desktop notification |
 
 ## Staying current
 
