@@ -25,9 +25,36 @@ mkdir "$TMP/fake-bin"
 cat > "$TMP/fake-bin/git" <<'EOF'
 #!/bin/sh
 printf '%s\n' 'fatal: fake git failure' 'hint: second line' >&2
+if [ "${LONG_GIT_ERR:-0}" = 1 ]; then
+  i=0
+  while [ "$i" -lt 8192 ]; do
+    printf 'hint: extra detail %05d\n' "$i" >&2
+    i=$((i + 1))
+  done
+fi
 exit 1
 EOF
 chmod +x "$TMP/fake-bin/git"
+
+cat > "$TMP/fake-bin/long-git" <<'EOF'
+#!/bin/sh
+case " $* " in
+  *' worktree list --porcelain '*)
+    "$REAL_GIT" "$@" | sed -n '1,/^$/p'
+    i=0
+    while [ "$i" -lt 8192 ]; do
+      printf 'worktree %s/fake-%05d\n' "$MAIN" "$i"
+      i=$((i + 1))
+    done
+    ;;
+  *) exec "$REAL_GIT" "$@" ;;
+esac
+EOF
+chmod +x "$TMP/fake-bin/long-git"
+mkdir "$TMP/long-git-bin"
+ln -s "$TMP/fake-bin/long-git" "$TMP/long-git-bin/git"
+REAL_GIT="$(command -v git)"
+export REAL_GIT MAIN
 
 run_locate() {
   local path="$1"
@@ -63,6 +90,16 @@ run_locate "$PATH" --from "$WT/src"
 assert_eq 'guard: working git reports the per-branch copy' "$LOCATE_ERR" "tower-locate: $WT/.tower is a per-branch copy in a linked worktree (non-sidecar mode) - preferring the main checkout"
 assert_eq 'guard: working git maps to the main checkout' "$LOCATE_OUT" "$MAIN"$'\n'worktree
 assert_status 'guard: working git exits successfully' "$LOCATE_STATUS" 0
+
+run_locate "$TMP/long-git-bin:$PATH" --from "$WT/src"
+assert_status 'long worktree list exits successfully' "$LOCATE_STATUS" 0
+assert_eq 'long worktree list keeps the real git result' "$LOCATE_OUT" "$MAIN"$'\n'worktree
+
+export LONG_GIT_ERR=1
+run_locate "$FAILING_GIT_PATH" --from "$WT/src"
+unset LONG_GIT_ERR
+assert_status 'long git error keeps the successful exit status' "$LOCATE_STATUS" 0
+assert_eq 'long git error warns with the first stderr line' "$LOCATE_ERR" "tower-locate: git failed in $WT/src: fatal: fake git failure; worktree mapping skipped"
 
 run_locate "$PATH" --from "$MAIN/link"
 assert_empty 'guard: working git prints no warning for a symlink that leaves the repository' "$LOCATE_ERR"
