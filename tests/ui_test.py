@@ -2,6 +2,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,7 @@ new_card "$2" T002
         self.env.pop('TOWER_TASK', None)
         self.module = __import__('tower_ui')
         self.queue = self.module.Queue(self.project, env=self.env)
+        self.fake_terminal()
 
     def path(self, task='T001'):
         return self.project / '.tower/tasks' / (task + '-test.md')
@@ -52,15 +54,47 @@ new_card "$2" T002
 
     def fake_terminal(self):
         fake = Path(self.temp.name) / 'bin'
-        fake.mkdir()
+        fake.mkdir(exist_ok=True)
         terminal = fake / 'osascript'
         terminal.write_text('#!/bin/sh\nexit 0\n')
         terminal.chmod(0o755)
         self.queue.env['PATH'] = str(fake) + os.pathsep + self.env['PATH']
         self.env['PATH'] = self.queue.env['PATH']
 
+    def tools_without_terminal(self):
+        tools = Path(self.temp.name) / 'tools-without-osascript'
+        tools.mkdir()
+        for command in ('bash', 'git', 'dirname', 'pwd', 'sed', 'awk', 'basename', 'cat',
+                        'head', 'sort', 'grep', 'find', 'tr', 'shasum', 'cut'):
+            (tools / command).symlink_to(shutil.which(command, path=self.env['PATH']))
+        return tools
+
 
 class QueueTest(QueueFixture):
+    def test_ready_card_shows_missing_osascript_blocker_in_queue(self):
+        self.queue.env['PATH'] = str(self.tools_without_terminal())
+
+        expected = ('Dispatch from tower-ui opens a macOS Terminal window and needs osascript. '
+                    'In a shell, run tower-dispatch T001 --headless, --here or --prep.')
+        self.assertEqual(self.card()['blocker'], expected)
+        self.assertEqual(self.card()['group'], 'waiting')
+        self.assertEqual(self.queue.snapshot()['cards'][0]['blocker'], expected)
+
+    def test_ready_card_with_osascript_has_no_blocker(self):
+        self.assertEqual(self.card()['blocker'], '')
+
+    def test_queue_refreshes_blocker_when_osascript_disappears(self):
+        tools = self.tools_without_terminal()
+        terminal = tools / 'osascript'
+        terminal.symlink_to(Path(self.temp.name) / 'bin/osascript')
+        self.queue.env['PATH'] = str(tools)
+        self.assertEqual(self.card()['blocker'], '')
+
+        terminal.unlink()
+        self.assertEqual(self.card()['blocker'],
+                         'Dispatch from tower-ui opens a macOS Terminal window and needs osascript. '
+                         'In a shell, run tower-dispatch T001 --headless, --here or --prep.')
+
     def test_root_project_label_is_repository_name(self):
         snapshot = self.queue.snapshot()
         self.assertEqual(snapshot['project'], 'project')

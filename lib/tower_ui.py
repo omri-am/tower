@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import uuid
@@ -114,6 +115,9 @@ class Queue:
         return ''
 
     def dispatch_blocker(self, card):
+        if shutil.which('osascript', path=self.env.get('PATH')) is None:
+            return ('Dispatch from tower-ui opens a macOS Terminal window and needs osascript. '
+                    f"In a shell, run tower-dispatch {card['id']} --headless, --here or --prep.")
         result = run([str(ROOT / 'bin/tower-dispatch'), card['id'], '--print-only'], self.project, self.env)
         if result.returncode:
             return output(result).removeprefix('tower-dispatch: ')
@@ -151,7 +155,8 @@ class Queue:
         refs = run(['git', 'for-each-ref', '--format=%(refname)', 'refs/heads'], self.project, self.env)
         index_time = self.index.stat().st_mtime_ns if self.index.exists() else None
         revisions = tuple((card['filename'], card['revision']) for card in cards)
-        return revisions, refs.stdout, self.lock.exists(), index_time
+        return (revisions, refs.stdout, self.lock.exists(), index_time,
+                shutil.which('osascript', path=self.env.get('PATH')))
 
     def snapshot(self):
         cards = self.read_cards()
