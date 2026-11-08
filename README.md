@@ -2,7 +2,7 @@
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![protocol](https://img.shields.io/badge/protocol-v2-informational)
-![platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 tower lets you run several coding agents in parallel on one repository while you keep
 final say. One orchestrator session plans the work as task cards. Implementor sessions
@@ -93,7 +93,10 @@ exists.
 From a clone (the route for non-Claude agents): `git clone git@github.com:omri-am/tower.git
 && cd tower && ./install.sh`.
 
-Requires macOS (osascript, BSD sed), git, jq, and Claude Code for the orchestrator. The
+tower runs on macOS and Linux and requires git, jq, and Claude Code for the orchestrator.
+The default `tower-dispatch` mode opens a macOS Terminal window, so on Linux use
+`--headless`, `--here`, or `--prep`. The boxed view of `tower-card` needs a UTF-8 locale.
+Set `TOWER_NOTIFY_COMMAND` to forward notices, for example from a remote machine. The
 codex CLI is optional, for implementors. The optional `tower-ui` browser workspace also
 requires Python 3.9 or newer; it uses only the standard library and bundled browser assets.
 
