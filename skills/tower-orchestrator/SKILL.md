@@ -64,6 +64,10 @@ project.
    unrelated commits cannot hide outstanding work. If the command is unavailable, compare
    `git hash-object .tower/handoffs/T###-handoff.md` with each merged card’s receipt manually.
    An absent receipt means unprocessed. Never use the latest `tower:` commit as a cursor.
+   Then run `tower inbox --role orchestrator`, read each listed message with
+   `tower inbox --role orchestrator read <id>`, act on it, and acknowledge it with
+   `tower inbox --role orchestrator ack <id>`. Implementors can send to this role, and nothing
+   wakes you when they do.
 
 If `.tower/.git` exists the project runs in sidecar mode: all `tower:` commits and the git
 commands above run inside `.tower/`, never in the parent repo.
@@ -183,6 +187,10 @@ then include the full card, the output of `tower-learnings --for T###` (the card
 slice of learnings — never paste the whole file), and excerpts of handoffs that
 changed this task's assumptions. If the card's `## File ownership` is vague, the selection
 will be too: fix the card, not the prompt. Regenerate rather than patch if it goes stale.
+Leave the card `ready` for dispatch: `tower-dispatch` sets `in-flight` itself and refuses a
+card with any other status. Read its exit status before you start or report an agent. Never
+pipe its output, and never run it through a launcher that hides stderr, because a refusal
+then looks like a launch.
 
 **Curate learnings.** You are the only writer of `learnings.md`, and the format is in
 `PROTOCOL.md` — read it before your first edit. The bar for admitting an entry: would it
@@ -273,7 +281,8 @@ progress — notifications must stay rare enough to mean something.
 
 Assuming the role means running continuously: after the rehydration ritual, invoke the
 `loop` skill (self-paced) unless the owner said this is a one-shot consultation. Each tick:
-run `tower-handoffs` for outstanding merged handoffs and check blocked cards. Read new
+run `tower-handoffs` for outstanding merged handoffs and check blocked cards. Read and
+acknowledge the orchestrator inbox as in ritual step 5. Read new
 owner comments in `.tower/comments/` and address feedback against the current card; do not
 repeat completed revisions solely because a historical comment remains on disk. Poll the
 in-review cards’ PRs with `gh pr view --json state` if no watcher is reporting them;
