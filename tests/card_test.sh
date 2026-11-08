@@ -216,8 +216,9 @@ if [ "$BOX_STATUS" != 124 ]; then
   assert_empty "missing UTF-8 locale prints no box" "$(cat "$BOX_OUT")"
 fi
 
-assert_eq "plain body keeps non-ASCII bytes with LC_ALL=C" \
-  "$(LC_ALL=C TOWER_PROJECT_DIR="$NON_ASCII_PROJECT" "$CARD" T005 --plain | tail -n +4 | cmp - <(card_body_of "$NON_ASCII_TASKS/T005-non-ascii.md") | wc -l | tr -d ' ')" "0"
+assert_true "plain body keeps non-ASCII bytes with LC_ALL=C" cmp -s \
+  <(LC_ALL=C TOWER_PROJECT_DIR="$NON_ASCII_PROJECT" "$CARD" T005 --plain | tail -n +4) \
+  <(card_body_of "$NON_ASCII_TASKS/T005-non-ascii.md")
 
 FULL="$("$CARD" T001)"
 assert_eq "acceptance criteria carry a done count" "$(printf '%s\n' "$FULL" | grep -c 'ACCEPTANCE CRITERIA  1/3')" "1"
