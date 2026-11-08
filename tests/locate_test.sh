@@ -27,7 +27,7 @@ cat > "$TMP/fake-bin/git" <<'EOF'
 printf '%s\n' 'fatal: fake git failure' 'hint: second line' >&2
 if [ "${LONG_GIT_ERR:-0}" = 1 ]; then
   i=0
-  while [ "$i" -lt 8192 ]; do
+  while [ "$i" -lt 16384 ]; do
     printf 'hint: extra detail %05d\n' "$i" >&2
     i=$((i + 1))
   done
