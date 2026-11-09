@@ -82,7 +82,8 @@ hook will not let you finish without it.
    and its window must stay open. Never poll in the foreground, and never ask the owner to tell
    you when the PR lands — that is the job this watch exists to remove. A session dispatched
    `--headless` exits when its turn ends, so nothing is left to wake: there, skip the hold and
-   finish on the draft.
+   finish on the draft. If you registered at start, run
+   `tower-register --release implementor-<task-id>` before that session ends.
 12. Finish when the watch fires. On `MERGED`: fetch the merged base, read what review changed
    since you opened the PR (the PR's diff and its review threads), and finalize the handoff
    with it. Only then flip the card `in-review` -> `merged` — `merged` is the orchestrator's
@@ -97,8 +98,9 @@ hook will not let you finish without it.
    handoff that the PR was closed unmerged and what remains, leave the card `in-review`, and
    run `tower-notify`.
    Leave `ingested_handoff` untouched: only the orchestrator records what it has processed.
-   If you registered at start, run `tower-register --release implementor-<task-id>` after
-   the handoff is final and the card reads `merged`, or before you stop on `CLOSED` or `blocked`.
+   Before you stop for any reason, run `tower-register --release implementor-<task-id>` if you
+   registered at start: after the final handoff on `MERGED`, before you stop on `CLOSED` or
+   `blocked`, and in a `--headless` run before it ends on the draft.
 
 ## Hard rules
 
