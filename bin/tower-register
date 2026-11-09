@@ -3,6 +3,7 @@ set -euo pipefail
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
 exec python3 - "$LIB_DIR" "$@" <<'PY'
 import argparse
+import os
 import signal
 import subprocess
 import sys
@@ -12,29 +13,80 @@ sys.path.insert(0, sys.argv[1])
 import tower_msg
 
 parser = argparse.ArgumentParser(prog='tower-register')
-parser.add_argument('role')
-parser.add_argument('--vendor', required=True)
-parser.add_argument('--vendor-version', default='')
-parser.add_argument('--thread', default='')
+parser.add_argument('role', nargs='?')
+parser.add_argument('--vendor')
+parser.add_argument('--vendor-version')
+parser.add_argument('--thread')
+parser.add_argument('--detach', action='store_true')
+parser.add_argument('--release')
 args = parser.parse_args(sys.argv[2:])
+if args.release is not None:
+    if (args.role is not None or args.vendor is not None or args.vendor_version is not None
+            or args.thread is not None or args.detach):
+        parser.error('--release takes only a role')
+elif args.role is None or args.vendor is None:
+    missing = []
+    if args.role is None:
+        missing.append('role')
+    if args.vendor is None:
+        missing.append('--vendor')
+    parser.error('the following arguments are required: ' + ', '.join(missing))
 
 
 def release_on_signal(signum, frame):
     raise SystemExit(0)
 
 
-try:
-    session = tower_msg.register(args.role, args.vendor, args.vendor_version, args.thread)
+def hold_role(report=None):
+    session = tower_msg.register(args.role, args.vendor, args.vendor_version or '', args.thread or '')
     try:
         for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
             signal.signal(signum, release_on_signal)
-        print(session, flush=True)
+        if report is None:
+            print(session, flush=True)
+        else:
+            os.write(report, ('ok:' + session).encode())
+            os.close(report)
+            null = os.open(os.devnull, os.O_RDWR)
+            for fd in (0, 1, 2):
+                os.dup2(null, fd)
+            if null > 2:
+                os.close(null)
         while True:
             signal.pause()
     finally:
         for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
             signal.signal(signum, signal.SIG_IGN)
         tower_msg.release(args.role, session)
+
+
+try:
+    if args.release is not None:
+        if not tower_msg.release_role(args.release):
+            print(f'tower-register: {args.release} is not registered', file=sys.stderr)
+    elif args.detach:
+        reader, writer = os.pipe()
+        child = os.fork()
+        if child:
+            os.close(writer)
+            with os.fdopen(reader, 'rb') as stream:
+                result = stream.read().decode()
+            if result.startswith('ok:'):
+                print(result[3:])
+            else:
+                os.waitpid(child, 0)
+                raise ValueError(result[6:] if result.startswith('error:') else 'holder exited before registration')
+        else:
+            os.close(reader)
+            try:
+                os.setsid()
+                hold_role(writer)
+            except (OSError, ValueError, subprocess.CalledProcessError) as error:
+                os.write(writer, ('error:' + str(error)).encode())
+                os.close(writer)
+                sys.exit(1)
+    else:
+        hold_role()
 except (OSError, ValueError, subprocess.CalledProcessError) as error:
     print(f'tower-register: {error}', file=sys.stderr)
     sys.exit(1)

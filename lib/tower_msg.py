@@ -187,6 +187,24 @@ def release(role, session):
         del _OWNED[role]
 
 
+def release_role(role):
+    record = live_record(role)
+    if record is None:
+        (agents_directory() / (role + '.json')).unlink(missing_ok=True)
+        return False
+    pid = record['pid']
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    deadline = time.monotonic() + 5
+    while live_record(role) is not None:
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f'holder pid {pid} for {role} did not stop')
+        time.sleep(0.05)
+    return True
+
+
 def unacknowledged_count(role):
     return len(message_ids(mailbox(role), ('queued', 'claimed', 'submitted')))
 

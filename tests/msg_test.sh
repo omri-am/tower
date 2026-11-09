@@ -217,6 +217,85 @@ with tempfile.TemporaryDirectory() as scratch:
                                 env=env, text=True, capture_output=True)
         assert result.returncode == 1 and 'role must be a nonempty directory name, without path separators' in result.stderr
         env['TOWER_ROLE'] = 'reader'
+        register = str(root / 'bin/tower-register')
+        detached_pid = None
+        try:
+            result = subprocess.run([register, 'detached', '--vendor', 'codex', '--thread', 't-1', '--detach'],
+                                    cwd=project, env=env, text=True, capture_output=True, timeout=5)
+            assert result.returncode == 0 and not result.stderr, (result.returncode, result.stderr)
+            assert re.fullmatch(r'[0-9a-f]{32}', result.stdout.strip()), result.stdout
+            record = json.loads((project / '.git/tower/root/agents/detached.json').read_text())
+            detached_pid = record['pid']
+            assert record['session'] == result.stdout.strip()
+            assert 'detached\tcodex\tlive\twake:native' in tower(project, 'agents')
+            time.sleep(0.1)
+            assert 'detached\tcodex\tlive\twake:native' in tower(project, 'agents')
+
+            duplicate = subprocess.run([register, 'detached', '--vendor', 'claude', '--detach'],
+                                       cwd=project, env=env, text=True, capture_output=True, timeout=5)
+            assert duplicate.returncode == 1 and 'Traceback' not in duplicate.stderr, duplicate.stderr
+            assert duplicate.stderr.strip() == (
+                f'tower-register: role detached already owned by codex pid {detached_pid}')
+            assert 'detached\tcodex\tlive\twake:native' in tower(project, 'agents')
+
+            stopped = subprocess.run([register, '--release', 'detached'], cwd=project, env=env,
+                                     text=True, capture_output=True, timeout=7)
+            assert stopped.returncode == 0 and not stopped.stderr, (stopped.returncode, stopped.stderr)
+            assert 'detached\tcodex\tlive' not in tower(project, 'agents')
+            try:
+                os.kill(detached_pid, 0)
+            except ProcessLookupError:
+                pass
+            else:
+                assert False, 'released holder process still exists'
+
+            absent = subprocess.run([register, '--release', 'absent'], cwd=project, env=env,
+                                    text=True, capture_output=True, timeout=5)
+            assert absent.returncode == 0 and absent.stderr.strip() == 'tower-register: absent is not registered'
+            stale = project / '.git/tower/root/agents/absent.json'
+            stale.write_text('{}')
+            absent = subprocess.run([register, '--release', 'absent'], cwd=project, env=env,
+                                    text=True, capture_output=True, timeout=5)
+            assert absent.returncode == 0 and not stale.exists(), (absent.returncode, absent.stderr)
+        finally:
+            if detached_pid is not None:
+                subprocess.run([register, '--release', 'detached'], cwd=project, env=env,
+                               text=True, capture_output=True, timeout=7)
+                try:
+                    os.kill(detached_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+        stubborn = """import fcntl, json, os, runpy, signal, sys
+sys.dont_write_bytecode = True
+module = runpy.run_path(sys.argv[1])
+directory = module['agents_directory']()
+lock = directory / 'stubborn.lock'
+lock.mkdir(exist_ok=True)
+with (lock / 'session').open('w+') as stream:
+    fcntl.flock(stream, fcntl.LOCK_EX)
+    stream.write('fake-session')
+    stream.flush()
+    (directory / 'stubborn.json').write_text(json.dumps(dict(role='stubborn', vendor='fake',
+        vendor_version='', session='fake-session', pid=os.getpid(), thread='', wake='none')))
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    print('ready', flush=True)
+    signal.pause()
+"""
+        fake = subprocess.Popen([sys.executable, '-c', stubborn, str(root / 'lib/tower_msg.py')],
+                                cwd=project, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            assert fake.stdout.readline().strip() == 'ready', 'fake holder did not register'
+            refused = subprocess.run([register, '--release', 'stubborn'], cwd=project, env=env,
+                                     text=True, capture_output=True, timeout=7)
+            assert refused.returncode == 1 and 'Traceback' not in refused.stderr, refused.stderr
+            assert refused.stderr.strip() == (
+                f'tower-register: holder pid {fake.pid} for stubborn did not stop')
+        finally:
+            fake.kill()
+            fake.communicate(timeout=5)
+            subprocess.run([register, '--release', 'stubborn'], cwd=project, env=env,
+                           text=True, capture_output=True, timeout=5)
         stub_dir = base / (mode + '-bin')
         stub_dir.mkdir()
         stub = stub_dir / 'codex'
