@@ -33,7 +33,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-notify <title> <message>` | tooling | Notification: `TOWER_NOTIFY_COMMAND`, then macOS, then `notify-send`, then stderr |
 | `tower-send <role> [--reply-to <id>] <text\|->` | you, any role | Stores a role message, then tries delivery |
 | `tower-inbox [--role <role>] [list\|read <id>\|ack <id>] [--wait [SECONDS]]` | any role | Lists, reads, waits for, or acknowledges role messages |
-| `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>]` | you | Holds a role registration while running |
+| `tower-register <role> --vendor <v> [--vendor-version <ver>] [--thread <id>] [--detach]`; `tower-register --release <role>` | you | Holds or releases a role registration |
 | `tower-agents` | any role | Lists registered roles and mailbox counts |
 
 ## `tower new`
@@ -65,6 +65,9 @@ acknowledges a queued or submitted message.
 session token and holds the role's lock until the command stops, so leave it running. It exits
 1 when another live session holds the role. A `--vendor codex` registration with `--thread` is
 listed by `tower-agents` as `wake:native`; every other registration as `wake:none`.
+With `--detach`, the command prints the session token after registration and exits while its holder stays live.
+`tower-register --release <role>` stops a live holder or reports that the role is not registered.
+The holder can exit between the live check and SIGTERM, so a new process with the same pid can receive the signal.
 
 `tower-agents` takes no flags. Its tab-separated columns are role, vendor with optional
 version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverable:<n>`.

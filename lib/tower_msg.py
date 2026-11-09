@@ -187,6 +187,40 @@ def release(role, session):
         del _OWNED[role]
 
 
+def remove_stale_record(role, session=None):
+    directory = agents_directory()
+    lock = directory / (role + '.lock')
+    lock.mkdir(exist_ok=True)
+    with (lock / 'session').open('a+') as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return
+        entry = directory / (role + '.json')
+        if entry.is_file() and (session is None or json.loads(entry.read_text(encoding='utf-8'))['session'] == session):
+            entry.unlink()
+
+
+def release_role(role):
+    record = live_record(role)
+    if record is None:
+        remove_stale_record(role)
+        return False
+    pid = record['pid']
+    try:
+        # The holder can exit after the live check; a reused pid could receive this signal.
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    deadline = time.monotonic() + 5
+    while live_record(role) is not None:
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f'holder pid {pid} for {role} did not stop')
+        time.sleep(0.05)
+    remove_stale_record(role, record['session'])
+    return True
+
+
 def unacknowledged_count(role):
     return len(message_ids(mailbox(role), ('queued', 'claimed', 'submitted')))
 
