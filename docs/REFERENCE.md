@@ -67,6 +67,7 @@ session token and holds the role's lock until the command stops, so leave it run
 listed by `tower-agents` as `wake:native`; every other registration as `wake:none`.
 With `--detach`, the command prints the session token after registration and exits while its holder stays live.
 `tower-register --release <role>` stops a live holder or reports that the role is not registered.
+The holder can exit between the live check and SIGTERM, so a new process with the same pid can receive the signal.
 
 `tower-agents` takes no flags. Its tab-separated columns are role, vendor with optional
 version, `live` or `stale`, `wake:<cap>`, `unacknowledged:<n>`, and `undeliverable:<n>`.

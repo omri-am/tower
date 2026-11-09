@@ -208,6 +208,7 @@ def release_role(role):
         return False
     pid = record['pid']
     try:
+        # The holder can exit after the live check; a reused pid could receive this signal.
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass
