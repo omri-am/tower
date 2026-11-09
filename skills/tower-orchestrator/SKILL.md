@@ -90,6 +90,8 @@ below). Set the card’s `ingested_handoff` to the hash from `git hash-object` o
 you just processed. If the content changed during ingest, read the new revision first.
 Commit the receipt and all resulting state changes together with a `tower:` message,
 using `git commit --only -- <explicit paths>` to preserve unrelated staged work.
+Run `tower-register --release implementor-<task-id>`. It exits 0 when the role is not
+registered, so run it for every card.
 Remove the task’s worktree if dispatch created one: find the exact path by the card’s
 branch in `git worktree list --porcelain`, then use `git worktree remove <path>` without
 force. Default paths include the project-relative path; never derive one from T### alone.
@@ -237,8 +239,9 @@ the message was stored but not delivered, not that the send failed. Dispatch set
 `TOWER_ROLE=implementor-<task-id>` on a session it launches, so
 `tower send implementor-<task-id>` stores into the mailbox that the implementor's bare
 `tower inbox` reads. A session started by hand after `--prep` has no `TOWER_ROLE`.
-Dispatch still registers no role, so a send exits 3 unless a `tower-register` for that role,
-started by hand, is still running. The implementor sees the message only by reading that
+Dispatch registers no role. A Codex implementor registers its own role at start, so a send
+to it wakes it; for any other implementor a send exits 3 unless a `tower-register` for that
+role, started by hand, is still running. The implementor sees the message only by reading that
 role's inbox or through wake for a Codex role registered with `--thread`.
 
 **Sync the board.** If the project tracks work on the agent-kanban board, mirror card
