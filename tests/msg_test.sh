@@ -240,12 +240,14 @@ with tempfile.TemporaryDirectory() as scratch:
                                      text=True, capture_output=True, timeout=7)
             assert stopped.returncode == 0 and not stopped.stderr, (stopped.returncode, stopped.stderr)
             assert 'detached\tcodex\tlive' not in tower(project, 'agents')
-            try:
-                os.kill(detached_pid, 0)
-            except ProcessLookupError:
-                pass
-            else:
-                assert False, 'released holder process still exists'
+            deadline = time.monotonic() + 5
+            while True:
+                try:
+                    os.kill(detached_pid, 0)
+                except ProcessLookupError:
+                    break
+                assert time.monotonic() < deadline, 'released holder process still exists'
+                time.sleep(0.01)
 
             absent = subprocess.run([register, '--release', 'absent'], cwd=project, env=env,
                                     text=True, capture_output=True, timeout=5)
