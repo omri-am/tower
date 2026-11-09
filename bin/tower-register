@@ -25,11 +25,7 @@ if args.release is not None:
             or args.thread is not None or args.detach):
         parser.error('--release takes only a role')
 elif args.role is None or args.vendor is None:
-    missing = []
-    if args.role is None:
-        missing.append('role')
-    if args.vendor is None:
-        missing.append('--vendor')
+    missing = [name for name, value in (('role', args.role), ('--vendor', args.vendor)) if value is None]
     parser.error('the following arguments are required: ' + ', '.join(missing))
 
 
@@ -45,13 +41,13 @@ def hold_role(report=None):
         if report is None:
             print(session, flush=True)
         else:
-            os.write(report, ('ok:' + session).encode())
-            os.close(report)
             null = os.open(os.devnull, os.O_RDWR)
             for fd in (0, 1, 2):
                 os.dup2(null, fd)
             if null > 2:
                 os.close(null)
+            os.write(report, ('ok:' + session).encode())
+            os.close(report)
         while True:
             signal.pause()
     finally:

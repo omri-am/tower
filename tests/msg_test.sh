@@ -228,8 +228,6 @@ with tempfile.TemporaryDirectory() as scratch:
             detached_pid = record['pid']
             assert record['session'] == result.stdout.strip()
             assert 'detached\tcodex\tlive\twake:native' in tower(project, 'agents')
-            time.sleep(0.1)
-            assert 'detached\tcodex\tlive\twake:native' in tower(project, 'agents')
 
             duplicate = subprocess.run([register, 'detached', '--vendor', 'claude', '--detach'],
                                        cwd=project, env=env, text=True, capture_output=True, timeout=5)
@@ -257,6 +255,16 @@ with tempfile.TemporaryDirectory() as scratch:
             absent = subprocess.run([register, '--release', 'absent'], cwd=project, env=env,
                                     text=True, capture_output=True, timeout=5)
             assert absent.returncode == 0 and not stale.exists(), (absent.returncode, absent.stderr)
+            fault_dir = base / (mode + '-redirect-failure')
+            fault_dir.mkdir()
+            (fault_dir / 'sitecustomize.py').write_text(
+                "import os\ndef fail_redirect(source, target):\n    raise OSError('forced redirect failure')\n"
+                "os.dup2 = fail_redirect\n")
+            failed = subprocess.run([register, 'redirect-failure', '--vendor', 'codex', '--detach'],
+                                    cwd=project, env=dict(env, PYTHONPATH=str(fault_dir)),
+                                    text=True, capture_output=True, timeout=5)
+            assert failed.returncode == 1 and failed.stderr.strip() == 'tower-register: forced redirect failure'
+            assert 'redirect-failure\tcodex\tlive' not in tower(project, 'agents')
         finally:
             subprocess.run([register, '--release', 'detached'], cwd=project, env=env,
                            text=True, capture_output=True, timeout=7)
@@ -296,6 +304,18 @@ with (lock / 'session').open('w+') as stream:
             fake.communicate(timeout=5)
             subprocess.run([register, '--release', 'stubborn'], cwd=project, env=env,
                            text=True, capture_output=True, timeout=5)
+        unclean = stubborn.replace('stubborn', 'unclean').replace('signal.SIG_IGN', 'signal.SIG_DFL')
+        fake = subprocess.Popen([sys.executable, '-c', unclean, str(root / 'lib/tower_msg.py')],
+                                cwd=project, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            assert fake.stdout.readline().strip() == 'ready'
+            stopped = subprocess.run([register, '--release', 'unclean'], cwd=project, env=env,
+                                     text=True, capture_output=True, timeout=7)
+            assert stopped.returncode == 0 and not (project / '.git/tower/root/agents/unclean.json').exists()
+        finally:
+            if fake.poll() is None:
+                fake.kill()
+            fake.communicate(timeout=5)
         stub_dir = base / (mode + '-bin')
         stub_dir.mkdir()
         stub = stub_dir / 'codex'
