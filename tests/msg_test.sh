@@ -258,9 +258,9 @@ with tempfile.TemporaryDirectory() as scratch:
                                     text=True, capture_output=True, timeout=5)
             assert absent.returncode == 0 and not stale.exists(), (absent.returncode, absent.stderr)
         finally:
+            subprocess.run([register, '--release', 'detached'], cwd=project, env=env,
+                           text=True, capture_output=True, timeout=7)
             if detached_pid is not None:
-                subprocess.run([register, '--release', 'detached'], cwd=project, env=env,
-                               text=True, capture_output=True, timeout=7)
                 try:
                     os.kill(detached_pid, signal.SIGKILL)
                 except ProcessLookupError:

@@ -190,7 +190,15 @@ def release(role, session):
 def release_role(role):
     record = live_record(role)
     if record is None:
-        (agents_directory() / (role + '.json')).unlink(missing_ok=True)
+        directory = agents_directory()
+        lock = directory / (role + '.lock')
+        lock.mkdir(exist_ok=True)
+        with (lock / 'session').open('a+') as stream:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return False
+            (directory / (role + '.json')).unlink(missing_ok=True)
         return False
     pid = record['pid']
     try:
