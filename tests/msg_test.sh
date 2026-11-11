@@ -245,6 +245,7 @@ with tempfile.TemporaryDirectory() as scratch:
                 try:
                     os.kill(detached_pid, 0)
                 except ProcessLookupError:
+                    detached_pid = None
                     break
                 assert time.monotonic() < deadline, 'released holder process still exists'
                 time.sleep(0.01)
