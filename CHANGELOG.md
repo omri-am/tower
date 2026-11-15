@@ -7,6 +7,10 @@ what the version gives them.
 
 ## v0.9.0 — 2026-11-15
 
+- tower runs on Linux. CI runs the test suite on `ubuntu-latest` and `macos-latest`. The
+  default `tower-dispatch` mode opens a macOS Terminal window, so on Linux use `--headless`,
+  `--here` or `--prep`. The entries below give each change.
+
 - `tower-pr-wait --interval` accepts only a whole number of seconds from 1 up, the same values as
   `--max-wait`. A fraction such as `1.5` is now rejected. Before, a fraction worked, but with
   `--max-wait` the watch did not shorten its last sleep, so it could stop up to one interval
@@ -125,7 +129,9 @@ what the version gives them.
   confirming that no session started. It still exits with the `osascript` status. Before, it
   printed nothing of its own.
 
-Boxed `tower-card` now uses `C.UTF-8` when the active character map is not UTF-8. If that locale is unavailable, it reports the requirement and exits instead of hanging on cards with non-ASCII text. An existing UTF-8 locale and `--plain` keep their behavior.
+- Boxed `tower-card` now uses `C.UTF-8` when the active character map is not UTF-8. If that
+  locale is unavailable, it reports the requirement and exits instead of hanging on cards with
+  non-ASCII text. An existing UTF-8 locale and `--plain` keep their behavior.
 
 - `tower-notify` no longer needs `osascript`. It uses the first channel that applies. When
   `TOWER_NOTIFY_COMMAND` is set and not empty, it runs that command as one executable path, not
@@ -159,7 +165,7 @@ Boxed `tower-card` now uses `C.UTF-8` when the active character map is not UTF-8
   code and plain text. A code span across joined lines shows one space for each line break.
 - Code fences, headings, the exact-source view and the comments section do not change.
 
-Stop `tower-locate` from exiting with SIGPIPE when Git lists many worktrees.
+- `tower-locate` no longer exits 141 (SIGPIPE) when `git` lists many worktrees.
 
 - With a free dispatch lock and no `osascript` on the queue's `PATH`,
   `tower-ui` now blocks every ready card. It says that dispatch needs a
@@ -181,10 +187,8 @@ Stop `tower-locate` from exiting with SIGPIPE when Git lists many worktrees.
   tick. They leave cards `ready` for `tower-dispatch` and check its exit status. Before, the
   orchestrator skill did not read its inbox or say that dispatch needs a `ready` card.
 
-`tower-register --detach` now starts a role holder that stays live after the command exits.
-`tower-register --release <role>` stops a live holder and removes a stale registration.
-
-## Codex implementor role lifecycle
+- `tower-register --detach` now starts a role holder that stays live after the command exits.
+  `tower-register --release <role>` stops a live holder and removes a stale registration.
 
 - A Codex implementor registers its role with `CODEX_THREAD_ID` at start. Before, the
   implementor skill did not register a role, so `tower send` could not wake the session.
