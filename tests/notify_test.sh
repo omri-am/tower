@@ -63,12 +63,17 @@ assert_eq "guard: channel 2 sends today's osascript notification" "$STATUS:$(rec
 new_case display
 make_stub "$CASE/notify-send" 5
 run_notice DISPLAY=:0 "$ROOT/bin/tower-notify" t m
-assert_eq 'channel 3 runs notify-send when DISPLAY is set' "$STATUS:$(record "$CASE/notify-send")" "$(printf '5:tower: t\nm\nx')"
+assert_eq 'channel 3 runs notify-send when DISPLAY is set' "$STATUS:$(record "$CASE/notify-send")" "$(printf '5:--\ntower: t\nm\nx')"
+
+new_case dash_message
+make_stub "$CASE/notify-send" 0
+run_notice DISPLAY=:0 "$ROOT/bin/tower-notify" t -x
+assert_eq 'channel 3 passes a leading dash in the message as text' "$STATUS:$(record "$CASE/notify-send")" "$(printf '0:--\ntower: t\n-x\nx')"
 
 new_case wayland
 make_stub "$CASE/notify-send" 0
 run_notice WAYLAND_DISPLAY=wayland-0 "$ROOT/bin/tower-notify" t m
-assert_eq 'channel 3 runs notify-send when WAYLAND_DISPLAY is set' "$STATUS:$(record "$CASE/notify-send")" "$(printf '0:tower: t\nm\nx')"
+assert_eq 'channel 3 runs notify-send when WAYLAND_DISPLAY is set' "$STATUS:$(record "$CASE/notify-send")" "$(printf '0:--\ntower: t\nm\nx')"
 
 new_case no_display
 make_stub "$CASE/notify-send" 5
