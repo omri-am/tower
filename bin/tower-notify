@@ -13,7 +13,7 @@ if [ -n "${TOWER_NOTIFY_COMMAND:-}" ]; then
 elif command -v osascript >/dev/null; then
   osascript -e "display notification \"${MESSAGE//\"/\\\"}\" with title \"${TITLE//\"/\\\"}\" sound name \"Glass\""
 elif command -v notify-send >/dev/null && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
-  notify-send "$TITLE" "$MESSAGE"
+  notify-send -- "$TITLE" "$MESSAGE"
 else
   printf '%s: %s\a\n' "$TITLE" "$MESSAGE" >&2
 fi
