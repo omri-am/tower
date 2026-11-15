@@ -5,6 +5,201 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.9.0 — 2026-11-15
+
+- `tower-pr-wait --interval` accepts only a whole number of seconds from 1 up, the same values as
+  `--max-wait`. A fraction such as `1.5` is now rejected. Before, a fraction worked, but with
+  `--max-wait` the watch did not shorten its last sleep, so it could stop up to one interval
+  after the limit. Any invalid or missing value prints the usage line and exits 1 before the
+  first `gh` call.
+
+- `tower-locate` warns on stderr when its start directory or one of its ancestors, after
+  symlinks are resolved, has a `.git` entry but `git rev-parse --show-toplevel` fails there, for
+  example in a Codex sandbox that cannot read `git` or a git config file. The warning names the
+  directory and the first line of git's error, and says that the worktree mapping was skipped.
+  `--quiet` silences it. The resolution, stdout and exit statuses do not change.
+
+- Native wake for a Codex role now retries `codex queue` once with `--remote unix://` when the
+  first call exits 1 because a local app-server daemon is running and the caller passes a
+  configuration override, as the Superset wrapper does. A successful retry delivers the message
+  with no duplicate mark. A failed retry counts as one failed attempt and writes one
+  `delivery.log` line with both errors. Every other result of the first call takes the same path
+  as before.
+
+- `tower-new` rejects a title argument that starts with `-`, such as `--help`, `-h` or `-x`. It
+  prints its usage line to stderr and exits 1 before it looks for the project, so it writes no
+  card and claims no id. Before, `tower new --help` created a card titled `--help` and used up
+  the next id. A real title that starts with `-` is not supported; reword it.
+
+- `tower territories` no longer counts a card glob as within a territory path when the territory
+  path's literal prefix is the glob's literal prefix followed by `/`, such as `web*` for `web/`
+  or `web/**`. Such a glob also matches paths outside the territory path, such as `web-api/`.
+  Before, the glob counted as within. A card that owns such a glob now goes to `main`, unless
+  another territory path contains the glob. A glob whose literal prefix starts with the territory
+  path's literal prefix, such as `docs/**/*.md` or `docs/a*` for `docs/`, and a plain path such
+  as `docs` keep their results.
+
+- The orchestrator skill adds a fix check. Before a PR merges, a fresh reviewer reads every
+  commit after the implementor's last review round, and the orchestrator records the result in
+  `.tower/reviews/<task-id>/fix-<N>.md`. A PR is ready to merge only when its head is a
+  reviewed commit. With no fix check, that is the commit that the implementor's last review
+  round read. Otherwise, it is the commit that the newest fix check read, and that check's
+  verdict must be `clean`. The orchestrator runs `tower-notify` and stops fix checks when the
+  third fix check for a PR returns `changes`, or when a fix check returns `changes` on a finding
+  that the implementor already rejected. `PROTOCOL.md` gives the record format, the range and
+  the cap of three fix checks for each PR.
+- The implementor skill tells the implementor to record in the handoff the commit that each
+  review round read, as `- Round <N> reviewed <40-hex commit>`. It also tells the implementor
+  to answer each fix-check record with a `- fix-<N> answer:` line in the handoff. For each
+  critical or important finding, the line gives the commit that fixed it or the reason for the
+  rejection.
+
+- The boxed view of `tower-card` joins hard-wrapped lines before it wraps them, so a paragraph
+  or list item fills its rows. Outside code fences, a line joins the line before it when neither
+  line is empty or holds only spaces, and the line does not start a block. A line starts a
+  block when, after its leading spaces, it starts with `- `, `* `, `#` followed by `#` or a
+  space, `>`, `|`, three backticks, or one or more digits followed by `. `. The joined line
+  loses its leading spaces, the text before it loses its trailing spaces, and one space
+  separates them. The joined text keeps the prefix that its first line selects. Before, each
+  source line started a new row.
+- When the first line of a plain-text block starts with spaces, the block's wrapped rows keep
+  those spaces after the row prefix, so a nested item stays indented. This also applies to a
+  block of one line. Before, every wrapped row started at the row prefix. The kept indent
+  narrows the text column, so a word longer than that column now breaks inside the word, and
+  the block's first row is never empty. Before, an indented line rendered an empty first row
+  when its first word did not fit after the indent, and a word broke only when it was longer
+  than the row. An indent that leaves fewer than 8 columns of text in a row is not kept. That
+  block renders with the prefixes it had before, so its first row can still be empty.
+- A line that starts with three backticks after one or more spaces opens an indented code
+  fence, and the next such line in the same section closes it. The two fence lines and each
+  line between them render one source line each, as before, and the line after the closing
+  fence starts a new block. Column-0 code fences, `--plain` output, the acceptance-criteria
+  count and the board do not change.
+
+- In the orchestrator skill's fix check and in the Range paragraph of `PROTOCOL.md`, a fix check
+  reads the PR's full diff from its merge base in three cases: there is no last reviewed commit
+  (no record and no round line), the range holds a merge commit, or the last reviewed commit is
+  not an ancestor of the head (`git merge-base --is-ancestor <last> <head>` exits nonzero), as
+  after a rebase. Before, the first case was "the handoff names no reviewed commit", and the
+  third case did not exist. Two kinds of PR get a different range. A PR with a fix-check record
+  but no round line, whose head changed after its newest record, now gets the range from that
+  record's `reviewed_commit` to the head when no full-diff case applies. Before, each of its fix
+  checks read the full diff. A PR whose handoff has a round line, whose last reviewed commit is
+  not an ancestor of the head, and whose range holds no merge commit, now gets the full diff.
+  Before, its range started at the last reviewed commit, so after a rebase it also held changes
+  that `main` gained.
+- When the handoff has the answer line for a `changes` record and the head did not change, the
+  next fix check reads that record's range, from its `from_commit` to its `reviewed_commit`.
+  Before, this held only when the answer rejected every finding. An answer that says at least
+  one finding is `fixed in` a commit, with an unchanged head, now gets that record's range.
+  Before, it got an empty range, or the PR's full diff when the handoff had no round line.
+- The orchestrator runs no fix check for a card whose handoff draft does not exist yet. The
+  first tick after the draft appears applies point 1 of the fix check as written. Before, a tick
+  between `in-review` and the draft ran a fix check over the PR's full diff without the round
+  lines, and that check counted toward the cap of three.
+- The context pack of a PR's first fix check also holds every finding that the implementor
+  rejected in its own review rounds, with the reason, from the handoff. The reviewer judges each
+  of those reasons as an argument. The orchestrator still runs `tower-notify` and stops fix
+  checks when a fix check returns `changes` on a finding that the implementor already rejected.
+- The fix-check reviewer reads only the context pack and the repository's files. It does not
+  read the handoff or any `.tower/` file other than the card. Before, no rule stopped it.
+- When the orchestrator writes a `changes` record and the route in "Correct in-flight work"
+  reaches no live session (a Codex or `--headless` implementor, or a session that has ended),
+  it also runs `tower-notify` at once. The owner decides the next step. The orchestrator still
+  runs no fix check until the head changes or the handoff has the answer line for that record.
+  Before, the owner got no notice of that wait.
+
+- `tower-dispatch` in the default mode, with no `--headless`, `--here`, `--prep` or
+  `--print-only`, now checks for `osascript` after the duplicate-id check and before it takes
+  the dispatch lock. When `osascript` is not on `PATH`, as on Linux, it prints that the default
+  mode needs `osascript`, names `--headless`, `--here` and `--prep`, and exits 1. It changes no
+  lock, worktree, branch, card or commit. This refusal now replaces the result of every later
+  check and step, such as a held lock, the card status, an unknown `--vendor`, a missing prompt,
+  a bad `--worktree` or a dirty `--in-place` checkout. Before, a dispatch that passed every check
+  ran the rest of the dispatch, such as the new worktree or the `--in-place` checkout and, for a
+  new dispatch, the card commit, and then failed at `osascript` with exit 127. A new dispatch
+  then left its card `in-flight` with no session.
+- When `osascript` exits nonzero in the default mode, for example when macOS denies Terminal
+  automation, `tower-dispatch` now prints
+  `could not open a Terminal window (osascript exit <N>)` and says to use `--resume` after
+  confirming that no session started. It still exits with the `osascript` status. Before, it
+  printed nothing of its own.
+
+Boxed `tower-card` now uses `C.UTF-8` when the active character map is not UTF-8. If that locale is unavailable, it reports the requirement and exits instead of hanging on cards with non-ASCII text. An existing UTF-8 locale and `--plain` keep their behavior.
+
+- `tower-notify` no longer needs `osascript`. It uses the first channel that applies. When
+  `TOWER_NOTIFY_COMMAND` is set and not empty, it runs that command as one executable path, not
+  through a shell, with two arguments: `tower: <title>` and `<message>`. It exits with the
+  command's status and uses no other channel. Otherwise, when `osascript` is on `PATH`, it shows
+  the macOS notification as before. Otherwise, when `notify-send` is on `PATH` and `DISPLAY` or
+  `WAYLAND_DISPLAY` is not empty, it runs `notify-send` with the same two arguments and exits
+  with its status. Otherwise it writes the line `tower: <title>: <message>` to stderr, with a
+  terminal bell before the line end, and exits 0. Before, with two or more arguments, it always
+  ran `osascript`, whatever the value of `TOWER_NOTIFY_COMMAND`. Where `osascript` was not on
+  `PATH`, as on Linux, each such call exited 127 and showed no notice, and `tower-watch` ignored
+  that failure. On a Mac with `TOWER_NOTIFY_COMMAND` set and not empty, the command now runs in
+  place of the macOS notification. With fewer than two arguments, it prints the same usage line
+  and exits 1, as before.
+
+- `tower-ui` now fills hard-wrapped card text. Outside a code fence, a line that is not blank and
+  does not start a block continues the paragraph or list item on the line directly before it.
+  It loses its leading spaces and joins with one space. A block start is a code fence, a
+  heading (one to six `#` at the start of the line, then whitespace and at least one more
+  character), a `-`, `*` or `+` list item, a numbered item (digits followed by `. `), or a `>`
+  or `|` line. Each of these except a heading may have leading spaces. Before, each source line
+  of a paragraph ended a row on screen. Such a line after a `-`, `*` or `+` list item ended the
+  list and started a new paragraph.
+- Consecutive numbered items now render as one numbered list that starts at the first item's
+  number. Before, numbered lines rendered as plain paragraph text.
+- A `>` or `|` line is never joined to another line. Consecutive `>` or `|` lines render as
+  before, as one paragraph with a line break between lines. A line directly before or after them
+  that does not start a block is now in a separate block. Before, it was in their paragraph.
+- Inline code still pairs backticks from left to right within one paragraph or list item. Where
+  such a block now holds other source lines than before, some of its text can change between
+  code and plain text. A code span across joined lines shows one space for each line break.
+- Code fences, headings, the exact-source view and the comments section do not change.
+
+Stop `tower-locate` from exiting with SIGPIPE when Git lists many worktrees.
+
+- With a free dispatch lock and no `osascript` on the queue's `PATH`,
+  `tower-ui` now blocks every ready card. It says that dispatch needs a
+  macOS Terminal window. It names `tower-dispatch <id> --headless`, `--here`
+  and `--prep` as shell options. This reason replaces any other dispatch
+  blocker, including an unmet dependency, a missing prompt, an existing task
+  branch, or tracked state that needs `--in-place`. Before, a ready card with
+  no other blocker showed an enabled Dispatch card button. Its click failed
+  without changing state. Before, a ready card with another blocker showed
+  that blocker. When the dispatch lock is held, the lock reason still takes
+  precedence. The queue refreshes the blocker if `osascript` disappears while
+  the UI is open.
+
+- Implementors now acknowledge every role message after they act on it. The skill also says
+  that `tower send orchestrator` stores a message unread until the orchestrator checks its
+  inbox. Before, the implementor skill did not ask for an acknowledgement or say that a send
+  to the orchestrator was stored unread.
+- Orchestrators now read and acknowledge their inbox during rehydration and each standing-loop
+  tick. They leave cards `ready` for `tower-dispatch` and check its exit status. Before, the
+  orchestrator skill did not read its inbox or say that dispatch needs a `ready` card.
+
+`tower-register --detach` now starts a role holder that stays live after the command exits.
+`tower-register --release <role>` stops a live holder and removes a stale registration.
+
+## Codex implementor role lifecycle
+
+- A Codex implementor registers its role with `CODEX_THREAD_ID` at start. Before, the
+  implementor skill did not register a role, so `tower send` could not wake the session.
+- An implementor that registered its role releases it before every stop, including a
+  `--headless` stop after the draft handoff. Before, the implementor skill did not release a
+  role.
+- The orchestrator releases each implementor role during handoff ingest. Before, it removed
+  the worktree without releasing the role.
+- The role inbox instructions describe automatic Codex registration and count unacknowledged
+  messages in `tower agents` only for registered roles. Before, they said every implementor
+  role lacked an owner without manual registration and did not limit that count to registered
+  roles.
+- The correction instructions say a send wakes a registered Codex implementor. Before,
+  they said a send had no live role unless registration was started by hand.
+
 ## v0.8.0 — 2026-10-26
 
 - Every link to the same `.tower` now shares one mailbox, keyed by the real `.tower` directory
