@@ -1,9 +1,9 @@
 # tower hooks
 
-One hook is auto-installed: the version notice in `hooks.json`, which ships with the plugin
-and needs no setup. Every other hook here is a copy-paste snippet (`settings-snippets.json`)
-installed into the **target project's** `.claude/settings.json` — never auto-installed.
-None is load-bearing: the protocol works without them, they just remove manual steps.
+Two hooks are auto-installed through `hooks.json`: the version notice and the implementor
+permission notice. Both ship with the plugin and need no setup. Every other hook here is a
+copy-paste snippet (`settings-snippets.json`) installed into the **target project's**
+`.claude/settings.json`. None is load-bearing: the protocol works without them.
 
 ## tower-version-notice.sh (SessionStart hook, auto-installed with the plugin)
 
@@ -13,6 +13,17 @@ Silent when the install is current, so a current install costs no tokens. Reads 
 cache, never the network, so it cannot delay session start. Silenced by
 `TOWER_NO_VERSION_CHECK=1`. Users on the `install.sh` route get this only if they add the
 snippet by hand; the plugin route gets it automatically.
+
+## implementor-permission-notify.sh (Notification hook, auto-installed with the plugin)
+
+When Claude Code reports a `permission_prompt`, this hook runs `tower-notify` with the
+task id. It reads `TOWER_TASK`, or `.tower-task` in the project found by `tower-locate`.
+Without a task id, it does nothing. A notification failure never blocks the session.
+
+Claude Code 2.1.311 sends this event for its permission dialog after a short timer.
+Whether a PreToolUse hook's `ask` dialog sends the same event is inferred from code
+reading, not observed. The first real prompt after release is the live check.
+`CLAUDE_CODE_DISABLE_PERMISSION_PROMPT_NOTIFY_HOOKS` disables these hooks.
 
 ## implementor-stop-check.sh (Stop hook, implementor sessions)
 

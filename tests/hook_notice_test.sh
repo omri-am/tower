@@ -85,10 +85,64 @@ fi
 assert_eq "hooks.json registers exactly one event" \
   "$(grep -c '"SessionStart"' "$ROOT/hooks/hooks.json")" "1"
 assert_eq "hooks.json uses CLAUDE_PLUGIN_ROOT" \
-  "$(grep -c 'CLAUDE_PLUGIN_ROOT' "$ROOT/hooks/hooks.json")" "1"
+  "$(grep -c 'CLAUDE_PLUGIN_ROOT' "$ROOT/hooks/hooks.json")" "2"
+assert_eq "hooks.json registers one permission notification" \
+  "$(grep -c '"Notification"' "$ROOT/hooks/hooks.json")" "1"
+assert_eq "permission notification matcher" \
+  "$(grep -c '"matcher": "permission_prompt"' "$ROOT/hooks/hooks.json")" "1"
 if command -v python3 >/dev/null 2>&1; then
   assert_eq "hooks.json is valid json" \
     "$(python3 -c 'import json;json.load(open("'"$ROOT"'/hooks/hooks.json"));print("ok")')" "ok"
+  assert_eq "Notification entry matches permission prompts" \
+    "$(python3 -c 'import json,sys; h=json.load(open(sys.argv[1]))["hooks"]["Notification"]; print(len(h) == 1 and h[0]["matcher"] == "permission_prompt")' "$ROOT/hooks/hooks.json")" "True"
 fi
+
+PERMISSION_HOOK="$ROOT/hooks/implementor-permission-notify.sh"
+NOTICE="$TMP/permission-notice"
+cat > "$NOTICE" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >> "$NOTICE_ARGS"
+exit "${NOTICE_EXIT:-0}"
+EOF
+chmod +x "$NOTICE"
+mkdir "$TMP/no-project" "$TMP/project"
+mkdir "$TMP/project/.tower"
+printf 'T002\n' > "$TMP/project/.tower-task"
+
+run_permission_hook() {
+  local project_dir="$1" payload="$2"
+  shift 2
+  rm -f "$TMP/notice.args"
+  (cd "$project_dir" && printf '%s' "$payload" | env -u TOWER_TASK -u TOWER_PROJECT_DIR \
+    TOWER_NOTIFY_COMMAND="$NOTICE" NOTICE_ARGS="$TMP/notice.args" "$@" \
+    bash "$PERMISSION_HOOK") > "$TMP/hook.out" 2> "$TMP/hook.err"
+  HOOK_STATUS=$?
+}
+
+run_permission_hook "$TMP/no-project" '{"notification_type":"permission_prompt"}' TOWER_TASK=T001
+assert_eq "permission prompt notifies once" "$(cat "$TMP/notice.args")" \
+  "$(printf 'tower: permission prompt\nT001 waits for your approval in its session')"
+assert_eq "permission prompt exits 0" "$HOOK_STATUS" "0"
+assert_empty "permission prompt has no stdout" "$(cat "$TMP/hook.out")"
+
+run_permission_hook "$TMP/no-project" '{"notification_type": "permission_prompt"}' TOWER_TASK=T001
+assert_eq "spaced permission prompt notifies once" "$(cat "$TMP/notice.args")" \
+  "$(printf 'tower: permission prompt\nT001 waits for your approval in its session')"
+
+run_permission_hook "$TMP/no-project" '{"notification_type":"idle_prompt"}' TOWER_TASK=T001
+assert_eq "idle prompt does not notify" "$(test -e "$TMP/notice.args" && echo called || echo silent)" "silent"
+assert_eq "idle prompt exits 0" "$HOOK_STATUS" "0"
+
+run_permission_hook "$TMP/no-project" '{"notification_type":"permission_prompt"}'
+assert_eq "no task does not notify" "$(test -e "$TMP/notice.args" && echo called || echo silent)" "silent"
+assert_eq "no task exits 0" "$HOOK_STATUS" "0"
+
+run_permission_hook "$TMP/project" '{"notification_type":"permission_prompt"}'
+assert_eq "project marker supplies task" "$(cat "$TMP/notice.args")" \
+  "$(printf 'tower: permission prompt\nT002 waits for your approval in its session')"
+
+run_permission_hook "$TMP/no-project" '{"notification_type":"permission_prompt"}' TOWER_TASK=T001 NOTICE_EXIT=1
+assert_eq "failing notify leaves hook successful" "$HOOK_STATUS" "0"
+assert_empty "failing notify has no stdout" "$(cat "$TMP/hook.out")"
 
 summary
