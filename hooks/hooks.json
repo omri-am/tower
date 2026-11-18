@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/implementor-permission-notify.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
