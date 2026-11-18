@@ -93,6 +93,8 @@ recorded values without rewriting the card; flags passed again override only tha
 
 A Codex launch also gets `--add-dir <git common dir>/tower`, and dispatch creates that
 directory before the launch, so the sandboxed session can write tower's shared state.
+A Claude launch gets `--add-dir=<sidecar>` with the physical path of the project's `.tower`.
+The `=` keeps the prompt after the flag from becoming another directory argument.
 `--prep` launches nothing and passes no such flag, so a platform that starts Codex after
 `--prep` must pass `--add-dir <git common dir>/tower` itself.
 

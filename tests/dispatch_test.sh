@@ -260,12 +260,13 @@ PROJECT="$(cd "$PROJECT" && pwd -P)"
 WORKTREE="$(cd "$TMP" && pwd -P)/claude-golden-tower-worktrees/root/T001"
 SESSION="$("$ROOT/bin/tower-session-name" --task T001 --from "$PROJECT")"
 PROMPT="$PROJECT/.tower/prompts/T001-prompt.md"
+SIDECAR_DIR="$(cd "$PROJECT/.tower" && pwd -P)"
 assert_claude_command() {
   local label="$1" arguments="$2"
   shift 2
   (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 "$@" --print-only) > "$TMP/golden.stdout" 2> "$TMP/golden.stderr"
   assert_status "$label dispatch succeeds" "$?" 0
-  assert_eq "$label command is unchanged" "$(cat "$TMP/golden.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 claude $arguments \"\$(cat $PROMPT)\""
+  assert_eq "$label command includes the physical sidecar" "$(cat "$TMP/golden.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 claude $arguments --add-dir=$SIDECAR_DIR \"\$(cat $PROMPT)\""
   assert_empty "$label has no stderr" "$(cat "$TMP/golden.stderr")"
 }
 assert_claude_command 'claude' "-n $SESSION"
@@ -277,6 +278,18 @@ assert_claude_command 'headless claude with model' "-n $SESSION -p --model opus"
 assert_claude_command 'headless claude with effort' "-n $SESSION -p --effort high" --headless --effort high
 assert_claude_command 'headless claude with model and effort' "-n $SESSION -p --model opus --effort high" --headless --model opus --effort high
 
+SIDE_PROJECT="$TMP/linked-sidecar-target"
+new_repo "$SIDE_PROJECT"
+new_project "$SIDE_PROJECT"
+new_card "$SIDE_PROJECT" T001
+PROJECT="$TMP/linked-sidecar-source"
+git -C "$SIDE_PROJECT" worktree add -q -b linked-source "$PROJECT"
+SIDE_PROJECT="$(cd "$SIDE_PROJECT" && pwd -P)"
+ln -s "$SIDE_PROJECT/.tower" "$PROJECT/.tower"
+assert_true 'linked project sidecar dispatch succeeds' dispatch "$PROJECT" T001 --print-only
+assert_true 'linked project uses physical sidecar path' grep -Fq -- "--add-dir=$(cd "$SIDE_PROJECT/.tower" && pwd -P) \"\$(cat $SIDE_PROJECT/.tower/prompts/T001-prompt.md)\"" "$TMP/dispatch.out"
+
+PROJECT="$TMP/claude-golden"
 sed -i.bak 's/^vendor: claude$/vendor: any/' "$PROJECT/.tower/tasks/T001-test.md"
 rm "$PROJECT/.tower/tasks/T001-test.md.bak"
 assert_true 'any vendor uses the table default' dispatch "$PROJECT" T001 --print-only
@@ -284,6 +297,9 @@ grep '^cd ' "$TMP/dispatch.out" > "$TMP/default-command"
 assert_true 'default command launches claude' grep -q ' claude -n ' "$TMP/default-command"
 assert_false 'unknown vendor is rejected' dispatch "$PROJECT" T001 --vendor bogus --print-only
 assert_eq 'unknown vendor error is unchanged' "$(cat "$TMP/dispatch.out")" "tower-dispatch: unknown vendor 'bogus'"
+new_card "$PROJECT" T002
+assert_true 'claude preparation succeeds' dispatch "$PROJECT" T002 --prep
+assert_false 'claude preparation prints no sidecar flag' grep -q -- --add-dir= "$TMP/dispatch.out"
 
 PROJECT="$TMP/state-dir"
 new_repo "$PROJECT"
@@ -297,6 +313,7 @@ PROMPT="$PROJECT/.tower/prompts/T001-prompt.md"
 (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --vendor codex --model opus --effort high --print-only) > "$TMP/state-dir.stdout" 2> "$TMP/state-dir.stderr"
 assert_status 'codex print-only dispatch succeeds' "$?" 0
 assert_eq 'codex command grants the shared state directory' "$(cat "$TMP/state-dir.stdout")" "cd $WORKTREE && TOWER_TASK=T001 TOWER_ROLE=implementor-T001 codex --model opus -c model_reasoning_effort=high --add-dir $STATE \"\$(cat $PROMPT)\""
+assert_false 'codex command has no sidecar flag' grep -q -- --add-dir= "$TMP/state-dir.stdout"
 assert_empty 'codex print-only has no stderr' "$(cat "$TMP/state-dir.stderr")"
 (cd "$PROJECT" && "$ROOT/bin/tower-dispatch" T001 --vendor codex --headless --model opus --effort high --print-only) > "$TMP/state-dir.stdout" 2> "$TMP/state-dir.stderr"
 assert_status 'headless codex print-only dispatch succeeds' "$?" 0
@@ -357,7 +374,7 @@ done
 
 (
   . "$ROOT/lib/tower-dispatch.sh"
-  LAUNCH_ADAPTERS='fake - - -n - - -'
+  LAUNCH_ADAPTERS='fake - - -n - - - -'
   VENDOR=fake MODE=terminal MODEL=m EFFORT=e TASK_ID=T001
   prepare_launch name
   printf '%s\n' "${AGENT_ARGS[*]}"
