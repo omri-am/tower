@@ -143,11 +143,29 @@ def kill_session(scratch):
         raise RuntimeError(f'expected Claude session, found {process}')
     before = subprocess.run(['pgrep', '-f', 'tower_msg.py inbox'], capture_output=True, text=True)
     record(events, 'pgrep_before_sigkill', {'exit': before.returncode, 'pids': before.stdout.split()})
+    descendants = []
+    for waiter in before.stdout.split():
+        current = waiter
+        chain = [current]
+        while current != pane:
+            parent = subprocess.run(['ps', '-p', current, '-o', 'ppid='],
+                                    capture_output=True, text=True).stdout.strip()
+            if not parent or parent == '1':
+                break
+            current = parent
+            chain.append(current)
+        if current == pane:
+            descendants.append((waiter, chain))
+    if len(descendants) != 1:
+        raise RuntimeError(f'expected one waiter under Claude PID {pane}: {descendants}')
+    waiter, chain = descendants[0]
+    record(events, 'waiter_before_sigkill', {'pid': waiter, 'ancestry': chain})
     os.kill(int(pane), signal.SIGKILL)
     record(events, 'sigkill', int(pane))
     time.sleep(3)
     after = subprocess.run(['pgrep', '-f', 'tower_msg.py inbox'], capture_output=True, text=True)
     record(events, 'pgrep_after_sigkill', {'exit': after.returncode, 'pids': after.stdout.split()})
+    record(events, 'waiter_after_sigkill', {'pid': waiter, 'present': waiter in after.stdout.split()})
 
 
 def watch_timeout(scratch, pid):

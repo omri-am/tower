@@ -8,7 +8,7 @@ The [probe driver](wait-probes/session.py) used tmux for each interactive sessio
 
 At each launch, `command -v claude` resolved to `/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude`. Its real binary was `/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe`. The dispatch notes expected the `~/.paradev/bin/claude` wrapper, but this shell selected the fnm symlink. The sessions used `/Users/omriam/.claude` as their config directory. The SHA-256 of `~/.claude/settings.json` was `b61ad84dcb52887a257c99b755f16712f507477d3c0a3e95793aecea813e48ce` before the probes. After the last probe, the hash was `66f3f3f3a2a0ff3483d61559d71743145c0c2ae094baacad54b2bc8ad44efec4`. The file mtime was 08:38:01 UTC, while P3 waited. The probe driver used only scratch settings. The current settings contain no T082 probe marker. Two local backup files have different hashes from the baseline. The source of the change is unknown, so the unchanged-settings criterion failed. I did not restore the file.
 
-Workspace trust was accepted only for these scratch projects: P1 `tmp.EKsMhRs6ru`, P2a `tmp.SYRgUVYix9`, P2b `tmp.vMObe9SVgV` and `tmp.JNJDVVxY3Y`, P3 `tmp.l15zqJ3qGG`, P3's kill and quit controls `tmp.G0BjtmdrQJ` and `tmp.hL0CdtqpFc`, and P4 `tmp.gFrh5hjZox` and timeout control `tmp.TQH2Bcoy2f`. Two exploratory tmux launches also accepted trust for scratch projects `tmp.qB6MW48P7L` and `tmp.vAuVNWuiwg`. All names were under `/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/`. The corresponding `~/.claude.json` project entries have trust set to true. Early PTY trials exited during trust and have no project entry. An exploratory Bypass Permissions launch reached the [recorded security choice dialog](wait-probes/startup.log). No BAY-EVT id appeared. Its default “No, exit” choice closed the session; no approval was given. No measured probe answered a tool, permission, security, or choice dialog.
+Workspace trust was accepted only for these scratch projects: P1 `tmp.EKsMhRs6ru`, P2a `tmp.SYRgUVYix9`, P2b `tmp.vMObe9SVgV` and `tmp.JNJDVVxY3Y`, P3 `tmp.l15zqJ3qGG`, P3's kill and quit controls `tmp.G0BjtmdrQJ`, `tmp.BHEJHrJTwe`, and `tmp.hL0CdtqpFc`, and P4 `tmp.gFrh5hjZox` and timeout control `tmp.TQH2Bcoy2f`. Two exploratory tmux launches also accepted trust for scratch projects `tmp.qB6MW48P7L` and `tmp.vAuVNWuiwg`. All names were under `/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/`. The corresponding `~/.claude.json` project entries have trust set to true. Early PTY trials exited during trust and have no project entry. An exploratory Bypass Permissions launch reached the [recorded security choice dialog](wait-probes/startup.log). No BAY-EVT id appeared. Its default “No, exit” choice closed the session; no approval was given. No measured probe answered a tool, permission, security, or choice dialog.
 
 ## P1: idle waiter — pass
 
@@ -41,7 +41,7 @@ Claude started the background waiter. The Write tool created `/tmp/t082-permissi
 
 ## P3: lifetime pass; live-waiter normal quit cannot determine
 
-The `--wait 10800` waiter remained alive 7,500 seconds after the first Stop hook. The send then queued an id with exit 3. Claude started a new turn and named that id. A normal `/exit` closed the session after the waiter had completed. `pgrep -f 'tower_msg.py inbox'` then returned exit 1 with no PIDs. That result does not show cleanup of a live waiter. In a second scratch run, `SIGKILL` of Claude PID 76603 left waiter PID 82985 alive after three seconds. I removed that orphan with `SIGTERM`. In a third scratch run, `/exit` with an active waiter opened the [recorded quit choice](wait-probes/p3quit.log). No BAY-EVT id appeared. I did not answer it. I sent `SIGTERM` to Claude instead, and the waiter PID disappeared. Cleanup by a normal UI quit with a live waiter remains cannot determine. [Quit-control log](wait-probes/p3quit.log) records that limit. The T023 learning that a Claude background command dies within two hours did not hold on Claude Code 2.1.318 in this interactive session. [P3 log](wait-probes/p3.log) and [kill-control log](wait-probes/p3kill.log):
+The `--wait 10800` waiter remained alive 7,500 seconds after the first Stop hook. The send then queued an id with exit 3. Claude started a new turn and named that id. A normal `/exit` closed the session after the waiter had completed. `pgrep -f 'tower_msg.py inbox'` then returned exit 1 with no PIDs. That result does not show cleanup of a live waiter. The first kill control recorded a surviving PID but did not link it to its Claude process. A repeated control linked waiter PID 69305 through its parent to Claude PID 61936 before `SIGKILL`. The same waiter remained after three seconds. I removed it with `SIGTERM`. In a separate scratch run, `/exit` with an active waiter opened the [recorded quit choice](wait-probes/p3quit.log). No BAY-EVT id appeared. I did not answer it. I sent `SIGTERM` to Claude instead, and its waiter disappeared. Cleanup by a normal UI quit with a live waiter remains cannot determine. The T023 learning that a Claude background command dies within two hours did not hold on Claude Code 2.1.318 in this interactive session. [P3 log](wait-probes/p3.log), [first kill-control log](wait-probes/p3kill.log), and [linked kill-control log](wait-probes/p3kill-linked.log):
 
 ```text
 10:16:44.694Z mono=532496.410 pgrep: waiter PID 78610 present after 2h5m
@@ -49,7 +49,9 @@ The `--wait 10800` waiter remained alive 7,500 seconds after the first Stop hook
 10:16:46.279Z mono=532497.995 terminal: background command completed, exit code 0
 10:16:48.688Z mono=532500.404 terminal: assistant named m-20261119T101644Z-9a6b2405aeb16b3389bb28762b469b6d
 10:18:20.613Z mono=532592.328 pgrep after /exit: exit=1 pids=[]
-08:19:43.281Z mono=525475.023 pgrep after SIGKILL: waiter PID 82985 still present
+10:42:15.532Z mono=534027.271 waiter PID 69305 ancestry: 69305 → 69303 → Claude PID 61936
+10:42:15.532Z mono=534027.271 SIGKILL Claude PID 61936
+10:42:18.596Z mono=534030.335 waiter PID 69305 still present
 ```
 
 ## P4: asyncRewake hook — pass
@@ -81,6 +83,6 @@ In a no-message control, the waiter PID disappeared 590.436 seconds after Stop. 
 | P2b dialog | cannot determine | Neither Write attempt nor the later Bash attempt opened a dialog. |
 | P3 lifetime | pass | PID 78610 survived 2h5m and woke Claude. |
 | P3 normal quit | cannot determine | `/exit` followed waiter completion; an active waiter caused an unanswered quit choice. |
-| P3 SIGKILL | fail | Waiter PID 82985 remained after Claude died. |
+| P3 SIGKILL | fail | Waiter PID 69305 remained after its parent Claude process died. |
 | P4 asyncRewake | pass | Hook feedback named the id; the no-message waiter ended at 590.436 seconds. |
 | P4 600-second hook limit | cannot determine | The no-message waiter ended before the limit; its exit status was not captured. |
