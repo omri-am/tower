@@ -5,6 +5,18 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.10.0 — 2026-11-19
+
+## Fixed
+
+- On Linux, a `tower-notify` message that starts with `-` is now shown as text.
+
+- A Claude implementor can write cards and handoffs through the worktree's `.tower` link without a permission prompt.
+
+- When a Claude implementor waits on a permission dialog, the owner gets a notification that names the task.
+
+- `scripts/tower-changelog-check` now refuses a changelog fragment that has a heading line.
+
 ## v0.9.0 — 2026-11-15
 
 - tower runs on Linux. CI runs the test suite on `ubuntu-latest` and `macos-latest`. The
