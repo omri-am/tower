@@ -304,8 +304,9 @@ it. [CHANGELOG.md](../CHANGELOG.md) says what each version added.
 A change under `bin/`, `lib/`, `web/`, `hooks/`, `scripts/`, `skills/`, `templates/`,
 `commands/`, `.claude-plugin/` or `PROTOCOL_VERSION` needs a changelog entry; each card
 adds finished `- ` bullets in its own `changelog.d/<task-id>.md` instead of editing
-`CHANGELOG.md`. `scripts/tower-release` folds those fragments into the new version section
-and deletes them.
+`CHANGELOG.md`. A fragment holds only `- ` bullets, with no heading line, and
+`scripts/tower-changelog-check` refuses one that starts with `#`.
+`scripts/tower-release` folds those fragments into the new version section and deletes them.
 
 A card that adds a top-level section to `PROTOCOL.md` or `docs/REFERENCE.md` writes it as
 `protocol.d/<task-id>.md` or `reference.d/<task-id>.md` and does not edit the index. Each
