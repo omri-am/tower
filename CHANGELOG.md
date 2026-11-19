@@ -7,13 +7,17 @@ what the version gives them.
 
 ## v0.10.0 — 2026-11-19
 
-## Fixed
+- A Claude implementor started by `tower-dispatch` now gets `--add-dir=<sidecar>`, so it writes
+  cards and handoffs through the worktree's `.tower` link without Claude Code's "resolves through
+  a symlink" permission prompt. `--prep` passes no flag, so a platform that starts Claude after
+  `--prep` must pass it itself.
+
+- When a Claude implementor waits on a permission dialog, the owner gets a notification that
+  names the task. The plugin installs the `Notification` hook that sends it. That Claude Code
+  sends this event for a dialog that a PreToolUse hook's "ask" opens is read in its code and not
+  yet observed.
 
 - On Linux, a `tower-notify` message that starts with `-` is now shown as text.
-
-- A Claude implementor can write cards and handoffs through the worktree's `.tower` link without a permission prompt.
-
-- When a Claude implementor waits on a permission dialog, the owner gets a notification that names the task.
 
 - `scripts/tower-changelog-check` now refuses a changelog fragment that has a heading line.
 
