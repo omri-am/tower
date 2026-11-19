@@ -1,0 +1,1 @@
+Use the Write tool to create /tmp/t082-permission-probe.txt containing exactly PROBE_DIALOG. Do not use Bash. Stop at any permission dialog without answering it.

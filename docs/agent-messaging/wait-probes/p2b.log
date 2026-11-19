@@ -1,0 +1,13 @@
+2026-11-19T08:16:12.748Z mono=525264.491 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.vMObe9SVgV claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:16:23.976Z mono=525275.719 trust_accept: Yes, I trust this folder
+2026-11-19T08:16:32.924Z mono=525284.667 hook: UserPromptSubmit
+2026-11-19T08:16:40.741Z mono=525292.484 hook: Stop
+2026-11-19T08:16:57.732Z mono=525309.475 hook: UserPromptSubmit
+2026-11-19T08:16:58.797Z mono=525310.540 terminal: Write to /tmp/t082-permission-probe.txt wrote one line without a dialog
+2026-11-19T08:16:59.758Z mono=525311.501 hook: Stop
+2026-11-19T08:17:18.491Z mono=525330.234 hook: UserPromptSubmit
+2026-11-19T08:17:20.234Z mono=525331.977 terminal: Write to /System/t082-permission-probe.txt failed with EPERM; no dialog
+2026-11-19T08:17:21.148Z mono=525332.891 terminal: assistant reported EPERM and no permission dialog
+2026-11-19T08:17:21.559Z mono=525333.302 hook: Stop
+2026-11-19T08:20:56.662Z mono=525548.404 cleanup: SIGTERM Claude PID 45050 at quit dialog
+2026-11-19T08:24:23.347Z mono=525755.089 cleanup: removed /tmp/t082-permission-probe.txt after checking its probe text

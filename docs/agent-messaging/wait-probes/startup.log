@@ -1,0 +1,14 @@
+Exploratory launch in scratch tmp.qB6MW48P7L. This launch was excluded from the measured probes because it stopped at a security choice dialog. The tmux pane showed:
+
+WARNING: Claude Code running in Bypass Permissions mode
+In Bypass Permissions mode, Claude Code will not ask for your approval
+before running potentially dangerous commands.
+This mode should only be used in a sandboxed container/VM that has
+restricted internet access and can easily be restored if damaged.
+By proceeding, you accept all responsibility for actions taken while running
+in Bypass Permissions mode.
+No, exit [selected]
+Yes, I accept
+Enter to confirm · Esc to cancel
+
+No BAY-EVT id appeared. The default No, exit choice closed the exploratory session. No approval was given. The launch did not produce a measured turn, and its terminal timestamps were not captured.

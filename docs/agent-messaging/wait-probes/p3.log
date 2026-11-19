@@ -1,0 +1,16 @@
+2026-11-19T08:11:09.617Z mono=524961.365 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.l15zqJ3qGG claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:11:34.354Z mono=524986.099 hook: UserPromptSubmit
+2026-11-19T08:11:44.571Z mono=524996.316 hook: Stop
+2026-11-19T08:13:04.739Z mono=525076.483 trust_accept_recorded_late: Yes, I trust this folder was selected before the 08:11:34 UserPromptSubmit; the exact selection time was not captured
+2026-11-19T08:13:04.739Z mono=525076.483 terminal_snapshot: READY and the background waiter were visible; this is the observation time
+2026-11-19T08:14:04.166Z mono=525135.909 due_armed: {'stop_mono': 524996.315606125, 'due_mono': 532496.315606125}
+2026-11-19T10:16:44.694Z mono=532496.410 pgrep_2h5m: exit=0 pids=[78610]; 7500.094s after first Stop
+2026-11-19T10:16:44.706Z mono=532496.422 screen_before_send: Claude idle with one background shell
+2026-11-19T10:16:44.706Z mono=532496.422 send_start: PROBE_LIFETIME
+2026-11-19T10:16:44.968Z mono=532496.684 send_end: exit=3 id=m-20261119T101644Z-9a6b2405aeb16b3389bb28762b469b6d stderr=queued; probe has no live owner
+2026-11-19T10:16:46.222Z mono=532497.938 hook: UserPromptSubmit
+2026-11-19T10:16:46.279Z mono=532497.995 terminal: background command completed, exit code 0
+2026-11-19T10:16:48.688Z mono=532500.404 terminal: assistant named m-20261119T101644Z-9a6b2405aeb16b3389bb28762b469b6d
+2026-11-19T10:16:48.977Z mono=532500.693 hook: Stop
+2026-11-19T10:18:11.395Z mono=532583.110 normal_quit: /exit completed; session closed
+2026-11-19T10:18:20.613Z mono=532592.328 pgrep_after_normal_quit: exit=1 pids=[]
