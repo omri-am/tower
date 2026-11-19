@@ -81,6 +81,62 @@ OUT="$(run_check main 2>&1)"
 assert_status "a code change with a new fragment passes" "$?" "0"
 assert_empty "a new fragment passes quietly" "$OUT"
 
+new_repo
+git -C "$R" checkout -q -b feature
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+mkdir -p "$R/changelog.d"
+printf '## Fixed\n- Fixed a thing.\n' > "$R/changelog.d/T999.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "code change with a headed fragment"
+OUT="$(run_check main 2>&1)"
+assert_status "a new fragment with a heading fails" "$?" "1"
+assert_eq "the new headed fragment is named" \
+  "$(printf '%s\n' "$OUT" | grep -c '^tower-changelog-check: changelog.d/T999.md has a heading line$')" "1"
+assert_eq "the heading refusal explains the rule" \
+  "$(printf '%s\n' "$OUT" | grep -c '^tower-changelog-check: a fragment holds only "- " bullets; scripts/tower-release copies it into the version section as it is$')" "1"
+assert_eq "every heading refusal line has the prefix" \
+  "$(printf '%s\n' "$OUT" | grep -vc '^tower-changelog-check: ')" "0"
+
+new_repo
+git -C "$R" checkout -q -b feature
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Fixes #12.' > "$R/changelog.d/T999.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "code change with a hash in a bullet"
+assert_eq "the hash-in-bullet fixture changes code and a fragment" \
+  "$(git -C "$R" diff --name-only main...feature)" "$(printf 'changelog.d/T999.md\nlib/tower-thing.sh')"
+OUT="$(run_check main 2>&1)"
+assert_status "a hash later in a bullet passes" "$?" "0"
+assert_empty "a hash later in a bullet passes quietly" "$OUT"
+
+new_repo
+git -C "$R" checkout -q -b feature
+mkdir -p "$R/changelog.d"
+printf '## Fixed\n- Fixed a thing.\n' > "$R/changelog.d/T999.md"
+printf '%s\n' '- Added a thing.' >> "$R/CHANGELOG.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "changelog edit with a headed fragment"
+OUT="$(run_check main 2>&1)"
+assert_status "a headed fragment fails with a changelog edit" "$?" "1"
+assert_eq "the headed fragment beside a changelog edit is named" \
+  "$(printf '%s\n' "$OUT" | grep -c '^tower-changelog-check: changelog.d/T999.md has a heading line$')" "1"
+
+new_repo
+mkdir -p "$R/changelog.d"
+printf '## Fixed\n- Fixed a thing.\n' > "$R/changelog.d/T998.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "existing headed fragment"
+git -C "$R" checkout -q -b feature
+printf 'more code\n' >> "$R/lib/tower-thing.sh"
+git -C "$R" rm -q changelog.d/T998.md
+git -C "$R" commit -qam "code change with a deleted headed fragment"
+assert_eq "the deleted headed fragment fixture changes code" \
+  "$(git -C "$R" diff --name-status main...feature)" "$(printf 'D\tchangelog.d/T998.md\nM\tlib/tower-thing.sh')"
+OUT="$(run_check main 2>&1)"
+assert_status "a deleted fragment with a heading passes" "$?" "0"
+assert_empty "a deleted headed fragment passes quietly" "$OUT"
+
 for f in changelog.d/T999.txt changelog.d/.gitkeep; do
   new_repo
   git -C "$R" checkout -q -b feature
@@ -106,6 +162,19 @@ git -C "$R" commit -qam "code change with a modified fragment"
 OUT="$(run_check main 2>&1)"
 assert_status "a code change with a modified fragment passes" "$?" "0"
 assert_empty "a modified fragment passes quietly" "$OUT"
+
+new_repo
+mkdir -p "$R/changelog.d"
+printf '%s\n' '- Original entry.' > "$R/changelog.d/T998.md"
+git -C "$R" add -A
+git -C "$R" commit -q -m "existing fragment"
+git -C "$R" checkout -q -b feature
+printf '### Added\n' >> "$R/changelog.d/T998.md"
+git -C "$R" commit -qam "modified fragment gains a heading"
+OUT="$(run_check main 2>&1)"
+assert_status "a modified fragment with a heading fails" "$?" "1"
+assert_eq "the modified headed fragment is named" \
+  "$(printf '%s\n' "$OUT" | grep -c '^tower-changelog-check: changelog.d/T998.md has a heading line$')" "1"
 
 new_repo
 git -C "$R" config diff.renames true
