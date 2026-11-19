@@ -63,7 +63,7 @@ def start(name):
     claude = ['claude', '--setting-sources', '', '--settings', str(settings),
               '--strict-mcp-config', '--model', 'claude-haiku-5-5',
               '--permission-mode', 'manual']
-    if name in ('p1', 'p2a', 'p2b', 'p3', 'p3kill'):
+    if name in ('p1', 'p2a', 'p2b', 'p3', 'p3kill', 'p3quit'):
         claude.extend(['--allowedTools', 'Bash'])
     elif name == 'p2b2':
         waiter = str(ROOT / 'bin/tower-inbox')
@@ -150,10 +150,32 @@ def kill_session(scratch):
     record(events, 'pgrep_after_sigkill', {'exit': after.returncode, 'pids': after.stdout.split()})
 
 
+def watch_timeout(scratch, pid):
+    scratch = Path(scratch).resolve()
+    events = scratch / 'events.jsonl'
+    pid = int(pid)
+    record(events, 'waiter_watch_start', pid)
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            record(events, 'waiter_exit_observed', pid)
+            break
+        time.sleep(0.5)
+    stops = [json.loads(line)['mono'] for line in events.read_text().splitlines()
+             if '"kind": "hook", "value": "Stop"' in line]
+    deadline = stops[-1] + 605
+    if time.monotonic() < deadline:
+        time.sleep(deadline - time.monotonic())
+    screen = subprocess.run(['tmux', 'capture-pane', '-pt', 't082-p4', '-S', '-30'],
+                            capture_output=True, text=True)
+    record(events, 'timeout_screen', screen.stdout)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('operation', choices=('start', 'capture', 'hook', 'send', 'mark',
-                                               'due', 'after', 'kill_session'))
+                                               'due', 'after', 'kill_session', 'watch_timeout'))
     parser.add_argument('arg1', nargs='?')
     parser.add_argument('arg2', nargs='?')
     parser.add_argument('arg3', nargs='?')
@@ -172,5 +194,7 @@ if __name__ == '__main__':
         after(args.arg1, args.arg2)
     elif args.operation == 'kill_session':
         kill_session(args.arg1)
+    elif args.operation == 'watch_timeout':
+        watch_timeout(args.arg1, args.arg2)
     else:
         send(args.arg1, args.arg2)

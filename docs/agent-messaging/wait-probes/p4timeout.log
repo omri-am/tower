@@ -1,0 +1,8 @@
+2026-11-19T10:25:24.516Z mono=533016.295 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.TQH2Bcoy2f claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T10:25:35.575Z mono=533027.353 trust_accept: Yes, I trust this folder
+2026-11-19T10:25:45.904Z mono=533037.683 hook: UserPromptSubmit
+2026-11-19T10:25:46.830Z mono=533038.608 hook: Stop; asyncRewake waiter used --wait 590 and hook timeout 600
+2026-11-19T10:26:18.223Z mono=533070.002 waiter_watch_start: PID 47385
+2026-11-19T10:35:37.304Z mono=533629.044 waiter_exit_observed: PID 47385 absent; 590.436 seconds after Stop
+2026-11-19T10:35:51.883Z mono=533643.623 timeout_screen: Claude showed READY and idle prompt with no later turn or timeout notice; 605.015 seconds after Stop
+The watcher observed process disappearance, not its exit status. No message was sent in this control. The 600-second hook timeout did not fire while the waiter was alive.
