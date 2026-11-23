@@ -19,7 +19,11 @@ sed -e 's/^id: T000$/id: T012/' -e 's/^title:$/title: Fix the thing/' -e 's/<tas
   "$PROJECT/.tower/templates/task-card.md" > "$PROJECT/expected"
 assert_true 'only id, title and task-id placeholder change in template' cmp -s "$OUT" "$PROJECT/expected"
 assert_false 'no task-id placeholder survives' grep -qF '<task-id>' "$OUT"
-assert_true 'claim remains' test -d "$TASKS/.claims/T012"
+assert_true 'claim remains' test -f "$TASKS/.claims/T012"
+mkdir "$TASKS/.claims/T013"
+touch "$TASKS/.claims/T013/marker"
+assert_eq 'existing directory claim is skipped' "$("$NEW" 'Older claim')" "$TASKS/T014-older-claim.md"
+assert_true 'existing directory claim remains unchanged' test -f "$TASKS/.claims/T013/marker"
 
 export TOWER_PROJECT_DIR="$PROJECT/fixture"
 mkdir -p "$TOWER_PROJECT_DIR/.tower/templates"

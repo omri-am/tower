@@ -31,7 +31,7 @@ MAX="$(
 NEXT="$(printf '%s\n' "$MAX" | awk '$1 + 0 > max { max = $1 + 0 } END { printf "%.0f", max + 1 }')"
 while true; do
   ID="$(printf 'T%03d' "$NEXT")"
-  if mkdir "$TASKS/.claims/$ID" 2>/dev/null; then break; fi
+  if ( set -C; : > "$TASKS/.claims/$ID" ) 2>/dev/null; then break; fi
   if [ ! -e "$TASKS/.claims/$ID" ]; then
     echo "tower-new: cannot claim $ID in $TASKS/.claims" >&2
     exit 1
