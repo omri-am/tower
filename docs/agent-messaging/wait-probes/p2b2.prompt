@@ -1,0 +1,5 @@
+Run this command as a background Bash command. Keep it running while you reply READY:
+
+TOWER_ROLE=probe /Users/omriam/.paradev/worktrees/tower/tower/root/T082-measure-whether-a-background-inbox-wait-wakes-a-cl/bin/tower-inbox list --wait 900
+
+When I ask next, run a different Bash command. Stop at any permission dialog without answering it.

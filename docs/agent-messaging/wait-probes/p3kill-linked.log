@@ -1,0 +1,10 @@
+2026-11-19T10:41:13.692Z mono=533965.431 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.BHEJHrJTwe claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T10:41:21.327Z mono=533973.066 trust_accept: Yes, I trust this folder
+2026-11-19T10:41:31.287Z mono=533983.025 hook: UserPromptSubmit
+2026-11-19T10:41:34.701Z mono=533986.440 hook: Stop; background waiter active
+2026-11-19T10:42:15.511Z mono=534027.250 pgrep_before_sigkill: exit=0 pids=[69305]
+2026-11-19T10:42:15.532Z mono=534027.271 waiter_before_sigkill: PID 69305 ancestry=[69305,69303,61936]; ps linked it to Claude PID 61936
+2026-11-19T10:42:15.532Z mono=534027.271 sigkill: Claude PID 61936
+2026-11-19T10:42:18.596Z mono=534030.335 pgrep_after_sigkill: exit=0 pids=[69305]
+2026-11-19T10:42:18.596Z mono=534030.335 waiter_after_sigkill: PID 69305 present
+2026-11-19T10:42:24.595Z mono=534036.334 cleanup_waiter: SIGTERM PID 69305; waiter then absent

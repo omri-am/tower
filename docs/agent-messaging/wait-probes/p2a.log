@@ -1,0 +1,8 @@
+2026-11-19T08:14:59.763Z mono=525191.506 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.SYRgUVYix9 claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:15:08.769Z mono=525200.512 trust_accept: Yes, I trust this folder
+2026-11-19T08:15:15.336Z mono=525207.079 hook: UserPromptSubmit
+2026-11-19T08:15:25.956Z mono=525217.700 hook: Stop
+2026-11-19T08:15:43.352Z mono=525235.096 hook: UserPromptSubmit
+2026-11-19T08:15:44.455Z mono=525236.199 terminal: Error: Blocked: standalone sleep 120
+2026-11-19T08:15:46.214Z mono=525237.957 hook: Stop
+2026-11-19T08:20:56.446Z mono=525548.188 cleanup: SIGTERM Claude PID 29955 at quit dialog

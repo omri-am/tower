@@ -1,0 +1,9 @@
+2026-11-19T08:18:37.309Z mono=525409.052 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.G0BjtmdrQJ claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:18:49.514Z mono=525421.257 trust_accept: Yes, I trust this folder
+2026-11-19T08:18:59.344Z mono=525431.087 hook: UserPromptSubmit
+2026-11-19T08:19:05.356Z mono=525437.098 terminal: assistant replied READY
+2026-11-19T08:19:05.550Z mono=525437.292 hook: Stop
+2026-11-19T08:19:40.144Z mono=525471.886 pgrep_before_sigkill: {'exit': 0, 'pids': ['36682', '49521', '66990', '78610', '82985']}
+2026-11-19T08:19:40.144Z mono=525471.887 sigkill: 76603
+2026-11-19T08:19:43.281Z mono=525475.023 pgrep_after_sigkill: {'exit': 0, 'pids': ['36682', '49521', '66990', '78610', '82985']}
+2026-11-19T08:19:55.102Z mono=525486.844 cleanup_waiter: SIGTERM 82985

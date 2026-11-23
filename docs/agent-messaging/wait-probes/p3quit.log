@@ -1,0 +1,10 @@
+2026-11-19T10:26:38.275Z mono=533090.054 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.hL0CdtqpFc claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T10:26:49.312Z mono=533101.091 trust_accept: Yes, I trust this folder
+2026-11-19T10:26:57.073Z mono=533108.852 hook: UserPromptSubmit
+2026-11-19T10:27:01.475Z mono=533113.254 hook: Stop; Claude had replied READY and the waiter ran in background
+2026-11-19T10:27:13.450Z mono=533125.229 waiter_before_quit: PID 57527 active with --wait 10800
+2026-11-19T10:27:32.578Z mono=533144.357 terminal: Background work is running | The following will stop when you exit: shell · TOWER_ROLE=probe /Users/omriam/.paradev/worktrees… | ❯ 1. Exit and stop tasks | 2. Move to background and exit | 3. Stay | Enter to confirm · Esc to cancel
+2026-11-19T10:27:32.578Z mono=533144.357 dialog: no BAY-EVT id appeared
+2026-11-19T10:27:32.578Z mono=533144.357 input: /exit opened this choice; no choice was answered
+2026-11-19T10:27:32.578Z mono=533144.357 signal: SIGTERM to Claude PID 54829
+2026-11-19T10:27:35.639Z mono=533147.418 pgrep_after_sigterm: exit=0 pids=[47385]; waiter PID 57527 absent (47385 belongs to P4 timeout control)

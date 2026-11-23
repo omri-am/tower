@@ -1,0 +1,11 @@
+2026-11-19T08:14:04.332Z mono=525136.076 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.EKsMhRs6ru claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:14:15.102Z mono=525146.846 trust_accept: Yes, I trust this folder
+2026-11-19T08:14:27.369Z mono=525159.112 hook: UserPromptSubmit
+2026-11-19T08:14:31.753Z mono=525163.496 hook: Stop
+2026-11-19T08:16:31.782Z mono=525283.525 screen_before_send: idle screen captured before send
+2026-11-19T08:16:31.783Z mono=525283.526 send_start: PROBE_IDLE
+2026-11-19T08:16:33.322Z mono=525285.065 send_end: exit=3 id=m-20261119T081633Z-899aefe552b3bf4b31dc6e422ea06d40 stderr=queued; probe has no live owner
+2026-11-19T08:16:33.527Z mono=525285.270 hook: UserPromptSubmit
+2026-11-19T08:16:33.575Z mono=525285.318 terminal: background command completed, exit code 0
+2026-11-19T08:16:35.772Z mono=525287.515 terminal: assistant named m-20261119T081633Z-899aefe552b3bf4b31dc6e422ea06d40
+2026-11-19T08:16:35.830Z mono=525287.573 hook: Stop

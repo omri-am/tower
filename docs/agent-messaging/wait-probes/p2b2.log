@@ -1,0 +1,11 @@
+2026-11-19T08:27:19.121Z mono=525930.860 setup: scratch=/private/var/folders/33/yy9h3fms4zsfmn5rv69f0b7c0000gn/T/tmp.JNJDVVxY3Y claude=/Users/omriam/.local/state/fnm_multishells/96602_1795075468767/bin/claude real=/Users/omriam/.local/share/fnm/node-versions/v24.19.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe version=2.1.318 (Claude Code) config=/Users/omriam/.claude
+2026-11-19T08:27:31.672Z mono=525943.411 trust_accept: Yes, I trust this folder
+2026-11-19T08:27:44.523Z mono=525956.261 terminal: waiter ran in the background; assistant replied READY
+2026-11-19T08:27:44.637Z mono=525956.376 hook: UserPromptSubmit
+2026-11-19T08:27:52.146Z mono=525963.884 hook: Stop
+2026-11-19T08:28:13.167Z mono=525984.905 hook: UserPromptSubmit
+2026-11-19T08:28:14.141Z mono=525985.879 terminal: Bash(printf PROBE_DIALOG > /tmp/t082-permission-probe2.txt)
+2026-11-19T08:28:15.053Z mono=525986.791 terminal: assistant reported no permission dialog
+2026-11-19T08:28:15.187Z mono=525986.925 hook: Stop
+2026-11-19T08:28:35.878Z mono=526007.616 cleanup: SIGTERM Claude PID 44203 after no-dialog attempt
+2026-11-19T08:28:36.109Z mono=526007.847 cleanup: removed /tmp/t082-permission-probe2.txt after checking its probe text

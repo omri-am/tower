@@ -1,0 +1,5 @@
+Run this different command with the Bash tool. Do not use another tool:
+
+printf PROBE_DIALOG > /tmp/t082-permission-probe2.txt
+
+Stop at any permission dialog without answering it.

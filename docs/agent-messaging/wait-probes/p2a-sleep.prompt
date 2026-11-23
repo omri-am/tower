@@ -1,0 +1,3 @@
+Run this command in a foreground Bash tool. Do not run it in the background:
+
+sleep 120
