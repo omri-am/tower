@@ -194,4 +194,41 @@ assert_true 'empty project starts at T001' test -f "$TOWER_PROJECT_DIR/.tower/ta
 env TOWER_BIN_DIR="$PROJECT/bootstrap-bin" TOWER_LIBEXEC_DIR="$PROJECT/bootstrap-libexec" "$ROOT/bin/tower-bootstrap" >/dev/null 2>&1
 assert_true 'bootstrap links command' test -L "$PROJECT/bootstrap-bin/tower-new"
 assert_true 'reference lists command' grep -q 'tower new' "$ROOT/docs/REFERENCE.md"
+
+GIT_PROJECT="$(mktemp -d "$PROJECT/git-stage.XXXXXX")"
+git -C "$GIT_PROJECT" init -q
+git -C "$GIT_PROJECT" config user.name 'Tower Test'
+git -C "$GIT_PROJECT" config user.email 'tower-test@example.com'
+git -C "$GIT_PROJECT" commit -q --allow-empty -m 'Initialize project'
+mkdir -p "$GIT_PROJECT/.tower/templates"
+cp "$ROOT/templates/task-card.md" "$GIT_PROJECT/.tower/templates/"
+export TOWER_PROJECT_DIR="$GIT_PROJECT"
+CARD="$("$NEW" 'Stage card')"
+assert_eq 'new card is staged' "$(git -C "$GIT_PROJECT" diff --cached --name-only)" '.tower/tasks/T001-stage-card.md'
+git -C "$GIT_PROJECT" commit -q --only -m 'Add card' -- "$CARD" > "$PROJECT/commit-out" 2> "$PROJECT/commit-error"
+assert_status 'first card commit succeeds' "$?" 0
+
+GIT_PROJECT="$(mktemp -d "$PROJECT/git-preserve.XXXXXX")"
+git -C "$GIT_PROJECT" init -q
+mkdir -p "$GIT_PROJECT/.tower/templates"
+cp "$ROOT/templates/task-card.md" "$GIT_PROJECT/.tower/templates/"
+printf 'staged content\n' > "$GIT_PROJECT/other.txt"
+git -C "$GIT_PROJECT" add -- other.txt
+OTHER_BEFORE="$(git -C "$GIT_PROJECT" ls-files --stage -- other.txt)"
+export TOWER_PROJECT_DIR="$GIT_PROJECT"
+"$NEW" 'Preserve index' > "$PROJECT/out"
+assert_eq 'other staged entry is unchanged' "$(git -C "$GIT_PROJECT" ls-files --stage -- other.txt)" "$OTHER_BEFORE"
+assert_eq 'only card joins existing staged file' "$(git -C "$GIT_PROJECT" diff --cached --name-only)" "$(printf 'other.txt\n.tower/tasks/T001-preserve-index.md' | sort)"
+
+GIT_PROJECT="$(mktemp -d "$PROJECT/git-locked.XXXXXX")"
+git -C "$GIT_PROJECT" init -q
+mkdir -p "$GIT_PROJECT/.tower/templates"
+cp "$ROOT/templates/task-card.md" "$GIT_PROJECT/.tower/templates/"
+export TOWER_PROJECT_DIR="$GIT_PROJECT"
+: > "$GIT_PROJECT/.git/index.lock"
+"$NEW" 'Locked index' > "$PROJECT/out" 2> "$PROJECT/error"
+assert_status 'index lock does not fail card creation' "$?" 0
+CARD="$GIT_PROJECT/.tower/tasks/T001-locked-index.md"
+assert_eq 'index lock still prints card path' "$(cat "$PROJECT/out")" "$CARD"
+assert_true 'index lock reports staging failure and card' grep -qF "tower-new: created $CARD but could not stage it:" "$PROJECT/error"
 summary

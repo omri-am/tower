@@ -49,4 +49,9 @@ while IFS= read -r LINE || [ -n "$LINE" ]; do
     *) printf '%s\n' "${LINE//"<task-id>"/$ID}" ;;
   esac
 done < "$TEMPLATE" > "$CARD"
+if [ "$(git -C "$TASKS" rev-parse --is-inside-work-tree 2>/dev/null)" = true ]; then
+  if ! GIT_ERROR="$(git -C "$TASKS" add -- "$CARD" 2>&1)"; then
+    printf 'tower-new: created %s but could not stage it: %s\n' "$CARD" "${GIT_ERROR%%$'\n'*}" >&2
+  fi
+fi
 printf '%s\n' "$CARD"
