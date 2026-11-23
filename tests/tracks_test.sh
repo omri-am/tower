@@ -19,6 +19,7 @@ card() {
     case "$track" in
       __missing) ;;
       __bare_empty) printf '%s\n' 'track:' ;;
+      __double_quotes) printf '%s\n' 'track: ""docs""' ;;
       *) printf 'track: "%s"\n' "$track" ;;
     esac
     printf '%s\n' '---' '## File ownership' '- docs/guide.md'
@@ -43,7 +44,11 @@ charter() {
     if [ "$#" -gt 0 ]; then
       printf '%s\n' '## Paths'
       for path in "$@"; do
-        [ "$path" = __none ] || printf '%s\n' "- $path"
+        case "$path" in
+          __none) ;;
+          __bare) printf '%s\n' '-' ;;
+          *) printf '%s\n' "- $path" ;;
+        esac
       done
     fi
     printf '%s\n' '## Log' '- created'
@@ -110,7 +115,7 @@ assert_status 'optional and shared paths succeed' "$STATUS" 0
 assert_eq 'optional and shared path rows' "$OUT" "$(printf 'alpha\t0\t0\t0\t0\t0\t0\nbeta\t0\t0\t0\t0\t0\t0\ngamma\t0\t1\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
 assert_eq 'optional and shared path stderr' "$ERR" ''
 
-for KIND in name missing_title empty_title missing_approval invalid_approval role_dot role_parent role_main role_slash role_backslash delegated_role missing_scope empty_scope invalid_path unknown duplicate empty_path stem; do
+for KIND in name missing_title empty_title missing_approval invalid_approval role_dot role_parent role_main role_slash role_backslash delegated_role missing_scope empty_scope invalid_path unknown duplicate empty_path bare_path stem; do
   fixture "error-$KIND"
   EXTRA_FIELD=''
   STEM=docs NAME=docs TITLE=Documentation ROLE=docs-lead APPROVAL=owner SCOPE='Document work'
@@ -133,6 +138,7 @@ for KIND in name missing_title empty_title missing_approval invalid_approval rol
     unknown) EXTRA_FIELD='report: elsewhere'; EXPECTED_ERROR="unknown frontmatter field 'report'" ;;
     duplicate) EXTRA_FIELD='approval: owner'; EXPECTED_ERROR="frontmatter field 'approval' appears more than once" ;;
     empty_path) PATH_VALUES=(./); EXPECTED_ERROR='## Paths has an empty path' ;;
+    bare_path) PATH_VALUES=(__bare); EXPECTED_ERROR='## Paths has an empty path' ;;
     stem) STEM=Docs; NAME=Docs; EXPECTED_ERROR="charter name 'Docs' must match [a-z0-9][a-z0-9-]*" ;;
   esac
   charter "$STEM" "$NAME" "$TITLE" "$ROLE" "$APPROVAL" "$SCOPE" "${PATH_VALUES[@]}"
@@ -156,6 +162,14 @@ for VALUE in nope '../tasks/x' '[a, b]'; do
   assert_eq "track $VALUE stderr" "$ERR" "tower-tracks: .tower/tasks/T001.md: $EXPECTED_ERROR"
   assert_eq "track $VALUE still counts" "$OUT" "$(printf 'docs\t1\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
 done
+
+fixture double-quotes
+charter docs docs Documentation __missing owner 'Document work'
+card T001 ready __double_quotes
+run_check
+assert_status 'double quoted track fails' "$STATUS" 1
+assert_eq 'double quoted track stderr' "$ERR" "tower-tracks: .tower/tasks/T001.md: track '\"\"docs\"\"' must match [a-z0-9][a-z0-9-]*"
+assert_eq 'double quoted track is not counted' "$OUT" "$(printf 'docs\t0\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
 
 fixture no-tracks
 card T001 draft __missing

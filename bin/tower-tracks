@@ -29,11 +29,11 @@ card_track() {
     delimiters==1 && index($0,"track:")==1 {
       value=substr($0,7)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-      if (value=="\"\"") print "untracked"
-      else {
-        gsub(/^"+|"+$/, "", value)
-        print "tracked:" value
-      }
+      if (value ~ /^"[^"]*"$/) value=substr(value,2,length(value)-2)
+      if (value=="") {
+        if ($0 ~ /track:[[:space:]]*""[[:space:]]*$/) print "untracked"
+        else print "tracked:"
+      } else print "tracked:" value
       found=1
       exit
     }
@@ -45,7 +45,7 @@ charter_paths() {
   awk '
     /^## Paths[[:space:]]*$/ {inside=1; next}
     /^## / {inside=0}
-    inside && /^- / {
+    inside && /^-([[:space:]]|$)/ {
       path=$2
       gsub(/`/, "", path)
       sub(/^\.\//, "", path)
