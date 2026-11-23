@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+[ $# -eq 0 ] || { echo 'usage: tower-tracks (no arguments)' >&2; exit 1; }
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCATED="$("$BIN_DIR/tower-locate")" || exit $?
+PROJECT_DIR="$(printf '%s\n' "$LOCATED" | sed -n 1p)"
+. "$BIN_DIR/../lib/tower-paths.sh"
+. "$BIN_DIR/../lib/tower-dispatch.sh"
+
+# validate_ownership_paths reports through dispatch_die; return its message as a charter problem.
+dispatch_die() { printf '%s\n' "$*"; exit 1; }
+
+field() {
+  awk -v key="$2" '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && index($0,key ":")==1 {
+      value=substr($0,length(key)+2)
+      gsub(/^[[:space:]"]+|[[:space:]"]+$/, "", value)
+      print value
+      exit
+    }
+  ' "$1"
+}
+
+charter_paths() {
+  awk '
+    /^## Paths[[:space:]]*$/ {inside=1; next}
+    /^## / {inside=0}
+    inside && /^- / {
+      path=$2
+      gsub(/`/, "", path)
+      sub(/^\.\//, "", path)
+      print path
+    }
+  ' "$1"
+}
+
+has_scope() {
+  awk '
+    /^## Scope[[:space:]]*$/ {inside=1; found=1; next}
+    /^## / {inside=0}
+    inside && /[^[:space:]]/ {content=1}
+    END {exit !(found && content)}
+  ' "$1"
+}
+
+frontmatter_problems() {
+  awk -v q="'" '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && NF {
+      key=$0
+      sub(/:.*/, "", key)
+      if (key!="name" && key!="title" && key!="role" && key!="approval") print "unknown frontmatter field " q key q
+      else if (seen[key]++) print "frontmatter field " q key q " appears more than once"
+    }
+  ' "$1"
+}
+
+problem() {
+  printf 'tower-tracks: %s: %s\n' "$1" "$2" >&2
+  RESULT=1
+}
+
+RESULT=0
+REPORT_INPUT=''
+export LC_ALL=C # Keep glob, regex, and sort order stable.
+
+check_charter() {
+  local file="$1" stem rel name title role approval frontmatter_messages charter_path message
+  stem="${file##*/}"
+  stem="${stem%.md}"
+  rel=".tower/tracks/${file##*/}"
+  REPORT_INPUT+="charter"$'\t'"$stem"$'\n'
+  if ! [[ "$stem" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    problem "$rel" "charter name '$stem' must match [a-z0-9][a-z0-9-]*"
+  fi
+  name="$(field "$file" name)"
+  [ "$name" = "$stem" ] || problem "$rel" "name '$name' must equal the file stem '$stem'"
+  title="$(field "$file" title)"
+  [ -n "$title" ] || problem "$rel" 'title is missing'
+  role="$(field "$file" role)"
+  case "$role" in
+    .|..|orchestrator|*/*|*\\*) problem "$rel" "role '$role' must not be . or .. or orchestrator, and must contain no / or \\" ;;
+  esac
+  approval="$(field "$file" approval)"
+  case "$approval" in
+    '') problem "$rel" 'approval is missing; use owner or delegated' ;;
+    owner|delegated) ;;
+    *) problem "$rel" "approval '$approval' must be owner or delegated" ;;
+  esac
+  [ "$approval" != delegated ] || [ -n "$role" ] || problem "$rel" "approval 'delegated' needs a role"
+  frontmatter_messages="$(frontmatter_problems "$file")"
+  while IFS= read -r message; do
+    [ -n "$message" ] || continue
+    problem "$rel" "$message"
+  done <<< "$frontmatter_messages"
+  has_scope "$file" || problem "$rel" '## Scope is missing or empty'
+  while IFS= read -r charter_path; do
+    if [ -z "$charter_path" ]; then
+      problem "$rel" '## Paths has an empty path'
+    elif ! message="$(validate_ownership_paths "$charter_path")"; then
+      problem "$rel" "$message"
+    fi
+  done < <(charter_paths "$file")
+}
+
+for FILE in "$PROJECT_DIR"/.tower/tracks/*.md; do
+  [ -f "$FILE" ] || continue
+  check_charter "$FILE"
+done
+
+for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
+  [ -f "$CARD" ] || continue
+  TRACK="$(field "$CARD" track)"
+  if [ -n "$TRACK" ]; then
+    if ! [[ "$TRACK" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+      problem ".tower/tasks/${CARD##*/}" "track '$TRACK' must match [a-z0-9][a-z0-9-]*"
+      continue
+    elif [ ! -f "$PROJECT_DIR/.tower/tracks/$TRACK.md" ]; then
+      problem ".tower/tasks/${CARD##*/}" "track '$TRACK' names no charter in .tower/tracks/"
+      continue
+    fi
+  fi
+  STATUS="$(field "$CARD" status)"
+  REPORT_INPUT+="card"$'\t'"${TRACK:--}"$'\t'"$STATUS"$'\n'
+done
+
+printf '%s' "$REPORT_INPUT" | awk -F '\t' '
+  $1=="charter" {names[++n]=$2; next}
+  $1=="card" && ($3=="draft" || $3=="ready" || $3=="in-flight" ||
+                  $3=="in-review" || $3=="merged" || $3=="blocked") {
+    counts[$2 SUBSEP $3]++
+  }
+  END {
+    for (i=1; i<=n; i++) print_counts(names[i])
+    print_counts("-")
+  }
+  function print_counts(name) {
+    printf "%s\t%d\t%d\t%d\t%d\t%d\t%d\n", name,
+      counts[name SUBSEP "draft"], counts[name SUBSEP "ready"],
+      counts[name SUBSEP "in-flight"], counts[name SUBSEP "in-review"],
+      counts[name SUBSEP "merged"], counts[name SUBSEP "blocked"]
+  }
+'
+exit "$RESULT"
