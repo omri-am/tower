@@ -293,6 +293,21 @@ doctor_filename_id() {
     "Rename the file to match its id, or correct the id field, so the two cannot disagree."
 }
 
+doctor_track() {
+  local track message
+  track="$(doctor_field "$CARD" track)"
+  [ -n "$track" ] || return 0
+  if [[ ! "$track" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    message="track '$track' is not a valid track name"
+  elif [ ! -f "$PROJECT_DIR/.tower/tracks/$track.md" ]; then
+    message="track '$track' names no charter in .tower/tracks/"
+  else
+    return 0
+  fi
+  doctor_report unknown-track "$ID" "$message" \
+    "Create .tower/tracks/$track.md once the owner approves the track, or correct the track field in $CARD."
+}
+
 doctor_card() {
   CARD="$1"
   ID="$(doctor_field "$CARD" id)"
@@ -304,6 +319,7 @@ doctor_card() {
   fi
   doctor_duplicate_id
   doctor_filename_id
+  doctor_track
   HANDOFF="$PROJECT_DIR/.tower/handoffs/$ID-handoff.md"
   doctor_status
 }
