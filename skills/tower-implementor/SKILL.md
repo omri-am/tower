@@ -57,18 +57,17 @@ hook will not let you finish without it.
    handle each listed ID as the Role inbox rule under Hard rules says. Run the list again until
    it prints nothing, then start `tower inbox --role implementor-<task-id> list --wait 6600`
    as a background command (the Bash tool's `run_in_background`). Always pass `--role` here,
-   even when `TOWER_ROLE` is set, and put `list` before `--wait`. Start the wait only when the
-   foreground list prints nothing: `list --wait` returns at once while any message of the role
-   is `queued` or `submitted`, so a wait started before the ack returns at once and loops. The
-   wait length matches the merge watch of step 12: an interactive Claude Code 2.1.318 session
-   kept a background command for 7,500 s, and nothing longer was measured
-   (`docs/agent-messaging/wait-wake.md`). After a compaction or a resume, if you cannot tell
-   whether your wait still runs, start one: a second waiter only doubles the wake turns,
-   because `list` changes no state. Before every stop that step 13 names, stop the wait (the
-   `TaskStop` tool) and do not start it again. `/exit` with a live waiter opens a choice, and a
-   `SIGKILL` of Claude leaves the waiter alive; stopping it first avoids both. A headless
-   (`-p`) session runs no wait: it runs the foreground list before it opens the PR and before
-   it ends. A Codex session changes nothing here, because step 3's registration gives it
+   even when `TOWER_ROLE` is set, and put `list` before `--wait`. A wait started before the ack
+   returns at once and loops, because `list --wait` returns at once while any message of the
+   role is `queued` or `submitted`. The wait length matches the merge watch of step 12: an
+   interactive Claude Code 2.1.318 session kept a background command for 7,500 s, and nothing
+   longer was measured (`docs/agent-messaging/wait-wake.md`). After a compaction or a resume,
+   if you cannot tell whether your wait still runs, start one: a second waiter only doubles
+   the wake turns, because `list` changes no state. Before every stop that step 13 names, stop
+   the wait (the `TaskStop` tool) and do not start it again. `/exit` with a live waiter opens a
+   choice, and a `SIGKILL` of Claude leaves the waiter alive; stopping it first avoids both. A
+   headless (`-p`) session runs no wait: it runs the foreground list before it opens the PR and
+   before it ends. A Codex session skips this step, because step 3's registration gives it
    native wake. The wait's exit gives you a turn:
    - Exit 0: run the foreground list again, because the printed IDs can be stale, and handle
      each ID. Start the wait again only when the list prints nothing.
