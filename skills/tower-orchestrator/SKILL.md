@@ -102,6 +102,11 @@ it never marks the card `merged`. A live implementor finalizes its own handoff. 
 session has stopped, recover from the draft, merged diff and review threads, finalize
 the handoff, and only then set the card `merged` and ingest it. When you cannot establish
 that the implementor stopped, leave `in-review` and avoid racing its finalization.
+When a PR merges for a `vendor: codex` card that is not `merged`, run
+`tower send implementor-<id> "PR <url> merged. Finalize your handoff per the tower-implementor skill."`
+once. On exit 0, wait for the implementor to finalize as for a live implementor. On exit 3
+or 4, the role has no live owner, so use the recovery path above. Never type text or keys
+into an implementor's terminal.
 
 **Check fixes made after the last review round.** An implementor runs at most three review
 rounds, so a fix for a round-3 finding has no round left. A fix check has a fresh reviewer read
@@ -297,3 +302,5 @@ frontier if it is thinner than 2-3 decision-complete cards per branch; finalize 
 for owner-approved ready cards; notify only at HITL gates; otherwise report nothing
 changed. A `FileChanged` hook on `.tower/handoffs/` (see the tower repo's hooks/README.md)
 makes new handoffs arrive as context between ticks.
+At each tick, run `tower-whoami` and write its output to `.tower/orchestrator` only if it exits
+0 and differs from the file's first line, leaving the file unchanged if it exits non-zero.
