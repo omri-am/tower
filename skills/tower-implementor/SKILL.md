@@ -54,26 +54,28 @@ hook will not let you finish without it.
    Re-read `## Corrections` if present — corrections supersede the original card body.
 6. In an interactive Claude Code session, keep one background inbox wait running from here
    until you stop. First run `tower inbox --role implementor-<task-id>` in the foreground and
-   handle each listed ID as the Role inbox rule under Hard rules says. Then start
-   `tower inbox --role implementor-<task-id> list --wait 6600` as a background command (the
-   Bash tool's `run_in_background`). Always pass `--role` here, and put `list` before `--wait`.
-   Start the wait only when the foreground list prints nothing: `list --wait` returns at once
-   while any message of the role is `queued` or `submitted`, so a wait started before the ack
-   returns at once and loops. The wait length matches the merge watch of step 12: an
-   interactive Claude Code 2.1.318 session kept a background command for 7,500 s, and nothing
-   longer was measured (`docs/agent-messaging/wait-wake.md`). After a compaction or a resume,
-   if you cannot tell whether your wait still runs, start one: a second waiter only doubles
-   the wake turns, because `list` changes no state. Before every stop that step 13 names, stop
-   the wait (the `TaskStop` tool) and do not start it again. `/exit` with a live waiter opens a
-   choice, and a `SIGKILL` of Claude leaves the waiter alive; stopping it first avoids both. A
-   headless (`-p`) session runs no wait: it runs the foreground list before it opens the PR and
-   before it ends. A Codex session changes nothing here, because step 3's registration gives
-   it native wake. The wait's exit gives you a turn:
+   handle each listed ID as the Role inbox rule under Hard rules says. Run the list again until
+   it prints nothing, then start `tower inbox --role implementor-<task-id> list --wait 6600`
+   as a background command (the Bash tool's `run_in_background`). Always pass `--role` here,
+   even when `TOWER_ROLE` is set, and put `list` before `--wait`. Start the wait only when the
+   foreground list prints nothing: `list --wait` returns at once while any message of the role
+   is `queued` or `submitted`, so a wait started before the ack returns at once and loops. The
+   wait length matches the merge watch of step 12: an interactive Claude Code 2.1.318 session
+   kept a background command for 7,500 s, and nothing longer was measured
+   (`docs/agent-messaging/wait-wake.md`). After a compaction or a resume, if you cannot tell
+   whether your wait still runs, start one: a second waiter only doubles the wake turns,
+   because `list` changes no state. Before every stop that step 13 names, stop the wait (the
+   `TaskStop` tool) and do not start it again. `/exit` with a live waiter opens a choice, and a
+   `SIGKILL` of Claude leaves the waiter alive; stopping it first avoids both. A headless
+   (`-p`) session runs no wait: it runs the foreground list before it opens the PR and before
+   it ends. A Codex session changes nothing here, because step 3's registration gives it
+   native wake. The wait's exit gives you a turn:
    - Exit 0: run the foreground list again, because the printed IDs can be stale, and handle
      each ID. Start the wait again only when the list prints nothing.
    - Exit 1 with `tower-inbox: timeout waiting for a message` on stderr: start the wait again.
-   - Any other result (another exit 1, exit 2, 127, or a signal): do not start it again. Write
-     the error in the handoff draft, and run the foreground list at each later step instead.
+   - Any other result of a wait you did not stop yourself (another exit 1, exit 2, 127, or a
+     signal): do not start it again. Write the error in the handoff draft, and run the
+     foreground list at each later step instead.
 7. Implement on the card's branch, touching only paths listed under `## File ownership`.
    You are usually in your own git worktree, already on that branch; `.tower/` there is a
    symlink to the shared state, so whatever you write in it is immediately visible to the
