@@ -104,9 +104,12 @@ the handoff, and only then set the card `merged` and ingest it. When you cannot 
 that the implementor stopped, leave `in-review` and avoid racing its finalization.
 When a PR merges for a `vendor: codex` card that is not `merged`, run
 `tower send implementor-<id> "PR <url> merged. Finalize your handoff per the tower-implementor skill."`
-once. On exit 0, wait for the implementor to finalize as for a live implementor. On exit 3
-or 4, the role has no live owner, so use the recovery path above. Never type text or keys
-into an implementor's terminal.
+once. On exit 0, the wake adapter received the message; wait for the implementor to
+finalize. On exit 4, or exit 1 after a delivery attempt, the role has a live owner that
+was not woken. Leave the card `in-review` and do not recover. Read the implementor's
+terminal to see its state, and notify the owner if it does not finalize. On exit 3, the
+role has no live owner; use the recovery path above only after the session is known to
+have stopped. Never type text or keys into an implementor's terminal.
 
 **Check fixes made after the last review round.** An implementor runs at most three review
 rounds, so a fix for a round-3 finding has no round left. A fix check has a fresh reviewer read
