@@ -126,12 +126,14 @@ mkdir -p "$TOWER_PROJECT_DIR/.tower/tasks" "$TOWER_PROJECT_DIR/.tower/templates"
 cp "$ROOT/templates/task-card.md" "$TOWER_PROJECT_DIR/.tower/templates/"
 PIDS=()
 for ((i = 0; i < 20; i++)); do
-  "$NEW" 'Same title' > "$PROJECT/result-$i" &
+  "$NEW" 'Same title' > "$PROJECT/result-$i" 2> "$PROJECT/error-$i" &
   PIDS[$i]=$!
 done
-for PID in "${PIDS[@]}"; do
-  wait "$PID"
-  assert_status 'parallel creator succeeds' "$?" 0
+for ((i = 0; i < 20; i++)); do
+  wait "${PIDS[$i]}"
+  STATUS=$?
+  printf '%s\n' "$STATUS" > "$PROJECT/status-$i"
+  assert_status 'parallel creator succeeds' "$STATUS" 0
 done
 assert_eq 'parallel creators return distinct paths' "$(cat "$PROJECT"/result-* | sort -u | wc -l | tr -d ' ')" 20
 assert_eq 'parallel creators write twenty cards' "$(find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | wc -l | tr -d ' ')" 20
@@ -144,6 +146,46 @@ for CARD in "$TOWER_PROJECT_DIR"/.tower/tasks/*.md; do
   fi
 done
 assert_eq 'parallel cards name their own fragment' "$(wc -l < "$PROJECT/parallel-fragment-ids" | tr -d ' ')" 20
+if [ "$(cat "$PROJECT"/result-* | sort -u | wc -l | tr -d ' ')" -ne 20 ] ||
+   [ "$(find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | wc -l | tr -d ' ')" -ne 20 ] ||
+   [ "$(sed -n 's/^id: //p' "$TOWER_PROJECT_DIR"/.tower/tasks/*.md | sort -u | wc -l | tr -d ' ')" -ne 20 ] ||
+   [ "$(wc -l < "$PROJECT/parallel-fragment-ids" | tr -d ' ')" -ne 20 ]; then
+  {
+    for ((i = 0; i < 20; i++)); do
+      STDOUT="$(tr '\n' ' ' < "$PROJECT/result-$i")"
+      STDERR="$(tr '\n' ' ' < "$PROJECT/error-$i")"
+      printf 'creator %s status: %s\n' "$i" "$(cat "$PROJECT/status-$i")"
+      printf 'creator %s stdout: %s\n' "$i" "${STDOUT:-<empty>}"
+      printf 'creator %s stderr: %s\n' "$i" "${STDERR:-<empty>}"
+    done
+    DUPLICATES="$(cat "$PROJECT"/result-* | sed '/^$/d' | sort | uniq -d)"
+    if [ -n "$DUPLICATES" ]; then
+      printf '%s\n' "$DUPLICATES" | sed 's/^/duplicate path: /'
+    else
+      printf 'duplicate paths: none\n'
+    fi
+    EMPTY_CREATORS=''
+    for ((i = 0; i < 20; i++)); do
+      [ -s "$PROJECT/result-$i" ] || EMPTY_CREATORS="$EMPTY_CREATORS $i"
+    done
+    EMPTY_CREATORS="${EMPTY_CREATORS# }"
+    printf 'empty creators: %s\n' "${EMPTY_CREATORS:-none}"
+    printf 'claims:\n'
+    ls -la "$TOWER_PROJECT_DIR/.tower/tasks/.claims/"
+    printf 'card files:\n'
+    find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | sed 's!.*/!!' | sort
+    printf 'uname -a: %s\n' "$(uname -a)"
+    printf 'nproc: %s\n' "$(nproc 2>/dev/null || printf 'unknown')"
+    FILE_SYSTEM_TYPE=''
+    if [ "$(uname -s)" = Linux ]; then
+      FILE_SYSTEM_TYPE="$(stat -f -c %T "$TOWER_PROJECT_DIR" 2>/dev/null)" || FILE_SYSTEM_TYPE=''
+    fi
+    if [ -z "$FILE_SYSTEM_TYPE" ]; then
+      FILE_SYSTEM_TYPE="$(df -Y "$TOWER_PROJECT_DIR" 2>/dev/null | awk 'NR == 2 { print $2 }')" || FILE_SYSTEM_TYPE=''
+    fi
+    printf 'file system type: %s\n' "${FILE_SYSTEM_TYPE:-unknown}"
+  } 2>&1 | sed 's/^/parallel-diag: /'
+fi
 assert_true 'empty project starts at T001' test -f "$TOWER_PROJECT_DIR/.tower/tasks/T001-same-title.md"
 env TOWER_BIN_DIR="$PROJECT/bootstrap-bin" TOWER_LIBEXEC_DIR="$PROJECT/bootstrap-libexec" "$ROOT/bin/tower-bootstrap" >/dev/null 2>&1
 assert_true 'bootstrap links command' test -L "$PROJECT/bootstrap-bin/tower-new"
