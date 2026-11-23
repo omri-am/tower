@@ -43,8 +43,9 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 nonempty argument. With a title that starts with `-`, such as `--help`, the command prints
 the usage line to stderr and exits 1. It writes no card and claims no ID.
 Allocation considers card filenames, frontmatter IDs, and persistent
-`.claims/` directories; letter-suffixed IDs are ignored. Atomic claims prevent concurrent
-callers from receiving the same ID. The command prints the created path and does not commit.
+`.claims/` entries (files, or directories from older versions); letter-suffixed IDs are
+ignored. Atomic claims prevent concurrent callers from receiving the same ID. The command
+prints the created path and does not commit.
 
 ## Messaging commands
 
