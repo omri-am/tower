@@ -103,13 +103,18 @@ session has stopped, recover from the draft, merged diff and review threads, fin
 the handoff, and only then set the card `merged` and ingest it. When you cannot establish
 that the implementor stopped, leave `in-review` and avoid racing its finalization.
 When a PR merges for a `vendor: codex` card that is not `merged`, run
+`tower inbox --role implementor-<id>` first. If it prints any id, a message is already
+waiting for that implementor, so do not send. Otherwise run
 `tower send implementor-<id> "PR <url> merged. Finalize your handoff per the tower-implementor skill."`
-once. On exit 0, the wake adapter received the message; wait for the implementor to
-finalize. On exit 4, or exit 1 after a delivery attempt, the role has a live owner that
-was not woken. Leave the card `in-review` and do not recover. Read the implementor's
-terminal to see its state, and notify the owner if it does not finalize. On exit 3, the
-role has no live owner; use the recovery path above only after the session is known to
-have stopped. Never type text or keys into an implementor's terminal.
+at most once per orchestrator session for that PR. A rehydrated orchestrator may send the
+same wake again. It costs one implementor turn and changes nothing else because finalizing
+is idempotent and the card's `merged` status ends all sends. On exit 0, the wake adapter
+received the message; wait for the implementor to finalize. On exit 4, or exit 1 after a
+delivery attempt, the role has a live owner that was not woken. Leave the card `in-review`
+and do not recover. Read the implementor's terminal to see its state, and notify the owner
+if it does not finalize. On exit 3, the role has no live owner; use the recovery path above
+only after the session is known to have stopped.
+Never type text or keys into an implementor's terminal.
 
 **Check fixes made after the last review round.** An implementor runs at most three review
 rounds, so a fix for a round-3 finding has no round left. A fix check has a fresh reviewer read
