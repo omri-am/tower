@@ -16,7 +16,11 @@ card() {
   local id="$1" status="$2" track="$3"
   {
     printf '%s\n' '---' "id: $id" "status: $status"
-    [ "$track" = __missing ] || printf 'track: "%s"\n' "$track"
+    case "$track" in
+      __missing) ;;
+      __bare_empty) printf '%s\n' 'track:' ;;
+      *) printf 'track: "%s"\n' "$track" ;;
+    esac
     printf '%s\n' '---' '## File ownership' '- docs/guide.md'
   } > "$TOWER_PROJECT_DIR/.tower/tasks/$id.md"
 }
@@ -166,6 +170,11 @@ run_check
 assert_status 'empty directory succeeds' "$STATUS" 0
 assert_eq 'empty directory row' "$OUT" "$EXPECTED"
 assert_eq 'empty directory stderr' "$ERR" ''
+card T003 blocked __bare_empty
+run_check
+assert_status 'bare empty track fails' "$STATUS" 1
+assert_eq 'bare empty track stderr' "$ERR" "tower-tracks: .tower/tasks/T003.md: track '' must match [a-z0-9][a-z0-9-]*"
+assert_eq 'bare empty track is not counted' "$OUT" "$EXPECTED"
 run_check extra
 assert_status 'arguments fail' "$STATUS" 1
 assert_eq 'arguments stderr' "$ERR" 'usage: tower-tracks (no arguments)'

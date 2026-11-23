@@ -23,6 +23,24 @@ field() {
   ' "$1"
 }
 
+card_track() {
+  awk '
+    /^---$/ {delimiters++; next}
+    delimiters==1 && index($0,"track:")==1 {
+      value=substr($0,7)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value=="\"\"") print "untracked"
+      else {
+        gsub(/^"+|"+$/, "", value)
+        print "tracked:" value
+      }
+      found=1
+      exit
+    }
+    END {if (!found) print "untracked"}
+  ' "$1"
+}
+
 charter_paths() {
   awk '
     /^## Paths[[:space:]]*$/ {inside=1; next}
@@ -112,8 +130,10 @@ done
 
 for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
   [ -f "$CARD" ] || continue
-  TRACK="$(field "$CARD" track)"
-  if [ -n "$TRACK" ]; then
+  TRACK_VALUE="$(card_track "$CARD")"
+  TRACK=''
+  if [ "$TRACK_VALUE" != untracked ]; then
+    TRACK="${TRACK_VALUE#tracked:}"
     if ! [[ "$TRACK" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
       problem ".tower/tasks/${CARD##*/}" "track '$TRACK' must match [a-z0-9][a-z0-9-]*"
       continue
