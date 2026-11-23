@@ -176,7 +176,12 @@ if [ "$(cat "$PROJECT"/result-* | sort -u | wc -l | tr -d ' ')" -ne 20 ] ||
     find "$TOWER_PROJECT_DIR/.tower/tasks" -name '*.md' | sed 's!.*/!!' | sort
     printf 'uname -a: %s\n' "$(uname -a)"
     printf 'nproc: %s\n' "$(nproc 2>/dev/null || printf 'unknown')"
-    printf 'file system type: %s\n' "$(stat -f -c %T "$TOWER_PROJECT_DIR" 2>/dev/null || stat -f %T "$TOWER_PROJECT_DIR" 2>/dev/null || printf 'unknown')"
+    case "$(uname -s)" in
+      Linux) FILE_SYSTEM_TYPE="$(stat -f -c %T "$TOWER_PROJECT_DIR" 2>/dev/null)" || FILE_SYSTEM_TYPE='unknown' ;;
+      Darwin) FILE_SYSTEM_TYPE="$(stat -f %T "$TOWER_PROJECT_DIR" 2>/dev/null)" || FILE_SYSTEM_TYPE='unknown' ;;
+      *) FILE_SYSTEM_TYPE='unknown' ;;
+    esac
+    printf 'file system type: %s\n' "$FILE_SYSTEM_TYPE"
   } 2>&1 | sed 's/^/parallel-diag: /'
 fi
 assert_true 'empty project starts at T001' test -f "$TOWER_PROJECT_DIR/.tower/tasks/T001-same-title.md"
