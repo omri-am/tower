@@ -114,7 +114,7 @@ delivery attempt, the role has a live owner that was not woken. Leave the card `
 and do not recover. Read the implementor's terminal to see its state, and notify the owner
 if it does not finalize. On exit 3, the role has no live owner; use the recovery path above
 only after the session is known to have stopped.
-Never type text or keys into an implementor's terminal.
+Never type text or keys into an implementor's terminal to deliver this wake.
 
 **Check fixes made after the last review round.** An implementor runs at most three review
 rounds, so a fix for a round-3 finding has no round left. A fix check has a fresh reviewer read
