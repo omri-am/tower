@@ -190,7 +190,8 @@ class Queue:
                 except UnicodeError:
                     problem = 'Track charter is not UTF-8.'
                 except QueueError as error:
-                    problem = str(error).replace('Card', 'Track charter')
+                    message = str(error).split('. ', 1)[0]
+                    problem = message.replace('Card', 'Track charter').rstrip('.') + '.'
                 except OSError:
                     problem = 'Track charter could not be read.'
                 else:

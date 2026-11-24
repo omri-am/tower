@@ -395,6 +395,7 @@ class TrackTest(QueueFixture):
 
     def test_invalid_charters_report_problems_without_hiding_cards(self):
         cases = {
+            'no-frontmatter': 'No frontmatter.\n',
             'duplicate': '---\nname: duplicate\nname: duplicate\ntitle: Title\n---\n## Scope\nText.\n',
             'mismatch': '---\nname: different\ntitle: Title\n---\n## Scope\nText.\n',
             'untitled': '---\nname: untitled\n---\n## Scope\nText.\n',
@@ -416,6 +417,9 @@ class TrackTest(QueueFixture):
             self.assertTrue(track['problem'], track['name'])
         self.assertIn('Track charter', next(track['problem'] for track in snapshot['tracks']
                                             if track['name'] == 'duplicate'))
+        self.assertEqual(next(track['problem'] for track in snapshot['tracks']
+                              if track['name'] == 'no-frontmatter'),
+                         'Track charter must start with frontmatter.')
 
     def test_invalid_names_and_nested_files_are_not_listed(self):
         self.write_track('valid', 'Title', 'Scope.')
