@@ -13,6 +13,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 TASK_ID = re.compile(r'[Tt][0-9]+[A-Za-z0-9_-]*\Z')
+TRACK_NAME = re.compile(r'[a-z0-9][a-z0-9-]*\Z')
 
 
 class QueueError(Exception):
@@ -171,7 +172,49 @@ class Queue:
                                     'cards': classified}
             self.cached_key = key
         return dict(self.cached_snapshot, cards=[dict(card, comments=self.read_comments(card['id']))
-                                                for card in self.cached_snapshot['cards']])
+                                                for card in self.cached_snapshot['cards']],
+                    tracks=self.read_tracks())
+
+    def read_tracks(self):
+        tracks = []
+        for path in sorted((self.state / 'tracks').glob('*.md')):
+            name = path.stem
+            if not TRACK_NAME.fullmatch(name):
+                continue
+            title = scope = ''
+            if path.is_symlink():
+                problem = 'Track charter is a symlink.'
+            else:
+                try:
+                    fields, body = fields_from(path.read_text(encoding='utf-8'))
+                except UnicodeError:
+                    problem = 'Track charter is not UTF-8.'
+                except QueueError as error:
+                    problem = str(error).replace('Card', 'Track charter')
+                except OSError:
+                    problem = 'Track charter could not be read.'
+                else:
+                    title = fields.get('title', '')
+                    scope_lines = []
+                    in_scope = False
+                    for line in body.splitlines(keepends=True):
+                        if not in_scope:
+                            in_scope = re.fullmatch(r'## Scope\s*', line) is not None
+                        elif line.startswith('## '):
+                            break
+                        else:
+                            scope_lines.append(line)
+                    scope = ''.join(scope_lines).strip()
+                    if fields.get('name') != name:
+                        problem = 'Track charter name does not match its filename.'
+                    elif not title:
+                        problem = 'Track charter title is empty.'
+                    elif not scope:
+                        problem = 'Track charter scope is empty.'
+                    else:
+                        problem = ''
+            tracks.append({'name': name, 'title': title, 'scope': scope, 'problem': problem})
+        return tracks
 
     def comments_directory(self, task):
         directory = self.state / 'comments' / task

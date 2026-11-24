@@ -373,6 +373,74 @@ class CommentTest(QueueFixture):
         self.assertEqual(self.card()['revision'], revision)
 
 
+class TrackTest(QueueFixture):
+    def write_track(self, name, title, scope):
+        directory = self.queue.state / 'tracks'
+        directory.mkdir(exist_ok=True)
+        path = directory / (name + '.md')
+        path.write_text(f'---\nname: {name}\ntitle: {title}\n---\n'
+                        f'## Scope\n\n{scope}\n\n## Log\n\nPrivate log.\n')
+        return path
+
+    def test_tracks_are_sorted_and_scope_stops_at_next_section(self):
+        self.write_track('zeta', 'Zeta title', 'Zeta scope.')
+        self.write_track('alpha', 'Alpha title', 'Alpha scope.\n\nMore scope.')
+        self.assertEqual(self.queue.snapshot()['tracks'], [
+            {'name': 'alpha', 'title': 'Alpha title', 'scope': 'Alpha scope.\n\nMore scope.', 'problem': ''},
+            {'name': 'zeta', 'title': 'Zeta title', 'scope': 'Zeta scope.', 'problem': ''},
+        ])
+
+    def test_missing_tracks_directory_returns_empty_list(self):
+        self.assertEqual(self.queue.snapshot()['tracks'], [])
+
+    def test_invalid_charters_report_problems_without_hiding_cards(self):
+        cases = {
+            'duplicate': '---\nname: duplicate\nname: duplicate\ntitle: Title\n---\n## Scope\nText.\n',
+            'mismatch': '---\nname: different\ntitle: Title\n---\n## Scope\nText.\n',
+            'untitled': '---\nname: untitled\n---\n## Scope\nText.\n',
+            'empty': '---\nname: empty\ntitle: Title\n---\n## Scope\n\n## Log\nText.\n',
+        }
+        directory = self.queue.state / 'tracks'
+        directory.mkdir()
+        for name, content in cases.items():
+            (directory / (name + '.md')).write_text(content)
+        (directory / 'nonutf8.md').write_bytes(b'\xff')
+        outside = Path(self.temp.name) / 'outside.md'
+        outside.write_text('---\nname: linked\ntitle: Title\n---\n## Scope\nText.\n')
+        (directory / 'linked.md').symlink_to(outside)
+
+        snapshot = self.queue.snapshot()
+        self.assertEqual([card['id'] for card in snapshot['cards']], ['T001', 'T002'])
+        self.assertEqual([track['name'] for track in snapshot['tracks']], sorted([*cases, 'nonutf8', 'linked']))
+        for track in snapshot['tracks']:
+            self.assertTrue(track['problem'], track['name'])
+        self.assertIn('Track charter', next(track['problem'] for track in snapshot['tracks']
+                                            if track['name'] == 'duplicate'))
+
+    def test_invalid_names_and_nested_files_are_not_listed(self):
+        self.write_track('valid', 'Title', 'Scope.')
+        directory = self.queue.state / 'tracks'
+        (directory / 'Bad.md').write_text('ignored')
+        nested = directory / 'x'
+        nested.mkdir()
+        (nested / 'report.md').write_text('ignored')
+        self.assertEqual([track['name'] for track in self.queue.snapshot()['tracks']], ['valid'])
+
+    def test_title_change_refreshes_tracks_without_card_change(self):
+        path = self.write_track('alpha', 'Old title', 'Scope.')
+        before = self.queue.snapshot()
+        path.write_text(path.read_text().replace('Old title', 'New title'))
+        after = self.queue.snapshot()
+        self.assertEqual(after['tracks'][0]['title'], 'New title')
+        self.assertEqual(after['cards'], before['cards'])
+
+    def test_card_with_missing_track_still_snapshots(self):
+        self.edit('status: ready', 'track: missing\nstatus: ready')
+        snapshot = self.queue.snapshot()
+        self.assertEqual(self.card()['fields']['track'], 'missing')
+        self.assertEqual(snapshot['tracks'], [])
+
+
 class ServerTest(QueueFixture):
     def setUp(self):
         super().setUp()
@@ -406,6 +474,16 @@ class ServerTest(QueueFixture):
         self.assertEqual(self.request('GET', '/api/cards', headers=headers)[0], 403)
         headers = dict(self.headers(), Host='unrelated.example')
         self.assertEqual(self.request('GET', '/api/cards', headers=headers)[0], 403)
+
+    def test_api_cards_includes_tracks(self):
+        directory = self.queue.state / 'tracks'
+        directory.mkdir()
+        (directory / 'alpha.md').write_text('---\nname: alpha\ntitle: Alpha\n---\n## Scope\nVisible.\n')
+        status, body = self.request('GET', '/api/cards', headers=self.headers())
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['tracks'], [
+            {'name': 'alpha', 'title': 'Alpha', 'scope': 'Visible.', 'problem': ''},
+        ])
 
     def test_http_approval_and_repeat_click(self):
         self.make_draft()
