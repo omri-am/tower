@@ -187,6 +187,8 @@ class Queue:
             title = scope = ''
             if path.is_symlink():
                 problem = 'Track charter is a symlink.'
+            elif not path.is_file():
+                problem = 'Track charter is not a regular file.'
             else:
                 try:
                     fields, body = fields_from(path.read_text(encoding='utf-8'))

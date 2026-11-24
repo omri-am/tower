@@ -403,6 +403,17 @@ class TrackTest(QueueFixture):
         self.assertEqual(snapshot['tracks'], [])
         self.assertEqual([card['id'] for card in snapshot['cards']], ['T001', 'T002'])
 
+    def test_nonregular_charter_reports_problem_without_hiding_cards(self):
+        directory = self.queue.state / 'tracks'
+        directory.mkdir()
+        os.mkfifo(directory / 'pipe.md')
+
+        snapshot = self.queue.snapshot()
+        self.assertEqual(snapshot['tracks'], [
+            {'name': 'pipe', 'title': '', 'scope': '', 'problem': 'Track charter is not a regular file.'},
+        ])
+        self.assertEqual([card['id'] for card in snapshot['cards']], ['T001', 'T002'])
+
     def test_invalid_charters_report_problems_without_hiding_cards(self):
         cases = {
             'no-frontmatter': 'No frontmatter.\n',
