@@ -240,6 +240,13 @@ Switch between Queue and Kanban in the header. Kanban starts with all cards in s
 Needs approval, Ready to dispatch, Waiting, In flight, In review, and Merged columns.
 Click a column heading to fold or expand it; folded columns retain their title and count.
 The browser tab remembers folded columns and the selected view across reloads.
+Tracked cards show a pill chip below the title in Queue and Kanban, and beside the
+Track field in details. The chip shows the charter title and its scope on hover.
+Eight border and dot colors repeat in charter name order; the text color stays the same.
+Dashed chips identify a charter problem or a track with no charter.
+The Track filter applies to both views and combines with Show and search. It includes
+all tracks, each charter title, card track values with no charter, and untracked cards.
+The browser tab remembers the selected track. Search also matches charter titles.
 Click a card to open its details and comments; Escape returns to the board.
 Approval and dispatch remain explicit actions. Each view retains its own filter while switching.
 
