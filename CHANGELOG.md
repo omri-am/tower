@@ -5,6 +5,26 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.12.0 — 2026-11-24
+
+- `tower tracks` replaces `tower territories`. Upgraders must delete the stale `~/.local/bin/tower-territories` link.
+
+- Report invalid card track names and tracks without charters in tower-doctor.
+
+- Document track charters and card membership, and add the track field to new task cards.
+
+- `tower new --track <name>` assigns a new card to an existing track, including when its template has no `track:` line.
+
+- Show card tracks in the board and card view, and filter the board by track or untracked cards.
+
+- Include track charter titles, scopes, and validation problems in the tower-ui cards response.
+
+- Show track chips and scope in tower-ui, and filter or search cards by track.
+
+- The orchestrator now tags cards by track, proposes tracks for owner approval, sequences shared paths across tracks, and reports status by track.
+
+- `tower tracks` reports a symlinked `.tower/tracks` directory without reading its charters, and reports symlinked or non-regular charter files while retaining their names and card counts.
+
 ## v0.11.0 — 2026-11-24
 
 - Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils
