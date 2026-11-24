@@ -19,7 +19,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower new [--track <name>] "<title>"` | orchestrator | Atomically claims the next flat ID and creates a draft card, optionally assigned to a track, without committing |
 | `tower-orchestrate` | you | Opens the named orchestrator session and assumes the role |
 | `tower-dispatch <id>` | orchestrator | Creates the worktree, marks the card in-flight, launches the implementor |
-| `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
+| `tower-card [id...] [--plain] [--track <name>\|-]` | you, orchestrator | Renders a card in full, or a board that can show or filter by track |
 | `tower-learnings --for\|--check\|--scopes` | orchestrator | Selects, audits, or lists scoped learnings |
 | `tower-pr-wait [id] [--interval <seconds>] [--max-wait <seconds>]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>`; at the `--max-wait` limit, prints `OPEN <pr>` and exits 3 |
 | `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
@@ -188,6 +188,11 @@ count on the acceptance criteria; with no arguments it prints the board and a st
 It exists because the owner approves content, not titles — the orchestrator runs this same
 command so the card in the transcript is the card on disk.
 
+The board shows TRACK after STATUS when any card has a track. An untracked card shows `—`.
+At narrow widths, the board first removes DEPS and then TRACK. Use `--track <name>` to show
+one track or `--track -` to show untracked cards. A filtered board omits TRACK and reports
+the selected track in its tally. The filter does not check for a track charter.
+
 Two behaviours look inconsistent until you see why. The box is drawn even when stdout is not
 a tty, because the orchestrator calls this through a tool that is never a tty but whose
 output a human reads; colour is the opposite, added only for a real terminal. Fenced code
@@ -203,7 +208,10 @@ to `t073a`.
 
 `--plain` drops the box, the glyphs and the colour, for piping and for orchestrators that
 are not Claude Code: its output is pure ASCII, it never truncates a title or a dependency
-list, and the card body it prints is byte-identical to the file.
+list, and the card body it prints is byte-identical to the file. Plain board rows have six
+tab-separated fields: `id status title depends pr track`. The last field is `-` for an
+untracked card. A tracked card also shows `track: <name>` between `depends_on` and `vendor`
+in its full view, including `--plain`.
 
 ## `tower-ui`
 
