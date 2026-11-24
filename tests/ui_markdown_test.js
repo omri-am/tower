@@ -105,16 +105,17 @@ async function trackChecks() {
     card('T003', 'missing'), card('T004'), card('T005', 'autonomy', 'active'),
     card('T006', 'card-lifecycle'),
   ] };
-  const storage = new Map([['tower-track-filter', 'autonomy']]);
+  response.cards.push(card('T007', '-'));
+  const storage = new Map([['tower-track-filter', 'name:autonomy']]);
   const { context, elements } = loadTowerContext({ storage, fetch: async () => ({ ok: true, json: async () => response }) });
   await new Promise(setImmediate);
   const get = (id) => elements.get(id);
   const ids = () => [...context.visibleCards()].map((entry) => entry.id);
   const filter = get('track-filter');
-  assert.strictEqual(filter.value, 'autonomy', 'stored filter loads after options');
+  assert.strictEqual(filter.value, 'name:autonomy', 'stored filter loads after options');
   assert.deepStrictEqual(filter.children.map((option) => [option.value, option.textContent]), [
-    ['', 'All tracks'], ...tracks.map((track) => [track.name, track.title]),
-    ['missing', 'missing (no charter)'], ['-', 'No track'],
+    ['', 'All tracks'], ...tracks.map((track) => [`name:${track.name}`, track.title]),
+    ['raw:-', '- (no charter)'], ['raw:missing', 'missing (no charter)'], ['none', 'No track'],
   ]);
   assert.deepStrictEqual(ids(), ['T001']);
   const firstOption = filter.children[0];
@@ -131,6 +132,8 @@ async function trackChecks() {
   const unknown = context.trackChip('missing');
   assert.strictEqual(unknown.className, 'track-chip track-unknown');
   assert.strictEqual(unknown.title, 'No charter .tower/tracks/missing.md. Run tower doctor.');
+  assert.strictEqual(context.trackChip('-').className, 'track-chip track-unknown');
+  assert.strictEqual(context.trackChip('-').title, 'No charter .tower/tracks/-.md. Run tower doctor.');
   const problem = context.trackChip('card-lifecycle');
   assert.ok(problem.className.includes('track-problem'));
   assert.strictEqual(problem.title, 'Charter .tower/tracks/card-lifecycle.md: Missing scope. Run tower tracks.');
@@ -144,19 +147,21 @@ async function trackChecks() {
   assert.strictEqual(descendants(context.cardRow(response.cards[3]), 'track-chip').length, 0);
   context.setView('kanban');
   assert.strictEqual(descendants(context.cardRow(response.cards[0]), 'track-chip').length, 1);
-  assert.strictEqual(filter.value, 'autonomy', 'both views share one track filter');
+  assert.strictEqual(filter.value, 'name:autonomy', 'both views share one track filter');
 
   get('filter').value = 'all';
   filter.value = '';
-  assert.deepStrictEqual(ids(), ['T001', 'T002', 'T003', 'T004', 'T005', 'T006']);
-  filter.value = 'autonomy';
+  assert.deepStrictEqual(ids(), ['T001', 'T002', 'T003', 'T004', 'T005', 'T006', 'T007']);
+  filter.value = 'name:autonomy';
   assert.deepStrictEqual(ids(), ['T001', 'T005']);
-  filter.value = '-';
+  filter.value = 'none';
   assert.deepStrictEqual(ids(), ['T004']);
-  filter.value = 'missing';
+  filter.value = 'raw:missing';
   assert.deepStrictEqual(ids(), ['T003']);
+  filter.value = 'raw:-';
+  assert.deepStrictEqual(ids(), ['T007']);
   get('filter').value = 'queue';
-  filter.value = 'autonomy';
+  filter.value = 'name:autonomy';
   assert.deepStrictEqual(ids(), ['T001']);
   get('search').value = 'Title autonomy';
   assert.deepStrictEqual(ids(), ['T001']);
@@ -170,9 +175,9 @@ async function trackChecks() {
   const detail = get('detail');
   assert.strictEqual(descendants(detail, 'track-chip')[0].textContent, 'Title autonomy');
   assert.strictEqual(descendants(detail, 'track-scope')[0].textContent, 'Scope autonomy');
-  filter.value = 'missing';
+  filter.value = 'raw:missing';
   filter.dispatch('change');
-  assert.strictEqual(storage.get('tower-track-filter'), 'missing');
+  assert.strictEqual(storage.get('tower-track-filter'), 'raw:missing');
   response.cards = response.cards.filter((entry) => entry.id !== 'T003');
   await context.refresh();
   assert.strictEqual(filter.value, '');

@@ -49,18 +49,19 @@ function visibleCards() {
   const trackFilter = $('track-filter').value;
   return cards.filter((card) => {
     const included = $('filter').value === 'all' || !['active', 'done'].includes(card.group);
-    const track = card.fields.track || '-';
+    const track = card.fields.track || '';
     const charter = tracks.find((entry) => entry.name === track);
-    return included && (!trackFilter || trackFilter === track) &&
+    const filterValue = track ? `${charter ? 'name' : 'raw'}:${track}` : 'none';
+    return included && (!trackFilter || trackFilter === filterValue) &&
       (card.id + '\n' + card.raw + '\n' + (charter?.title || '')).toLocaleLowerCase().includes(query);
   });
 }
 
 function updateTrackOptions() {
   const names = new Set(tracks.map((track) => track.name));
-  const unknown = [...new Set(cards.map((card) => card.fields.track).filter((value) => value && value !== '-' && !names.has(value)))].sort();
-  const options = [['', 'All tracks'], ...tracks.map((track) => [track.name, track.title || track.name]),
-    ...unknown.map((value) => [value, `${value} (no charter)`]), ['-', 'No track']];
+  const unknown = [...new Set(cards.map((card) => card.fields.track).filter((value) => value && !names.has(value)))].sort();
+  const options = [['', 'All tracks'], ...tracks.map((track) => [`name:${track.name}`, track.title || track.name]),
+    ...unknown.map((value) => [`raw:${value}`, `${value} (no charter)`]), ['none', 'No track']];
   const signature = JSON.stringify(options);
   if (signature === trackOptions) return;
   trackOptions = signature;
@@ -77,7 +78,7 @@ function updateTrackOptions() {
 }
 
 function trackChip(value) {
-  if (!value || value === '-') return null;
+  if (!value) return null;
   const index = tracks.findIndex((track) => track.name === value);
   if (index < 0) {
     const chip = element('span', value, 'track-chip track-unknown');
