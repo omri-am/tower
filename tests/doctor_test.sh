@@ -27,6 +27,14 @@ set_field() {
   mv "$TMP/card" "$PROJECT/.tower/tasks/T001-test.md"
 }
 
+add_track() {
+  awk -v value="$1" '
+    /^status:/ {print; print "track: " value; next}
+    {print}
+  ' "$PROJECT/.tower/tasks/T001-test.md" > "$TMP/card"
+  mv "$TMP/card" "$PROJECT/.tower/tasks/T001-test.md"
+}
+
 fixture healthy
 new_card "$PROJECT" T001
 assert_true 'ready project has no recovery findings' doctor
@@ -35,6 +43,51 @@ dispatch "$PROJECT" T001 --prep
 assert_true 'healthy in-flight task is not assumed stuck' doctor
 WT="$(git -C "$PROJECT" worktree list --porcelain | sed -n 's/^worktree //p' | tail -1)"
 assert_true 'doctor resolves from a linked worktree' "$ROOT/bin/tower-doctor" --from "$WT"
+
+fixture unknown-track
+new_card "$PROJECT" T001
+add_track nope
+assert_false 'track without a charter requires attention' doctor
+assert_true 'missing charter has unknown-track finding' has_finding unknown-track
+assert_true 'missing charter message names the track' grep -Fq "track 'nope' names no charter in .tower/tracks/" "$TMP/doctor.out"
+TRACK_CARD="$(cd "$PROJECT" && pwd -P)/.tower/tasks/T001-test.md"
+assert_true 'missing charter gives the approved next step' grep -Fq "Create .tower/tracks/nope.md once the owner approves the track, or correct the track field in $TRACK_CARD." "$TMP/doctor.out"
+assert_false 'track finding gives no command' grep -q 'Command:' "$TMP/doctor.out"
+for TRACK_STATUS in draft in-flight in-review merged blocked; do
+  set_field status "$TRACK_STATUS"
+  doctor
+  assert_true "$TRACK_STATUS card reports an unknown track" has_finding unknown-track
+done
+
+fixture invalid-track
+new_card "$PROJECT" T001
+mkdir -p "$PROJECT/.tower/tracks" "$PROJECT/.tower/templates"
+touch "$PROJECT/.tower/templates/task-card.md"
+add_track ../templates/task-card
+assert_false 'invalid track name requires attention even when its path exists' doctor
+assert_true 'invalid track name has unknown-track finding' has_finding unknown-track
+assert_true 'invalid track name is reported before charter lookup' grep -Fq "track '../templates/task-card' is not a valid track name" "$TMP/doctor.out"
+assert_false 'invalid track name does not get missing-charter message' grep -q 'names no charter' "$TMP/doctor.out"
+
+fixture existing-track
+new_card "$PROJECT" T001
+mkdir "$PROJECT/.tower/tracks"
+touch "$PROJECT/.tower/tracks/approved.md"
+add_track approved
+assert_true 'track with a charter is healthy' doctor
+assert_false 'existing charter has no track finding' has_finding unknown-track
+assert_true 'existing charter keeps healthy output' grep -q 'no issues found' "$TMP/doctor.out"
+
+fixture empty-track
+new_card "$PROJECT" T001
+add_track '""'
+assert_true 'empty track is healthy' doctor
+assert_false 'empty track has no finding' has_finding unknown-track
+
+fixture absent-track
+new_card "$PROJECT" T001
+assert_true 'card without track is healthy' doctor
+assert_false 'missing track has no finding' has_finding unknown-track
 
 fixture lock
 mkdir "$PROJECT/.tower/.git/tower-dispatch.lock"
