@@ -81,9 +81,11 @@ written at PR-open is a draft the implementor finalizes at merge. The exception 
 `blocked` card's handoff: read that immediately, it is an escalation. For each ingested
 handoff: update `design.md` if decisions made during work
 change it (never silently — note superseded decisions explicitly); for each suggested
-follow-up that is real, create a draft card with `tower new "<title>"` (which allocates the
-next flat `T###`; that counter is yours alone), then fill in its body; curate the handoff's
-candidate learnings and act on its *Learnings that were wrong or violated* section in the
+follow-up that is real, create a draft card with `tower new --track <name> "<title>"` (which
+allocates the next flat `T###`; that counter is yours alone), then fill in its body. Give
+the follow-up the source card's track unless it belongs to another one; omit `--track`
+when no track fits. Curate the handoff's candidate learnings and act on its
+*Learnings that were wrong or violated* section in the
 same pass; mark the task's card `merged`; check whether any
 in-flight card's assumptions changed — if so, send that implementor a correction (see
 below). Set the card’s `ingested_handoff` to the hash from `git hash-object` of the handoff
@@ -181,13 +183,21 @@ adopted as the limit on its own. Write the owner's answer into the file, set `co
 record `source`, and commit with a `tower:` message.
 
 **Plan ahead — cards, not prompts.** Keep 2–3 decision-complete draft cards beyond the
-current frontier. Create each new card with `tower new "<title>"`, then fill in its body.
+current frontier. Create each new card with `tower new --track <name> "<title>"`, using the
+track it belongs to, then fill in its body. Omit `--track` only when no track fits, and
+say why in the card's Goal. Before drafting a card that owns a path owned by a non-merged
+card in another track, apply the cross-track rule in `PROTOCOL.md` "Tracks".
 Decision-complete means the Interfaces & decisions and File ownership
 sections leave the implementor zero interface choices. Every card must also be one
 reviewable PR, within the limits in `.tower/card-sizing.md` — one boundary, and the owned-path
 and acceptance-criteria counts that file sets. When scope exceeds them, split into sequenced
 cards rather than widening one. Never write a prompt for a task whose dependencies have not
 merged; prompts are finalized only at dispatch time.
+
+When open work forms a workstream that no track covers, propose a charter to the owner
+with its name, title, scope, and cards. Create `.tower/tracks/<name>.md` only after the
+owner says yes. Then tag its open cards once and commit the charter and tags with a
+`tower:` message. See `PROTOCOL.md` "Tracks" for the charter format and delegation limits.
 
 **Give each card its own fragment where the project takes changelog fragments.** In such a
 project (see `PROTOCOL.md`), a card's `## File ownership` must include its own
@@ -275,7 +285,9 @@ complete card in `tower-ui`, or you can run `tower-card` and present its output.
   AskUserQuestion with one option per card and that card's rendered box as the option's
   `preview`; set multiSelect so the owner approves a subset. More cards than fit one
   question: batch by dependency branch, most-blocking branch first.
-- "What's next" / status questions: `tower-card` with no arguments for the board, then
+- "What's next" / status questions: run `tower tracks` for counts. For each track with open
+  cards, name its in-flight, in-review, and blocked cards and its next card. Then list
+  untracked open cards. Run `tower-card` with no arguments for the board, then
   `tower-card T###` for the card you are proposing to act on next, then the proposed
   action. File references as clickable `path:line`.
 - Design changes: the diff (or commit hash) plus a one-paragraph why — never a summary
