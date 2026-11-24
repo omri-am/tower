@@ -176,8 +176,11 @@ class Queue:
                     tracks=self.read_tracks())
 
     def read_tracks(self):
+        directory = self.state / 'tracks'
+        if directory.is_symlink():
+            return []
         tracks = []
-        for path in sorted((self.state / 'tracks').glob('*.md')):
+        for path in sorted(directory.glob('*.md')):
             name = path.stem
             if not TRACK_NAME.fullmatch(name):
                 continue

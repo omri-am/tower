@@ -393,6 +393,16 @@ class TrackTest(QueueFixture):
     def test_missing_tracks_directory_returns_empty_list(self):
         self.assertEqual(self.queue.snapshot()['tracks'], [])
 
+    def test_symlinked_tracks_directory_is_treated_as_missing(self):
+        outside = Path(self.temp.name) / 'outside-tracks'
+        outside.mkdir()
+        (outside / 'alpha.md').write_text('---\nname: alpha\ntitle: Alpha\n---\n## Scope\nVisible.\n')
+        (self.queue.state / 'tracks').symlink_to(outside)
+
+        snapshot = self.queue.snapshot()
+        self.assertEqual(snapshot['tracks'], [])
+        self.assertEqual([card['id'] for card in snapshot['cards']], ['T001', 'T002'])
+
     def test_invalid_charters_report_problems_without_hiding_cards(self):
         cases = {
             'no-frontmatter': 'No frontmatter.\n',
