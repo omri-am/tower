@@ -5,6 +5,28 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.11.0 — 2026-11-24
+
+- Stage a new card when `tower new` creates it inside a git work tree, and report staging failures without failing card creation.
+
+- Keep the orchestrator address current at each tick and wake a registered Codex implementor when its PR merges.
+
+- An interactive Claude Code implementor now keeps a background
+  `tower inbox --role implementor-<task-id> list --wait 6600` running from the moment it reads
+  its card until it stops, so a `tower send implementor-<task-id>` gives an idle implementor a
+  turn within seconds, although the send still exits 3. It starts the wait only when the
+  foreground `tower inbox --role implementor-<task-id>` prints nothing, starts it again after a
+  timeout, and stops the wait before the session stops. A headless implementor runs that
+  foreground list before it opens the PR and before it ends, and a Codex implementor is
+  unchanged. The implementor skill's steps 6 to 12 are now steps 7 to 13. The skill also says
+  that exit 3 from `tower send orchestrator` means the message is stored, so it is never
+  resent, and that an implementor acknowledges a message with `tower inbox ack <id>`, never
+  with a reply. The implementor acknowledges after it acts on the message, or after it records
+  the message under the card's `## Corrections` (a correction) or in the handoff draft
+  (anything else).
+
+- Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils coreutils by claiming ids with exclusive files.
+
 ## v0.10.0 — 2026-11-19
 
 - A Claude implementor started by `tower-dispatch` now gets `--add-dir=<sidecar>`, so it writes
