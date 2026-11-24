@@ -113,6 +113,7 @@ id: T001
 title: Short imperative title
 status: draft        # draft | ready | in-flight | in-review | merged | blocked
 depends_on: []       # list of task ids, e.g. [T001, T002]
+track: ""            # one track name from tracks/, or empty
 vendor: any          # claude | codex | any
 model: ""            # orchestrator may set; dispatch uses it unless --model is passed
 effort: ""           # orchestrator may set; dispatch uses it unless --effort is passed
@@ -391,79 +392,67 @@ by `tower-handoffs`, plus blocked handoffs. After that the session is the orches
 it is or which vendor runs it — the registration is the one step that names a specific
 session, which is why retiring the role deletes it.
 
-## Territories — `territories/<name>.md`
+## Tracks — `tracks/<name>.md`
 
-A territory is a set of paths that one sub-orchestrator plans for. Each territory has one
-charter file, `territories/<name>.md`, where `<name>` matches `[a-z0-9][a-z0-9-]*`. The
-directory is optional. Without it, the project has no territories and every card belongs to
-`main`. Charters declare territories, and `tower territories` checks them. No command starts
-a sub-orchestrator yet.
+A track is a workstream: a named group of cards with an optional orchestrator. Each track
+has one charter at `tracks/<name>.md` under `.tower/`. No command starts a track's
+orchestrator yet.
+
+A charter recognizes only four front matter fields: `name`, `title`, `role`, and `approval`.
+`name` equals the file stem, which matches `[a-z0-9][a-z0-9-]*`. `title` is nonempty.
+`role` may be absent or empty when the main orchestrator plans the track. Otherwise, it
+names the track orchestrator's mailbox role. A nonempty role cannot be `.`, `..`, or
+`orchestrator`, or contain `/` or `\`.
+`approval` is `owner` or `delegated`; a delegated track needs a nonempty role. Duplicate
+or other front matter fields are errors. `## Scope` is required and must contain text.
+`## Paths` and `## Log` are optional. Each `## Paths` bullet is a normalized,
+project-relative ownership path, with the same syntax as a card's `## File ownership`.
+The log records dated changes to the charter.
+
+This charter passes `tower tracks`:
 
 ```markdown
 ---
 name: docs
+title: Documentation
 role: orchestrator-docs
 approval: owner
 ---
+## Scope
+
+Documentation work for the project.
+
 ## Paths
 
 - docs/
-- `web/**`
 
 ## Log
 
-- 2026-10-26: created with approval: owner
+- 2026-11-24: created with approval: owner
 ```
 
-The frontmatter has exactly these three fields. `name` equals the file stem. `role` is the
-sub-orchestrator's mailbox role and follows the role rules of
-`docs/agent-messaging/contract.md`: it is nonempty, it is not `.` or `..`, and it contains
-no `/` or `\`. The suggested role is `orchestrator-<name>`, but any valid
-role is accepted. `approval` is `owner` or `delegated`. It has no default value, so a
-charter without it is an error.
+Only a card's `track:` field assigns it to a track. An absent field or `track: ""` leaves
+the card untracked; a bare `track:` is invalid. `## Paths` is a planning hint and never
+decides membership. Two tracks may list the same path.
 
-Body sections:
+The report path is derived from the name: `tracks/<name>/report.md`. No command writes
+this report yet.
 
-- `## Paths` — the territory's paths, one `- path` or ``- `path` `` bullet each. The
-  syntax and the validation rules are those of a card's `## File ownership`. At least one
-  path is required.
-- `## Log` — dated `- ` lines that record changes to the charter, such as a grant of
-  delegated approval.
+Only the owner creates a track, on the orchestrator's proposal. The orchestrator sets
+`track:` when it creates each card. When a track is created, it also tags the open cards
+that belong to the track once.
 
-The report path is not a field. It is always `territories/<name>/report.md`, so a charter
-cannot point its report outside its own directory.
+Before an orchestrator drafts a card that owns a path owned by any card in another track
+that is not `merged`, it adds that card to `depends_on` and tells the main orchestrator.
+This includes cards in `draft`, `in-review`, and `blocked`. The main orchestrator decides
+the order.
 
-**Disjoint paths.** A path of one territory must not overlap a path of another territory.
-The overlap test is the test that dispatch uses for card ownership.
+With `approval: delegated`, a track's orchestrator can move its own cards from `draft`
+to `ready`. Delegation needs a `role`. It does not cover changing a card's `track:` value
+or changing a charter. Delegation does not grant merge authority.
 
-**Card assignment.** The assignment ignores a card's own fragments: `changelog.d/<id>.md`,
-`protocol.d/<id>.md` and `reference.d/<id>.md`. Every card owns one, and they never
-conflict. A card belongs to a territory when each of its other paths is within a path of
-that territory. Every other card belongs to `main`: it owns no other path, a path is within
-no territory, or its paths are within two territories. A card whose ownership spans two
-territories belongs to `main`, never to one of them.
-
-A card path is within a territory path when the two are equal. It is also within when the
-territory path ends with `/` or holds a glob, and the literal prefix of the card path starts
-with the literal prefix of the territory path. The literal prefix is the part before the
-first `*`, `?` or `[`. Only when the card path holds no glob does a `/` follow its literal
-prefix in this test. Thus `docs` is within `docs/`, and `lib/tower-paths.sh` is within
-`lib/tower-*.sh`. A card glob gets no `/`, so `web*` is not within `web/`: `web*` also
-matches `web-api/`. A plain file path contains only itself, so `docs/agent` does not contain
-`docs/agent-messaging/x.md`. The prefix test is approximate, so `docs/*.md` also contains
-`docs/build.sh`.
-
-**Approval.** Unless the owner delegates, a charter carries `approval: owner`. Under it, a
-sub-orchestrator writes and refines draft cards in its territory, and only the owner moves
-a card from `draft` to `ready`. Only the owner grants `approval: delegated`: the owner edits
-the charter or tells the main orchestrator to edit it. The charter's `## Log` records the
-change with its date. No orchestrator grants delegation to itself or to another
-orchestrator.
-
-Delegation lets the territory's sub-orchestrator move its territory's cards from `draft` to
-`ready`, and nothing more. The owner still merges every PR. Delegation never covers three
-kinds of change: a card whose ownership spans two territories, a change to a charter's
-paths, and a change to a charter's `approval` field. These stay with the owner.
+A charter is never deleted while any card names it. Close a track with a dated `## Log`
+line. `tower tracks` and `tower-doctor` report a `track:` value that names no charter.
 
 ## Reviews — `reviews/T###/fix-<N>.md`
 
