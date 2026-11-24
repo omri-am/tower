@@ -431,9 +431,9 @@ Documentation work for the project.
 - 2026-11-24: created with approval: owner
 ```
 
-Only a card's `track:` field assigns it to a track. An empty or absent field leaves the
-card untracked. `## Paths` is a planning hint and never decides membership. Two tracks
-may list the same path.
+Only a card's `track:` field assigns it to a track. An absent field or `track: ""` leaves
+the card untracked; a bare `track:` is invalid. `## Paths` is a planning hint and never
+decides membership. Two tracks may list the same path.
 
 The report path is derived from the name: `tracks/<name>/report.md`. No command writes
 this report yet.
