@@ -311,7 +311,7 @@ function renderDetail(card) {
   header.append(topline, element('h2', card.title || 'Untitled card'));
   const metadata = element('dl', undefined, 'metadata');
   for (const [key, value] of Object.entries(card.fields)) {
-    if (['id', 'title'].includes(key) || !value || value === '[]') continue;
+    if (['id', 'title'].includes(key) || !value || (value === '[]' && key !== 'track')) continue;
     const entry = element('div');
     const label = key.replaceAll('_', ' ');
     const description = element('dd');
@@ -479,6 +479,10 @@ async function refresh() {
     $('connection').textContent = 'Connected';
     renderQueue();
     const card = cards.find((entry) => entry.id === selected);
+    if (card && !visibleCards().includes(card)) {
+      selectCard(orderedCards()[0]?.id || '', false, false);
+      return;
+    }
     if (card && card.revision !== renderedRevision) {
       notice(`${card.id} changed. Review the updated card before taking an action.`);
       renderDetail(card);

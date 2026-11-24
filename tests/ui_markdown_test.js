@@ -175,6 +175,8 @@ async function trackChecks() {
   const detail = get('detail');
   assert.strictEqual(descendants(detail, 'track-chip')[0].textContent, 'Title autonomy');
   assert.strictEqual(descendants(detail, 'track-scope')[0].textContent, 'Scope autonomy');
+  context.renderDetail(card('T008', '[]'));
+  assert.strictEqual(descendants(detail, 'track-chip')[0].textContent, '[]');
   filter.value = 'raw:missing';
   filter.dispatch('change');
   assert.strictEqual(storage.get('tower-track-filter'), 'raw:missing');
@@ -186,6 +188,13 @@ async function trackChecks() {
   await context.refresh();
   assert.strictEqual(filter.children[1].textContent, 'Autonomy renamed');
   assert.strictEqual(descendants(get('queue'), 'track-chip')[0].textContent, 'Autonomy renamed');
+  context.selectCard('T001', false, false);
+  filter.value = 'name:autonomy';
+  response.cards[0].fields.track = 'tracks';
+  response.cards[0].revision = 'changed';
+  await context.refresh();
+  assert.deepStrictEqual(ids(), []);
+  assert.strictEqual(detail.textContent, 'Select a card to read its full scope and acceptance criteria.');
   console.log('  track chip, filter, detail, storage, and safe text checks passed');
 }
 
