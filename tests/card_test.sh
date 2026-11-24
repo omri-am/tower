@@ -387,4 +387,110 @@ assert_eq "guard: an indent that leaves 7 columns of text renders as on origin/m
     printf '%s\n' '╰────────────────────────────────────────────╯')"
 rm -rf "$EDGE_PROJECT"
 
+TRACK_PROJECT="$(mktemp -d)"
+TRACK_TASKS="$TRACK_PROJECT/.tower/tasks"
+mkdir -p "$TRACK_TASKS"
+for SPEC in 'T101|alpha|inbox|[T102]' 'T102|beta|abcdefghijklmn|[]' \
+  'T103|gamma|abcdefghijklmnop|[]' 'T104|delta||[]'; do
+  IFS='|' read -r ID TITLE TRACK DEPENDS <<< "$SPEC"
+  printf -- '---\nid: %s\ntitle: %s\nstatus: ready\ndepends_on: %s\ntrack: "%s"\nvendor: codex\n---\n' \
+    "$ID" "$TITLE" "$DEPENDS" "$TRACK" > "$TRACK_TASKS/$ID.md"
+done
+printf -- '---\nid: T105\ntitle: epsilon\nstatus: draft\ntrack:\n---\n' > "$TRACK_TASKS/T105.md"
+printf -- '---\nid: T106\ntitle: zeta\nstatus: draft\n---\n' > "$TRACK_TASKS/T106.md"
+
+for WIDTH in 80 72 60 52 46; do
+  TRACK_BOARD="$(TOWER_PROJECT_DIR="$TRACK_PROJECT" TOWER_CARD_WIDTH="$WIDTH" "$CARD")"
+  WIDEST=0
+  while IFS= read -r LINE; do
+    [ ${#LINE} -le "$WIDEST" ] || WIDEST=${#LINE}
+  done <<< "$TRACK_BOARD"
+  assert_true "tracked board fits $WIDTH" test "$WIDEST" -le "$WIDTH"
+  if [ "$WIDTH" -ge 60 ]; then
+    assert_eq "TRACK appears at $WIDTH" "$(printf '%s\n' "$TRACK_BOARD" | grep -c 'STATUS  *TRACK')" "1"
+  else
+    assert_eq "TRACK is hidden at $WIDTH" "$(printf '%s\n' "$TRACK_BOARD" | grep -c 'STATUS  *TRACK')" "0"
+  fi
+done
+assert_eq "long track is clipped with an ellipsis" \
+  "$(printf '%s\n' "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD")" | grep -c 'abcdefghijklm…')" "1"
+assert_eq "untracked row uses an em dash" \
+  "$(printf '%s\n' "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD")" | grep '^T104' | grep -c '—')" "1"
+
+TRACK_PLAIN="$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" --plain)"
+assert_eq "plain board has six fields" "$(printf '%s\n' "$TRACK_PLAIN" | awk -F '\t' 'NF != 6 {bad++} END {print bad+0}')" "0"
+assert_eq "plain board puts track last" "$(printf '%s\n' "$TRACK_PLAIN" | grep '^T101' | cut -f6)" "inbox"
+assert_eq "plain board uses a dash for every untracked form" \
+  "$(printf '%s\n' "$TRACK_PLAIN" | awk -F '\t' '$1 ~ /^T10[456]$/ && $6 == "-" {n++} END {print n+0}')" "3"
+assert_eq "tracked plain output is ASCII" "$(non_ascii_lines "$TRACK_PLAIN")" "0"
+assert_eq "boxed card shows track between depends and vendor" \
+  "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" T101 | grep -c 'depends_on: T102    track: inbox    vendor: codex')" "1"
+assert_eq "narrow boxed card keeps track" \
+  "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" TOWER_CARD_WIDTH=46 "$CARD" T101 | grep -c 'track: inbox')" "1"
+assert_eq "plain card shows track on line 2" \
+  "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" T101 --plain | sed -n 2p)" \
+  'depends_on: T102    track: inbox    vendor: codex'
+assert_eq "untracked card keeps line 2" \
+  "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" T104 --plain | sed -n 2p)" \
+  'depends_on: -    vendor: codex'
+
+for TRACK in inbox abcdefghijklmn abcdefghijklmnop -; do
+  FILTERED="$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" --track "$TRACK")"
+  case "$TRACK" in
+    inbox) EXPECT='T101'; TALLY='1 cards in track inbox' ;;
+    abcdefghijklmn) EXPECT='T102'; TALLY='1 cards in track abcdefghijklmn' ;;
+    abcdefghijklmnop) EXPECT='T103'; TALLY='1 cards in track abcdefghijklmnop' ;;
+    -) EXPECT='T104 T105 T106'; TALLY='3 untracked cards' ;;
+  esac
+  assert_eq "filter $TRACK selects cards" \
+    "$(printf '%s\n' "$FILTERED" | awk '/^T10/ {print $1}' | paste -sd' ' -)" "$EXPECT"
+  assert_eq "filter $TRACK has its tally" "$(printf '%s\n' "$FILTERED" | grep -c "$TALLY")" "1"
+  assert_eq "filter $TRACK hides TRACK column" "$(printf '%s\n' "$FILTERED" | grep -c 'STATUS  *TRACK')" "0"
+done
+assert_eq "plain filter selects only the requested track" \
+  "$(TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" --plain --track inbox | cut -f1,6)" \
+  "$(printf 'T101\tinbox')"
+
+for TRACK in absent -; do
+  if [ "$TRACK" = - ]; then
+    EMPTY_PROJECT="$(mktemp -d)"
+    mkdir -p "$EMPTY_PROJECT/.tower/tasks"
+    cp "$TRACK_TASKS/T101.md" "$EMPTY_PROJECT/.tower/tasks/"
+  else EMPTY_PROJECT="$TRACK_PROJECT"; fi
+  TOWER_PROJECT_DIR="$EMPTY_PROJECT" "$CARD" --track "$TRACK" > "$PROJECT/filter.out" 2> "$PROJECT/filter.err"
+  assert_status "missing track $TRACK fails" "$?" "1"
+  assert_empty "missing track $TRACK prints no stdout" "$(cat "$PROJECT/filter.out")"
+  if [ "$TRACK" = - ]; then ERROR='tower-card: no untracked cards'; else ERROR="tower-card: no cards with track 'absent'"; fi
+  assert_eq "missing track $TRACK explains failure" "$(cat "$PROJECT/filter.err")" "$ERROR"
+  [ "$TRACK" != - ] || rm -rf "$EMPTY_PROJECT"
+done
+EMPTY_PROJECT="$(mktemp -d)"
+mkdir -p "$EMPTY_PROJECT/.tower/tasks"
+TOWER_PROJECT_DIR="$EMPTY_PROJECT" "$CARD" --track inbox > "$PROJECT/filter.out" 2> "$PROJECT/filter.err"
+assert_status "filter on empty project fails" "$?" "1"
+assert_empty "filter on empty project prints no stdout" "$(cat "$PROJECT/filter.out")"
+assert_eq "filter on empty project reports no match" "$(cat "$PROJECT/filter.err")" \
+  "tower-card: no cards with track 'inbox'"
+rm -rf "$EMPTY_PROJECT"
+
+for ARG in 'bad_name' 'Upper' 'x/y'; do
+  TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" --track "$ARG" > "$PROJECT/filter.out" 2> "$PROJECT/filter.err"
+  assert_status "invalid track $ARG fails" "$?" "1"
+  assert_empty "invalid track $ARG prints no stdout" "$(cat "$PROJECT/filter.out")"
+  assert_eq "invalid track $ARG explains rule" "$(cat "$PROJECT/filter.err")" \
+    "tower-card: track '$ARG' must match [a-z0-9][a-z0-9-]* or be -"
+done
+check_track_usage() {
+  TOWER_PROJECT_DIR="$TRACK_PROJECT" "$CARD" "$@" > "$PROJECT/filter.out" 2> "$PROJECT/filter.err"
+  assert_status "usage error for $*" "$?" "1"
+  assert_empty "usage error for $* prints no stdout" "$(cat "$PROJECT/filter.out")"
+  assert_eq "usage error for $* prints usage" "$(cat "$PROJECT/filter.err")" \
+    'usage: tower-card [<task-id>...] [--plain] [--track <name>|-]'
+}
+check_track_usage --track
+check_track_usage --track inbox --track inbox
+check_track_usage T101 --track inbox
+check_track_usage --track inbox T101
+rm -rf "$TRACK_PROJECT"
+
 summary
