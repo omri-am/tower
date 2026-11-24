@@ -5,6 +5,26 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.11.0 — 2026-11-24
+
+- Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils
+  coreutils: `tower new` now claims an id with an exclusive file, and claim directories from
+  older versions still count.
+
+- An interactive Claude Code implementor keeps a background
+  `tower inbox --role implementor-<task-id> list --wait 6600` running while it works, so a
+  `tower send implementor-<task-id>` gives it a turn within seconds, although the send still
+  exits 3. It acknowledges each message with `tower inbox ack <id>`, never with a reply, and
+  stops the wait before it stops. Headless and Codex implementors are unchanged. The
+  implementor skill's steps 6 to 12 are now steps 7 to 13.
+
+- The orchestrator checks its own session name at each tick and rewrites `.tower/orchestrator`
+  when the name changed, and it wakes a registered Codex implementor with `tower send` when the
+  implementor's PR merges.
+
+- `tower new` stages the new card when `.tower/` is in a git work tree. A failed `git add` is
+  reported, and the card is still created.
+
 ## v0.10.0 — 2026-11-19
 
 - A Claude implementor started by `tower-dispatch` now gets `--add-dir=<sidecar>`, so it writes
