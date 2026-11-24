@@ -449,7 +449,7 @@ the order.
 
 With `approval: delegated`, a track's orchestrator can move its own cards from `draft`
 to `ready`. Delegation needs a `role`. It does not cover changing a card's `track:` value
-or changing a charter. The owner still merges every PR.
+or changing a charter. Delegation does not grant merge authority.
 
 A charter is never deleted while any card names it. Close a track with a dated `## Log`
 line. `tower tracks` and `tower-doctor` report a `track:` value that names no charter.
