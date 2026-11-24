@@ -85,11 +85,18 @@ REPORT_INPUT=''
 export LC_ALL=C # Keep glob, regex, and sort order stable.
 
 check_charter() {
-  local file="$1" stem rel name title role approval frontmatter_messages charter_path message
+  local file="$1" stem rel name title role approval frontmatter_messages charter_path charter_path_lines message
   stem="${file##*/}"
   stem="${stem%.md}"
   rel=".tower/tracks/${file##*/}"
   REPORT_INPUT+="charter"$'\t'"$stem"$'\n'
+  if [ -L "$file" ]; then
+    problem "$rel" 'charter is a symlink'
+    return
+  elif [ ! -f "$file" ]; then
+    problem "$rel" 'charter is not a regular file'
+    return
+  fi
   if ! [[ "$stem" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
     problem "$rel" "charter name '$stem' must match [a-z0-9][a-z0-9-]*"
   fi
@@ -114,19 +121,31 @@ check_charter() {
     problem "$rel" "$message"
   done <<< "$frontmatter_messages"
   has_scope "$file" || problem "$rel" '## Scope is missing or empty'
-  while IFS= read -r charter_path; do
-    if [ -z "$charter_path" ]; then
-      problem "$rel" '## Paths has an empty path'
-    elif ! message="$(validate_ownership_paths "$charter_path")"; then
-      problem "$rel" "$message"
-    fi
-  done < <(charter_paths "$file")
+  # Keep trailing empty path lines when command substitution removes newlines.
+  charter_path_lines="$(charter_paths "$file"; printf x)"
+  if [ "$charter_path_lines" != x ]; then
+    charter_path_lines="${charter_path_lines%$'\n'x}"
+    while IFS= read -r charter_path; do
+      if [ -z "$charter_path" ]; then
+        problem "$rel" '## Paths has an empty path'
+      elif ! message="$(validate_ownership_paths "$charter_path")"; then
+        problem "$rel" "$message"
+      fi
+    done <<EOF
+$charter_path_lines
+EOF
+  fi
 }
 
-for FILE in "$PROJECT_DIR"/.tower/tracks/*.md; do
-  [ -f "$FILE" ] || continue
-  check_charter "$FILE"
-done
+if [ -L "$PROJECT_DIR/.tower/tracks" ]; then
+  problem '.tower/tracks' 'is a symlink; charters are not read'
+else
+  for FILE in "$PROJECT_DIR"/.tower/tracks/*.md; do
+    if [ -e "$FILE" ] || [ -L "$FILE" ]; then
+      check_charter "$FILE"
+    fi
+  done
+fi
 
 for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
   [ -f "$CARD" ] || continue
@@ -137,7 +156,9 @@ for CARD in "$PROJECT_DIR"/.tower/tasks/*.md; do
     if ! [[ "$TRACK" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
       problem ".tower/tasks/${CARD##*/}" "track '$TRACK' must match [a-z0-9][a-z0-9-]*"
       continue
-    elif [ ! -f "$PROJECT_DIR/.tower/tracks/$TRACK.md" ]; then
+    elif [ -L "$PROJECT_DIR/.tower/tracks" ] || {
+      [ ! -e "$PROJECT_DIR/.tower/tracks/$TRACK.md" ] && [ ! -L "$PROJECT_DIR/.tower/tracks/$TRACK.md" ];
+    }; then
       problem ".tower/tasks/${CARD##*/}" "track '$TRACK' names no charter in .tower/tracks/"
       continue
     fi

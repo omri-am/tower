@@ -171,6 +171,57 @@ assert_status 'double quoted track fails' "$STATUS" 1
 assert_eq 'double quoted track stderr' "$ERR" "tower-tracks: .tower/tasks/T001.md: track '\"\"docs\"\"' must match [a-z0-9][a-z0-9-]*"
 assert_eq 'double quoted track is not counted' "$OUT" "$(printf 'docs\t0\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
 
+fixture linked-tracks
+mkdir -p "$PROJECT/charters"
+charter docs docs Documentation __missing owner 'Document work' docs/
+mv "$TOWER_PROJECT_DIR/.tower/tracks/docs.md" "$PROJECT/charters/docs.md"
+rmdir "$TOWER_PROJECT_DIR/.tower/tracks"
+ln -s "$PROJECT/charters" "$TOWER_PROJECT_DIR/.tower/tracks"
+card T001 ready docs
+run_check
+assert_status 'linked tracks directory fails' "$STATUS" 1
+assert_eq 'linked tracks directory rows' "$OUT" "$(printf -- '-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'linked tracks directory stderr' "$ERR" "$(printf '%s\n%s' \
+  'tower-tracks: .tower/tracks: is a symlink; charters are not read' \
+  "tower-tracks: .tower/tasks/T001.md: track 'docs' names no charter in .tower/tracks/")"
+
+fixture linked-charter
+charter docs docs Documentation __missing owner 'Document work' docs/
+mv "$TOWER_PROJECT_DIR/.tower/tracks/docs.md" "$PROJECT/charters/docs.md"
+ln -s "$PROJECT/charters/docs.md" "$TOWER_PROJECT_DIR/.tower/tracks/docs.md"
+run_check
+assert_status 'linked charter fails' "$STATUS" 1
+assert_eq 'linked charter rows' "$OUT" "$(printf 'docs\t0\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'linked charter stderr' "$ERR" 'tower-tracks: .tower/tracks/docs.md: charter is a symlink'
+card T001 ready docs
+run_check
+assert_eq 'linked charter counts named card' "$OUT" "$(printf 'docs\t0\t1\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'linked charter has no duplicate error' "$ERR" 'tower-tracks: .tower/tracks/docs.md: charter is a symlink'
+
+fixture pipe-charter
+mkdir -p "$TOWER_PROJECT_DIR/.tower/tracks"
+mkfifo "$TOWER_PROJECT_DIR/.tower/tracks/docs.md"
+timeout 30 "$ROOT/bin/tower-tracks" > "$PROJECT/out" 2> "$PROJECT/err"
+STATUS=$?
+OUT="$(cat "$PROJECT/out")"
+ERR="$(cat "$PROJECT/err")"
+assert_status 'pipe charter fails without timeout' "$STATUS" 1
+assert_eq 'pipe charter rows' "$OUT" "$(printf 'docs\t0\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'pipe charter stderr' "$ERR" 'tower-tracks: .tower/tracks/docs.md: charter is not a regular file'
+card T001 ready docs
+timeout 30 "$ROOT/bin/tower-tracks" > "$PROJECT/out" 2> "$PROJECT/err"
+STATUS=$?
+assert_status 'pipe charter with card fails without timeout' "$STATUS" 1
+assert_eq 'pipe charter counts named card' "$(cat "$PROJECT/out")" "$(printf 'docs\t0\t1\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'pipe charter has no duplicate error' "$(cat "$PROJECT/err")" 'tower-tracks: .tower/tracks/docs.md: charter is not a regular file'
+
+fixture directory-charter
+mkdir -p "$TOWER_PROJECT_DIR/.tower/tracks/docs.md"
+run_check
+assert_status 'directory charter fails' "$STATUS" 1
+assert_eq 'directory charter rows' "$OUT" "$(printf 'docs\t0\t0\t0\t0\t0\t0\n-\t0\t0\t0\t0\t0\t0')"
+assert_eq 'directory charter stderr' "$ERR" 'tower-tracks: .tower/tracks/docs.md: charter is not a regular file'
+
 fixture no-tracks
 card T001 draft __missing
 card T002 ready ''
