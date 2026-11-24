@@ -7,23 +7,27 @@ what the version gives them.
 
 ## v0.12.0 — 2026-11-24
 
-- `tower tracks` replaces `tower territories`. Upgraders must delete the stale `~/.local/bin/tower-territories` link.
+- Tracks replace territories. A track is a workstream: a charter at `.tower/tracks/<name>.md`
+  (`name`, `title`, optional `role`, `approval`, a `## Scope`), and a card joins it with its
+  `track:` field. `PROTOCOL.md` "Tracks" and `docs/REFERENCE.md` describe the rules, and new
+  task cards have a `track: ""` line.
 
-- Report invalid card track names and tracks without charters in tower-doctor.
+- Breaking: `tower tracks` replaces `tower territories`, which is removed. It checks the
+  charters and every card's track, and prints card counts per track by status. It reports a
+  symlinked `.tower/tracks` directory and symlinked or non-regular charters without reading
+  them. After upgrading, delete the stale `~/.local/bin/tower-territories` link.
 
-- Document track charters and card membership, and add the track field to new task cards.
+- `tower new --track <name> "<title>"` writes the card's track, also when the project's template
+  has no `track:` line. `tower-card` shows a TRACK column, filters with `--track <name>` or
+  `--track -` (untracked), and puts the track last in `--plain` output. `tower-doctor` reports a
+  `track:` value that names no charter.
 
-- `tower new --track <name>` assigns a new card to an existing track, including when its template has no `track:` line.
+- `tower-ui` shows a colored track chip on each tracked card and the track's scope in the card
+  view, and filters and searches by track. `/api/cards` now includes each charter's title, scope
+  and any problem.
 
-- Show card tracks in the board and card view, and filter the board by track or untracked cards.
-
-- Include track charter titles, scopes, and validation problems in the tower-ui cards response.
-
-- Show track chips and scope in tower-ui, and filter or search cards by track.
-
-- The orchestrator now tags cards by track, proposes tracks for owner approval, sequences shared paths across tracks, and reports status by track.
-
-- `tower tracks` reports a symlinked `.tower/tracks` directory without reading its charters, and reports symlinked or non-regular charter files while retaining their names and card counts.
+- The orchestrator skill tags each new card with its track, proposes new tracks for the owner's
+  approval, sequences cards of different tracks that share paths, and reports status by track.
 
 ## v0.11.0 — 2026-11-24
 
