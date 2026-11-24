@@ -5,6 +5,9 @@ let token = location.hash.slice(1) || sessionStorage.getItem('tower-token') || '
 if (token) sessionStorage.setItem('tower-token', token);
 history.replaceState(null, '', location.pathname);
 let cards = [];
+let tracks = [];
+let trackOptions = '';
+let trackFilterRestored = false;
 let selected = '';
 let renderedRevision = '';
 let busy = false;
@@ -43,10 +46,48 @@ async function api(path, data) {
 
 function visibleCards() {
   const query = $('search').value.toLocaleLowerCase().trim();
+  const trackFilter = $('track-filter').value;
   return cards.filter((card) => {
     const included = $('filter').value === 'all' || !['active', 'done'].includes(card.group);
-    return included && (card.id + '\n' + card.raw).toLocaleLowerCase().includes(query);
+    const track = card.fields.track || '-';
+    const charter = tracks.find((entry) => entry.name === track);
+    return included && (!trackFilter || trackFilter === track) &&
+      (card.id + '\n' + card.raw + '\n' + (charter?.title || '')).toLocaleLowerCase().includes(query);
   });
+}
+
+function updateTrackOptions() {
+  const names = new Set(tracks.map((track) => track.name));
+  const unknown = [...new Set(cards.map((card) => card.fields.track).filter((value) => value && value !== '-' && !names.has(value)))].sort();
+  const options = [['', 'All tracks'], ...tracks.map((track) => [track.name, track.title || track.name]),
+    ...unknown.map((value) => [value, `${value} (no charter)`]), ['-', 'No track']];
+  const signature = JSON.stringify(options);
+  if (signature === trackOptions) return;
+  trackOptions = signature;
+  const filter = $('track-filter');
+  const selectedTrack = trackFilterRestored ? filter.value : sessionStorage.getItem('tower-track-filter') || '';
+  trackFilterRestored = true;
+  filter.replaceChildren(...options.map(([value, label]) => {
+    const option = element('option', label);
+    option.value = value;
+    return option;
+  }));
+  filter.value = options.some(([value]) => value === selectedTrack) ? selectedTrack : '';
+  if (filter.value !== selectedTrack) sessionStorage.setItem('tower-track-filter', '');
+}
+
+function trackChip(value) {
+  if (!value || value === '-') return null;
+  const index = tracks.findIndex((track) => track.name === value);
+  if (index < 0) {
+    const chip = element('span', value, 'track-chip track-unknown');
+    chip.title = `No charter .tower/tracks/${value}.md. Run tower doctor.`;
+    return chip;
+  }
+  const track = tracks[index];
+  const chip = element('span', track.title || track.name, `track-chip track-color-${index % 8}${track.problem ? ' track-problem' : ''}`);
+  chip.title = track.problem ? `Charter .tower/tracks/${track.name}.md: ${track.problem} Run tower tracks.` : track.scope;
+  return chip;
 }
 
 function orderedCards() {
@@ -108,6 +149,12 @@ function cardRow(card) {
   const meta = element('span', undefined, 'row-meta');
   meta.append(element('span', card.id), statusBadge(card));
   button.append(meta, element('span', card.title || 'Untitled card', 'row-title'));
+  const chip = trackChip(card.fields.track);
+  if (chip) {
+    const line = element('span', undefined, 'track-line');
+    line.append(chip);
+    button.append(line);
+  }
   if (card.blocker) button.append(element('span', card.blocker, 'row-reason'));
   if (viewMode === 'kanban' && card.comments.length) button.append(element('span', `${card.comments.length} ${card.comments.length === 1 ? 'comment' : 'comments'}`, 'row-comments'));
   button.addEventListener('click', () => selectCard(card.id));
@@ -156,7 +203,7 @@ function renderQueue() {
   const focusedId = document.activeElement?.dataset.id;
   const focusedColumn = document.activeElement?.dataset.columnToggle;
   const visible = visibleCards();
-  const view = JSON.stringify([visible, selected, viewMode, $('filter').value, [...collapsedColumns]]);
+  const view = JSON.stringify([visible, selected, viewMode, $('filter').value, $('track-filter').value, tracks, [...collapsedColumns]]);
   if (view === queueView) return;
   queueView = view;
   const fragment = document.createDocumentFragment();
@@ -268,6 +315,12 @@ function renderDetail(card) {
     const label = key.replaceAll('_', ' ');
     const description = element('dd');
     if (key === 'status') description.append(statusBadge(card));
+    else if (key === 'track') {
+      const chip = trackChip(value);
+      if (chip) description.append(chip);
+      const charter = tracks.find((track) => track.name === value);
+      if (charter?.scope) description.append(element('p', charter.scope, 'track-scope'));
+    }
     else description.textContent = value;
     entry.append(element('dt', label[0].toUpperCase() + label.slice(1)), description);
     metadata.append(entry);
@@ -415,6 +468,8 @@ async function refresh() {
   try {
     const result = await api('/api/cards');
     cards = result.cards;
+    tracks = [...result.tracks].sort((a, b) => a.name.localeCompare(b.name));
+    updateTrackOptions();
     connected = true;
     if (connectionError) { $('notice').hidden = true; connectionError = false; }
     $('project').textContent = result.project;
@@ -474,6 +529,10 @@ $('close-card').addEventListener('click', () => $('card-dialog').close());
 $('card-dialog').addEventListener('close', () => { if (viewMode === 'kanban') focusRow(selected, true); });
 $('search').addEventListener('input', filterChanged);
 $('filter').addEventListener('change', filterChanged);
+$('track-filter').addEventListener('change', () => {
+  sessionStorage.setItem('tower-track-filter', $('track-filter').value);
+  filterChanged();
+});
 $('refresh').addEventListener('click', refresh);
 document.addEventListener('keydown', (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey || /INPUT|TEXTAREA|SELECT/.test(event.target.tagName)) return;

@@ -32,7 +32,7 @@ h1 { margin: 0; font-size: 1.45rem; font-weight: 650; letter-spacing: -.025em; }
 .search-label { display: flex; justify-content: space-between; font-size: .85rem; margin: 0 .4rem .5rem; color: var(--muted); }
 kbd { font: inherit; font-size: .8rem; border: 1px solid #bfcddd; padding: 0 .3rem; border-radius: 3px; background: #fff8; }
 #search { width: 100%; padding: .7rem .8rem; border: 1px solid #b5c5d7; border-radius: 6px; background: var(--paper); color: var(--ink); }
-.filter-row { display: flex; align-items: center; gap: .5rem; margin: .8rem .3rem 1.5rem; font-size: .85rem; color: var(--muted); }
+.filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .8rem .3rem 1.5rem; font-size: .85rem; color: var(--muted); }
 select { border: 0; background: transparent; color: var(--ink); padding: .3rem; min-width: 0; }
 .group { margin-bottom: 1.4rem; }
 .group h2 { font-size: .85rem; font-weight: 650; margin: 0 .45rem .6rem; display: flex; justify-content: space-between; color: var(--muted); }
@@ -40,6 +40,20 @@ select { border: 0; background: transparent; color: var(--ink); padding: .3rem; 
 .card-row[aria-current="true"] { background: var(--paper); border-color: #acc1df; box-shadow: inset 3px 0 var(--blue); }
 .row-meta { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .78rem; margin-bottom: .4rem; }
 .row-title { display: block; line-height: 1.45; font-weight: 570; overflow-wrap: anywhere; }
+.track-line { display: block; margin-top: .45rem; }
+.track-chip { --track-color: var(--muted); display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; border: 1px solid var(--track-color); border-radius: 999px; padding: .12rem .55rem; color: var(--ink); font-size: .76rem; line-height: 1.4; font-weight: 550; overflow-wrap: anywhere; }
+.track-chip::before { content: ''; flex: 0 0 .45rem; width: .45rem; height: .45rem; border-radius: 50%; background: var(--track-color); }
+.track-color-0 { --track-color: #0072b2; }
+.track-color-1 { --track-color: #c4500a; }
+.track-color-2 { --track-color: #00805c; }
+.track-color-3 { --track-color: #8a4f9e; }
+.track-color-4 { --track-color: #a86400; }
+.track-color-5 { --track-color: #00788a; }
+.track-color-6 { --track-color: #b03a78; }
+.track-color-7 { --track-color: #5a6b7d; }
+.track-problem, .track-unknown { border-style: dashed; }
+.track-unknown::before { display: none; }
+.track-scope { margin: .45rem 0 0; white-space: pre-wrap; line-height: 1.45; }
 .row-reason { display: block; margin-top: .4rem; color: var(--waiting); font-size: .8rem; line-height: 1.4; overflow-wrap: anywhere; }
 .keyboard-hint { font-size: .78rem; color: var(--muted); margin: 1.5rem .4rem; }
 .detail-pane { min-width: 0; overflow: auto; background: var(--paper); position: relative; display: flex; flex-direction: column; }
