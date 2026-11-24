@@ -7,6 +7,20 @@ PROJECT="$(mktemp -d)"
 trap 'rm -rf "$PROJECT"' EXIT
 export TOWER_NO_VERSION_CHECK=1 TOWER_ROOT="$ROOT"
 
+if ! command -v timeout >/dev/null 2>&1; then
+  timeout() {
+    python3 - "$@" <<'PY'
+import subprocess
+import sys
+
+try:
+    sys.exit(subprocess.run(sys.argv[2:], timeout=int(sys.argv[1])).returncode)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+PY
+  }
+fi
+
 fixture() {
   export TOWER_PROJECT_DIR="$PROJECT/$1"
   mkdir -p "$TOWER_PROJECT_DIR/.tower/tasks"
