@@ -7,25 +7,23 @@ what the version gives them.
 
 ## v0.11.0 — 2026-11-24
 
-- Stage a new card when `tower new` creates it inside a git work tree, and report staging failures without failing card creation.
+- Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils
+  coreutils: `tower new` now claims an id with an exclusive file, and claim directories from
+  older versions still count.
 
-- Keep the orchestrator address current at each tick and wake a registered Codex implementor when its PR merges.
+- An interactive Claude Code implementor keeps a background
+  `tower inbox --role implementor-<task-id> list --wait 6600` running while it works, so a
+  `tower send implementor-<task-id>` gives it a turn within seconds, although the send still
+  exits 3. It acknowledges each message with `tower inbox ack <id>`, never with a reply, and
+  stops the wait before it stops. Headless and Codex implementors are unchanged. The
+  implementor skill's steps 6 to 12 are now steps 7 to 13.
 
-- An interactive Claude Code implementor now keeps a background
-  `tower inbox --role implementor-<task-id> list --wait 6600` running from the moment it reads
-  its card until it stops, so a `tower send implementor-<task-id>` gives an idle implementor a
-  turn within seconds, although the send still exits 3. It starts the wait only when the
-  foreground `tower inbox --role implementor-<task-id>` prints nothing, starts it again after a
-  timeout, and stops the wait before the session stops. A headless implementor runs that
-  foreground list before it opens the PR and before it ends, and a Codex implementor is
-  unchanged. The implementor skill's steps 6 to 12 are now steps 7 to 13. The skill also says
-  that exit 3 from `tower send orchestrator` means the message is stored, so it is never
-  resent, and that an implementor acknowledges a message with `tower inbox ack <id>`, never
-  with a reply. The implementor acknowledges after it acts on the message, or after it records
-  the message under the card's `## Corrections` (a correction) or in the handoff draft
-  (anything else).
+- The orchestrator checks its own session name at each tick and rewrites `.tower/orchestrator`
+  when the name changed, and it wakes a registered Codex implementor with `tower send` when the
+  implementor's PR merges.
 
-- Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils coreutils by claiming ids with exclusive files.
+- `tower new` stages the new card when `.tower/` is in a git work tree. A failed `git add` is
+  reported, and the card is still created.
 
 ## v0.10.0 — 2026-11-19
 
