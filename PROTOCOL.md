@@ -125,8 +125,8 @@ ingested_handoff: "" # git hash-object of the handoff last processed by the orch
 
 **ID allocation.** Flat numeric ids (`T###`) are allocated by the orchestrator alone,
 which is the only role that creates cards. The orchestrator creates cards with
-`tower new "<title>"`, which claims ids atomically and stages the new card when `.tower/` is
-in a git work tree. `tower-doctor` flags any id shared by more
+`tower new [--track <name>] "<title>"`, which claims ids atomically and stages the new
+card when `.tower/` is in a git work tree. `tower-doctor` flags any id shared by more
 than one card and any card whose filename disagrees with its `id:` field.
 `tower-dispatch` refuses to dispatch any card while a duplicate id exists.
 

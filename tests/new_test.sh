@@ -104,7 +104,7 @@ OUT="$("$NEW" 'Fix the re-run')"
 assert_eq 'guard: a title with an inner dash creates a card' "$OUT" "$TASKS/T1004-fix-the-re-run.md"
 assert_true 'guard: a title with an inner dash keeps its title' grep -qFx 'title: Fix the re-run' "$OUT"
 
-USAGE='usage: tower-new <title> (one nonempty, quoted argument)'
+USAGE='usage: tower-new [--track <name>] <title> (one nonempty, quoted argument)'
 for OPTION in --help -h -x; do
   ls -A "$TASKS" > "$PROJECT/tasks-before"
   ls -A "$TASKS/.claims" > "$PROJECT/claims-before"
@@ -117,6 +117,123 @@ for OPTION in --help -h -x; do
   assert_true "$OPTION writes no card" cmp -s "$PROJECT/tasks-before" "$PROJECT/tasks-after"
   assert_true "$OPTION claims no id" cmp -s "$PROJECT/claims-before" "$PROJECT/claims-after"
 done
+
+export TOWER_PROJECT_DIR="$PROJECT/tracked"
+TRACK_TASKS="$TOWER_PROJECT_DIR/.tower/tasks"
+TRACK_TEMPLATE="$TOWER_PROJECT_DIR/.tower/templates/task-card.md"
+mkdir -p "$TRACK_TASKS/.claims" "$TOWER_PROJECT_DIR/.tower/templates" "$TOWER_PROJECT_DIR/.tower/tracks"
+cp "$ROOT/templates/task-card.md" "$TRACK_TEMPLATE"
+: > "$TOWER_PROJECT_DIR/.tower/tracks/inbox.md"
+cp "$TRACK_TEMPLATE" "$PROJECT/tracked-template-original"
+
+OUT="$("$NEW" --track inbox 'Track first')"
+assert_eq 'track before title creates first card' "$OUT" "$TRACK_TASKS/T001-track-first.md"
+assert_true 'track before title replaces empty field' grep -qFx 'track: inbox' "$OUT"
+OUT="$("$NEW" 'Title first' --track inbox)"
+assert_eq 'track after title creates second card' "$OUT" "$TRACK_TASKS/T002-title-first.md"
+assert_true 'track after title replaces empty field' grep -qFx 'track: inbox' "$OUT"
+assert_eq 'tracked front matter has one track line' "$(sed -n '2,/^---$/ { /^track:/p; }' "$OUT" | wc -l | tr -d ' ')" 1
+assert_true 'tracked copy leaves template unchanged' cmp -s "$TRACK_TEMPLATE" "$PROJECT/tracked-template-original"
+
+sed '/^track:/d' "$PROJECT/tracked-template-original" > "$TRACK_TEMPLATE"
+OUT="$("$NEW" --track inbox 'Inline depends')"
+assert_eq 'track immediately follows inline depends' "$(sed -n '/^depends_on: \[\]$/ { n; p; }' "$OUT")" 'track: inbox'
+
+cat > "$TRACK_TEMPLATE" <<'EOF'
+---
+id: T000
+title:
+depends_on:
+  - T007
+- T008
+status: draft
+---
+track: body content
+EOF
+cp "$TRACK_TEMPLATE" "$PROJECT/block-template-original"
+OUT="$("$NEW" 'Block depends' --track inbox)"
+assert_eq 'track follows depends list' "$(sed -n '/^- T008$/ { n; p; }' "$OUT")" 'track: inbox'
+assert_true 'body track remains unchanged' grep -qFx 'track: body content' "$OUT"
+assert_true 'block template remains unchanged' cmp -s "$TRACK_TEMPLATE" "$PROJECT/block-template-original"
+
+cat > "$TRACK_TEMPLATE" <<'EOF'
+---
+id: T000
+title:
+status: draft
+---
+Body.
+EOF
+OUT="$("$NEW" --track inbox 'No depends')"
+assert_eq 'track precedes closing front matter' "$(sed -n '/^status: draft$/ { n; p; }' "$OUT")" 'track: inbox'
+assert_eq 'closing marker follows inserted track' "$(sed -n '/^track: inbox$/ { n; p; }' "$OUT")" '---'
+
+cat > "$TRACK_TEMPLATE" <<'EOF'
+---
+id: T000
+title:
+track:
+---
+EOF
+OUT="$("$NEW" --track inbox 'Bare track')"
+assert_true 'bare track field is replaced' grep -qFx 'track: inbox' "$OUT"
+
+assert_new_failure() {
+  local label="$1" expected="$2" status
+  shift 2
+  ls -A "$TRACK_TASKS" > "$PROJECT/tasks-before"
+  ls -A "$TRACK_TASKS/.claims" > "$PROJECT/claims-before"
+  "$NEW" "$@" > "$PROJECT/out" 2> "$PROJECT/error"
+  status=$?
+  assert_status "$label exits one" "$status" 1
+  assert_eq "$label prints exact error" "$(cat "$PROJECT/error")" "$expected"
+  assert_false "$label prints no path" test -s "$PROJECT/out"
+  ls -A "$TRACK_TASKS" > "$PROJECT/tasks-after"
+  ls -A "$TRACK_TASKS/.claims" > "$PROJECT/claims-after"
+  assert_true "$label creates no card" cmp -s "$PROJECT/tasks-before" "$PROJECT/tasks-after"
+  assert_true "$label makes no claim" cmp -s "$PROJECT/claims-before" "$PROJECT/claims-after"
+}
+
+for INVALID_TRACK in '' Bad bad_name bad/name bad.name; do
+  assert_new_failure "invalid track [$INVALID_TRACK]" \
+    "tower-new: track '$INVALID_TRACK' must match [a-z0-9][a-z0-9-]*" \
+    --track "$INVALID_TRACK" 'Invalid track'
+done
+assert_new_failure 'missing charter' "tower-new: track 'missing' names no charter in .tower/tracks/" \
+  --track missing 'Missing charter'
+assert_new_failure 'missing title' "$USAGE"
+assert_new_failure 'extra title' "$USAGE" first second
+assert_new_failure 'track without value' "$USAGE" --track
+assert_new_failure 'track without title' "$USAGE" --track inbox
+assert_new_failure 'duplicate track' "$USAGE" --track inbox --track inbox 'Duplicate track'
+assert_new_failure 'equals option' "$USAGE" --track=inbox 'Equals option'
+assert_new_failure 'parent option' "$USAGE" 'Parent option' --parent
+assert_new_failure 'option as track value' "$USAGE" --track --help 'Option value'
+
+cat > "$TRACK_TEMPLATE" <<'EOF'
+---
+id: T000
+track: first
+track: second
+---
+EOF
+assert_new_failure 'duplicate template track' "tower-new: $TRACK_TEMPLATE has more than one track: line" \
+  --track inbox 'Duplicate field'
+cat > "$TRACK_TEMPLATE" <<'EOF'
+id: T000
+title:
+track: old
+EOF
+assert_new_failure 'template without front matter' "tower-new: $TRACK_TEMPLATE has no front matter for track:" \
+  --track inbox 'No front matter'
+cat > "$TRACK_TEMPLATE" <<'EOF'
+---
+id: T000
+track: old
+EOF
+assert_new_failure 'template without closing marker' "tower-new: $TRACK_TEMPLATE has no front matter for track:" \
+  --track inbox 'No closing marker'
+export TOWER_PROJECT_DIR="$PROJECT"
 
 printf '%s\n' '---' 'id: T2000' '---' > "$TASKS/unreadable.md"
 chmod 000 "$TASKS/unreadable.md"
@@ -207,6 +324,13 @@ CARD="$("$NEW" 'Stage card')"
 assert_eq 'new card is staged' "$(git -C "$GIT_PROJECT" diff --cached --name-only)" '.tower/tasks/T001-stage-card.md'
 git -C "$GIT_PROJECT" commit -q --only -m 'Add card' -- "$CARD" > "$PROJECT/commit-out" 2> "$PROJECT/commit-error"
 assert_status 'first card commit succeeds' "$?" 0
+mkdir -p "$GIT_PROJECT/.tower/tracks"
+: > "$GIT_PROJECT/.tower/tracks/inbox.md"
+cp "$GIT_PROJECT/.tower/templates/task-card.md" "$PROJECT/git-template-original"
+CARD="$("$NEW" --track inbox 'Stage tracked card')"
+assert_eq 'only tracked card is staged' "$(git -C "$GIT_PROJECT" diff --cached --name-only)" '.tower/tasks/T002-stage-tracked-card.md'
+assert_true 'staged tracked card names its track' grep -qFx 'track: inbox' "$CARD"
+assert_true 'staged tracked card leaves template unchanged' cmp -s "$GIT_PROJECT/.tower/templates/task-card.md" "$PROJECT/git-template-original"
 
 GIT_PROJECT="$(mktemp -d "$PROJECT/git-preserve.XXXXXX")"
 git -C "$GIT_PROJECT" init -q

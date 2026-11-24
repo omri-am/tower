@@ -16,7 +16,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | Command | Run by | What it does |
 | --- | --- | --- |
 | `tower-init [--sidecar] [dir]` | you, once | Scaffolds `.tower/` and commits it |
-| `tower new "<title>"` | orchestrator | Atomically claims the next flat ID and creates a draft card without committing |
+| `tower new [--track <name>] "<title>"` | orchestrator | Atomically claims the next flat ID and creates a draft card, optionally assigned to a track, without committing |
 | `tower-orchestrate` | you | Opens the named orchestrator session and assumes the role |
 | `tower-dispatch <id>` | orchestrator | Creates the worktree, marks the card in-flight, launches the implementor |
 | `tower-card [id...] [--plain]` | you, orchestrator | Renders a card in full, or the board with no arguments |
@@ -38,10 +38,14 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 
 ## `tower new`
 
-`tower new "Fix the thing"` (also `tower-new`) copies the project's task-card template to
-`tasks/T012-fix-the-thing.md` when the highest flat ID is T011. The title must be one
-nonempty argument. With a title that starts with `-`, such as `--help`, the command prints
-the usage line to stderr and exits 1. It writes no card and claims no ID.
+`tower new [--track <name>] "Fix the thing"` (also `tower-new`) copies the project's
+task-card template to `tasks/T012-fix-the-thing.md` when the highest flat ID is T011.
+The title must be one nonempty argument. `--track <name>` can come before or after the
+title. The name must match `[a-z0-9][a-z0-9-]*` and name a charter in `.tower/tracks/`.
+It writes `track: <name>` in the card's front matter, even when the template has no
+`track:` line. Without `--track`, the template copy is unchanged. With a title that
+starts with `-`, such as `--help`, the command prints the usage line to stderr and
+exits 1. It writes no card and claims no ID.
 Allocation considers card filenames, frontmatter IDs, and persistent
 `.claims/` entries (files, or directories from older versions); letter-suffixed IDs are
 ignored. Atomic claims prevent concurrent callers from receiving the same ID. The command
