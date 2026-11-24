@@ -24,7 +24,7 @@ Existing hyphenated names remain supported. Bootstrap once after upgrading to li
 | `tower-pr-wait [id] [--interval <seconds>] [--max-wait <seconds>]` | implementor | Blocks until the PR leaves OPEN; prints `MERGED <pr>` or `CLOSED <pr>`; at the `--max-wait` limit, prints `OPEN <pr>` and exits 3 |
 | `tower-watch` | you, optionally | Reports PR merges without finalizing cards |
 | `tower-handoffs` | orchestrator | Lists finalized handoffs whose content has not been ingested |
-| `tower-territories` | orchestrator | Checks the territory charters and prints each card's territory |
+| `tower-tracks` | orchestrator | Checks the track charters and every card's track, and prints card counts per track by status |
 | `tower-doctor [--from <dir>] [--codex-sandbox <profile>]` | you, orchestrator | Diagnoses local recovery issues and prints next steps without changing state |
 | `tower-locate [--from\|--task]` | tooling | Resolves the project directory |
 | `tower-session-name --orch\|--task <id>` | tooling | Prints the session name a role answers to |
@@ -128,7 +128,8 @@ merge it notifies and runs the optional command with
 Inspects the project resolved by `tower-locate`, including canonical state reached through
 a worktree symlink. It reports existing dispatch locks, blocked or invalid cards, missing
 active-task branches and worktrees, missing or conflicting shared state links and task
-markers, missing PR references and handoffs, and merged handoffs awaiting ingestion.
+markers, cards whose `track:` names no charter, missing PR references and handoffs, and
+merged handoffs awaiting ingestion.
 Merged tasks do not need a surviving worktree. Draft and ready cards do not need one either.
 
 Each finding has a stable code in brackets, the affected task or project, and a next step.
@@ -316,35 +317,29 @@ the fragments in `git ls-files` order before `## Protocol version` in `PROTOCOL.
 `## Core ideas` in `docs/REFERENCE.md`. The release commit deletes them. An edit to
 existing text in either index is still a direct edit.
 
-## `tower territories`
+## `tower tracks`
 
-`tower territories` (also `tower-territories`) checks the charters in `.tower/territories/`
-and prints the territory of each card. It takes no arguments and writes no file. The charter
-format and the assignment rule are in
-[Territories](../PROTOCOL.md#territories--territoriesnamemd).
+`tower tracks` (also `tower-tracks`) checks the charters in `.tower/tracks/` and every
+card's `track:` value. It takes no arguments and writes no file. The charter format and
+membership rule are in [Tracks](../PROTOCOL.md#tracks--tracksnamemd).
 
-stdout has one line per card in `.tower/tasks/`, sorted by id. Each line has three
-tab-separated fields: the card id, the territory name or `main`, and the card status.
-
-```
-T001	docs	in-flight
-T002	main	ready
-```
-
-stderr has one line per problem, as `tower-territories: <charter file>: <problem>`. An
-overlap names both charters and both paths:
+stdout has one tab-separated line per charter, sorted by name, followed by a line named
+`-` for untracked cards. Each line gives the name and six card counts in this order:
+`draft`, `ready`, `in-flight`, `in-review`, `merged`, `blocked`.
 
 ```
-tower-territories: .tower/territories/api.md: path docs/api/** overlaps .tower/territories/docs.md path docs/
+docs	1	0	0	0	0	0
+web	0	0	1	0	0	0
+-	0	1	0	0	0	0
 ```
 
-The exit status is 0 when there is no problem and 1 when there is at least one problem. The
-card lines print in both cases. A charter with a problem still takes part in the assignment,
-so two overlapping charters can make a card `main`. Without `.tower/territories/`, or with
-no charter in it, every card is `main` and the exit status is 0.
+stderr reports each problem as `tower-tracks: <path>: <problem>`. Problems include an
+invalid charter and a card whose `track:` names no charter. The count lines still print.
+The exit status is 0 without problems and 1 with a problem. Without a charter, stdout
+still has the `-` line.
 
-A usage error prints only the usage line and exits 1. When `tower-locate` cannot resolve the
-project, the command exits with the status of `tower-locate`.
+A usage error prints `usage: tower-tracks (no arguments)` to stderr and exits 1. When
+`tower-locate` cannot resolve the project, the command exits with its status.
 
 ## Core ideas
 
