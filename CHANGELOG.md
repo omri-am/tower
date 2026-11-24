@@ -5,6 +5,30 @@ what the version gives them.
 
 ## Unreleased
 
+## v0.12.0 — 2026-11-24
+
+- Tracks replace territories. A track is a workstream: a charter at `.tower/tracks/<name>.md`
+  (`name`, `title`, optional `role`, `approval`, a `## Scope`), and a card joins it with its
+  `track:` field. `PROTOCOL.md` "Tracks" and `docs/REFERENCE.md` describe the rules, and new
+  task cards have a `track: ""` line.
+
+- Breaking: `tower tracks` replaces `tower territories`, which is removed. It checks the
+  charters and every card's track, and prints card counts per track by status. It reports a
+  symlinked `.tower/tracks` directory and symlinked or non-regular charters without reading
+  them. After upgrading, delete the stale `~/.local/bin/tower-territories` link.
+
+- `tower new --track <name> "<title>"` writes the card's track, also when the project's template
+  has no `track:` line. `tower-card` shows a TRACK column, filters with `--track <name>` or
+  `--track -` (untracked), and puts the track last in `--plain` output. `tower-doctor` reports a
+  `track:` value that names no charter.
+
+- `tower-ui` shows a colored track chip on each tracked card and the track's scope in the card
+  view, and filters and searches by track. `/api/cards` now includes each charter's title, scope
+  and any problem.
+
+- The orchestrator skill tags each new card with its track, proposes new tracks for the owner's
+  approval, sequences cards of different tracks that share paths, and reports status by track.
+
 ## v0.11.0 — 2026-11-24
 
 - Prevent duplicate card ids on Ubuntu 26.04 and other systems whose `mkdir` is uutils
